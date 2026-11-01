@@ -34,7 +34,7 @@ class RoleController extends Controller
     {
         try {
             $role_name = $request->input('name');
-            $permissions = $request->input('permissions');
+            $permissions = array_values(array_filter((array) $request->input('permissions', []), 'is_string'));
             $count = Role::where('name', $role_name)->count();
             if ($count == 0) {
                 $role = Role::create([
@@ -68,7 +68,7 @@ class RoleController extends Controller
     {
         try {
             $role_name = $request->input('name');
-            $permissions = $request->input('permissions');
+            $permissions = array_values(array_filter((array) $request->input('permissions', []), 'is_string'));
             $count = Role::where('name', $role_name)
                         ->where('id', '!=', $id)
                         ->count();
@@ -81,9 +81,8 @@ class RoleController extends Controller
                     $role->name = $role_name;
                     $role->save();
                     $this->__createPermissionIfNotExists($permissions);
-                    if (!empty($permissions)) {
-                        $role->syncPermissions($permissions);
-                    }
+                    // Unticking every permission must remove them all.
+                    $role->syncPermissions($permissions);
                     $output = ['status' => 'success','message' =>'successfully updated'];
                 } else {
                     $output = ['status' => 'warning','message' =>'default role'];
@@ -98,8 +97,11 @@ class RoleController extends Controller
         return redirect('admin/roles')->with($output);
     }
 
-    private function __createPermissionIfNotExists($permissions)
+    private function __createPermissionIfNotExists(array $permissions)
     {
+        if (!$permissions) {
+            return;
+        }
         $exising_permissions = Permission::whereIn('name', $permissions)
                                     ->pluck('name')
                                     ->toArray();

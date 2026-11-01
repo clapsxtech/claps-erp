@@ -117,9 +117,9 @@ Route::group(['middleware' => ['auth:web', 'admin']], function () {
 
 Route::middleware('guest')->group(function () {
     Route::get('/two-factor', [\App\Http\Controllers\Auth\TwoFactorController::class,'challenge'])->name('two-factor.challenge');
-    Route::post('/two-factor', [\App\Http\Controllers\Auth\TwoFactorController::class,'verify'])->middleware('throttle:6,1')->name('two-factor.verify');
+    Route::post('/two-factor', [\App\Http\Controllers\Auth\TwoFactorController::class,'verify'])->middleware('throttle:6,1,two-factor-challenge')->name('two-factor.verify');
 });
 Route::middleware('auth')->group(function () {
     Route::get('/account/security', [\App\Http\Controllers\Auth\TwoFactorController::class,'settings'])->name('account.security');
-    foreach (['setup','enable','disable'] as $action) Route::post('/account/two-factor/'.$action, [\App\Http\Controllers\Auth\TwoFactorController::class,$action])->middleware('throttle:6,1')->name('two-factor.'.$action);
+    foreach (['setup','enable','disable'] as $action) Route::post('/account/two-factor/'.$action, [\App\Http\Controllers\Auth\TwoFactorController::class,$action])->middleware('throttle:6,1,two-factor-settings')->name('two-factor.'.$action);
 });

@@ -30,14 +30,14 @@ Route::middleware(['auth','admin'])->prefix('erp/administration')->name('erp.')-
     Route::post('/teams/{id}', [\App\Http\Controllers\Erp\AdministrationController::class,'team'])->whereNumber('id')->name('teams.update');
     Route::post('/teams/{id}/archive', [\App\Http\Controllers\Erp\AdministrationController::class,'archive'])->whereNumber('id')->name('teams.archive');
     Route::post('/onboard', [\App\Http\Controllers\Erp\AdministrationController::class,'onboard'])->name('onboard');
-    Route::post('/accounts/{id}', [\App\Http\Controllers\Erp\AdministrationController::class,'account'])->whereNumber('id')->middleware('throttle:20,1')->name('accounts.update');
+    Route::post('/accounts/{id}', [\App\Http\Controllers\Erp\AdministrationController::class,'account'])->whereNumber('id')->middleware('throttle:20,1,admin-accounts')->name('accounts.update');
     Route::get('/operations', [\App\Http\Controllers\Erp\AdministrationController::class,'operations'])->name('operations');
 });
 
 Route::middleware(['auth','admin'])->prefix('erp/migration-center')->name('erp.migration.')->group(function () {
     Route::get('/',[\App\Http\Controllers\Erp\MigrationCenterController::class,'index'])->name('center');
-    Route::post('/preview',[\App\Http\Controllers\Erp\MigrationCenterController::class,'preview'])->middleware('throttle:10,1')->name('preview');
-    Route::post('/execute',[\App\Http\Controllers\Erp\MigrationCenterController::class,'execute'])->middleware('throttle:5,1')->name('execute');
+    Route::post('/preview',[\App\Http\Controllers\Erp\MigrationCenterController::class,'preview'])->middleware('throttle:10,1,migration-preview')->name('preview');
+    Route::post('/execute',[\App\Http\Controllers\Erp\MigrationCenterController::class,'execute'])->middleware('throttle:5,1,migration-execute')->name('execute');
 });
 
 // Private records have their own explicit role check and must never enter teacher exports.

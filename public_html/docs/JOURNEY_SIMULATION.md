@@ -104,6 +104,54 @@ See also: [features and pages](FEATURES_AND_PAGES.md) (feature catalogue, page c
 | 18 | No parent or student portal; statements are printed or shared manually | By design today |
 | 19 | The system never sends messages (statements, reminders, receipts) | By design: "No message or money transfer was sent" |
 
+## Site administrator journeys
+
+A second pass followed the superadmin through 49 steps: opening a new branch, the full account lifecycle, passwords and two-factor, daily oversight, archiving a team, migration and the Sheets bridge, and the older admin tools. It ran with database sessions, as production does (`src/index.ts`).
+
+**Result: 49 steps, 34 OK, 9 rules, 6 gaps; 3 bugs found and fixed.**
+
+| Journey | OK | Rule | Gap |
+|---|---|---|---|
+| A1 Open a new branch: create team, onboard a manager and a two-team finance person, per-team roles, add an existing sales person | 7 | 2 | |
+| A2 Account lifecycle: reset password, suspend, reactivate, promote, demote | 10 | 3 | |
+| A3 Passwords and two-factor | 2 | | 2 |
+| A4 Daily oversight and audit | 4 | | 2 |
+| A5 Archive and restore a team | 5 | 2 | |
+| A6 Migration center and Sheets bridge | | 2 | 1 |
+| A7 Older admin tools: roles, settings, users, maintenance mode | 6 | | 1 |
+
+### Bugs found and fixed
+
+| Bug | Effect | Fix |
+|---|---|---|
+| **Creating a site role without ticking any permission crashed (500).** The role row was still created. | Admins saw an error page for a valid action | `RoleController` treats "no permissions" as an empty list |
+| **Unticking every permission on a role never removed them.** Update only synced permissions when at least one was ticked. | Permissions could not be fully revoked from a role | Always sync, so an empty selection clears them |
+| **All numeric rate limits shared one counter per user.** After 6 account changes in a minute, the admin was blocked (429) from setting up their own 2FA and from the migration center, and vice versa. | Busy admin sessions hit unrelated "too many requests" errors | Each throttle has its own counter (`throttle:N,1,<name>` in `routes/erp.php` and `routes/web.php`) |
+
+Regression tests: `tests/Feature/AdminJourneyTest.php`.
+
+### What held up
+
+- Branch staff see only their own team; Kochi pages and Teams & accounts return 403 for them. One person can hold different roles in different teams.
+- Password reset enforces 12+ characters. The old password stops working and existing sessions are signed out. Suspension blocks sign-in and live sessions, and reactivation restores access.
+- The installation owner can't be demoted, an admin can't suspend themselves, and at least one superadmin is always kept.
+- The forgot-password email produces a working reset link (logged locally).
+- Archived teams are closed to their staff and read-only even for admins, can still be exported, and can be restored.
+- Maintenance mode shows the maintenance page to everyone, and the off-switch still works while the site is down.
+
+### Admin gaps
+
+| # | Gap | Workaround |
+|---|---|---|
+| 20 | No "change my password" on Account security | Use the emailed reset link, or ask another admin |
+| 21 | An admin can't reset someone else's two-factor when they lose their phone | The user's recovery codes; otherwise they're locked out |
+| 22 | The audit trail shows actor and team ID numbers, not names | Cross-reference Teams & accounts |
+| 23 | The audit trail has no filters (person, team, action, date) or export; only the latest 30 events, paginated | Page through it |
+| 24 | The Migration center doesn't say when import is switched off in this environment | Read `ERP_MIGRATION_IMPORT_ENABLED` / the docs |
+| 25 | Maintenance mode has routes but no on-screen switch | A direct POST, or `php artisan down/up` |
+
+Local note: this checkout's `.env` uses `SESSION_DRIVER=file`. With file sessions, "revoke sessions" and password resets can't sign out existing browser sessions, because they delete rows from the database session table. Production sets `database`. Suspension still takes effect immediately either way, because every request checks the account is active. The local site settings also hold placeholder emails ("Abc 673585"), which must be corrected before settings can be saved.
+
 ## Rules confirmed (correct refusals)
 
 - Pausing a student with future lessons, and ending an agreement with lessons beyond its end date, are refused with clear instructions. The rules are sound; the missing bulk action is gap 1.
