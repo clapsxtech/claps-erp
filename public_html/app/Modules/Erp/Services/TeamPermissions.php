@@ -18,8 +18,8 @@ class TeamPermissions
         'read_only'=>['dashboard','admissions','teacher-recruitment','allocation','people','academics','timetable','attendance','money','followups','migration'],
     ];
     private const ACTIONS = [
-        'academics'=>['student','student-update','teacher','eligibility','mark','assign','end-assignment','availability','propose','confirm','materialize','reschedule','cancel','extra','exception','end-agreement','attendance','approve','correct','duplicate'],
-        'finance'=>['payment','import-batch','salary-paid','salary-reverse','receipt-reverse','receipt-correct','request-create','request-cancel','request-allocate'],
+        'academics'=>['student','student-update','teacher','eligibility','mark','assign','end-assignment','availability','propose','confirm','materialize','reschedule','cancel','pause-classes','stop-classes','extra','exception','end-agreement','attendance','no-show','approve','correct','duplicate'],
+        'finance'=>['payment','import-batch','salary-paid','salary-reverse','receipt-reverse','receipt-correct','request-create','request-cancel','request-allocate','refund-paid','refund-reverse'],
         'sales_followups'=>['task','complete-task','task-update','task-item','task-item-complete','followup','admission-create-lead','admission-update-lead','admission-schedule-demo','admission-update-demo','admission-followup','admission-reminder','admission-complete-reminder','admission-transfer','admission-resolve-transfer','admission-convert'],
     ];
     public function role(User $user, int $unit): ?string
@@ -46,7 +46,7 @@ class TeamPermissions
         }
         if ($kind==='lookup') {
             $common=['students','teachers','subjects'];
-            $sets=['academics'=>['enrollments','lessons','agreements','attendance','reviews'], 'finance'=>['requests','payments','salary','attendance'], 'sales_followups'=>['tasks','items','members']];
+            $sets=['academics'=>['enrollments','lessons','agreements','attendance','reviews'], 'finance'=>['requests','payments','salary','refunds','attendance'], 'sales_followups'=>['tasks','items','members']];
             return in_array($value,array_merge($common,...array_values(in_array($role,['team_manager','read_only'],true)?$sets:[$sets[$role]??[]])),true);
         }
         if ($kind==='export') {

@@ -1,6 +1,17 @@
 <section aria-labelledby="daily-attendance-title">
 <h3 id="daily-attendance-title">Attendance action queues</h3>
 <p>Two separate decisions: importing attended non-demo classes charges the student; approving attendance accrues teacher earnings. Neither action transfers money. Read each named record before submitting.</p>
+@if($page!=='money')
+<h4 id="missing-attendance">Ended classes with no attendance</h4>
+<p>{{ $queues['missing_submission']->total() }} lessons · Grouped by teacher, oldest first · Chase the teacher, or record minutes or a no-show yourself.</p>
+<div class="scroll"><table class="queue-table"><caption>Ended classes with no attendance</caption><thead><tr><th scope="col">Teacher</th><th scope="col">Student and class</th><th scope="col">Next action</th></tr></thead><tbody>
+@forelse($queues['missing_submission'] as $missing)
+<tr><td data-label="Teacher">{{ $missing->teacher_name }}</td><td data-label="Student and class"><strong>{{ $missing->student_name }}</strong> · {{ $missing->student_code }}<br>{{ $missing->subject_name }}@if($missing->kind==='demo') (demo)@endif<br>{{ \Carbon\CarbonImmutable::parse($missing->starts_at,'UTC')->setTimezone($business->timezone)->format('j M Y H:i P') }}<br><small>Lesson #{{ $missing->lesson_id }}</small></td>
+<td data-label="Next action">@if(!$business->archived_at && (new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$business->id,'action','attendance'))<a href="{{ route('erp.business',[$business->id,'timetable','date'=>\Carbon\CarbonImmutable::parse($missing->starts_at,'UTC')->setTimezone($business->timezone)->toDateString()]) }}#action-attendance">Record minutes</a> · <a href="{{ route('erp.business',[$business->id,'timetable','date'=>\Carbon\CarbonImmutable::parse($missing->starts_at,'UTC')->setTimezone($business->timezone)->toDateString()]) }}#action-no-show">Record no-show</a>@else Waiting for the teacher @endif</td></tr>
+@empty<tr><td colspan="3">Every ended class has attendance or a no-show.</td></tr>@endforelse
+</tbody></table></div>
+{{ $queues['missing_submission']->links('pagination::simple-bootstrap-4') }}
+@endif
 @foreach(['student_import'=>'Student consumption awaiting import','teacher_approval'=>'Teacher approval and accrual review'] as $queue=>$title)
 @continue($page==='money' && $queue!=='student_import')
 <h4>{{ $title }}</h4>

@@ -95,6 +95,16 @@ class TeacherController extends Controller
     public function submit(Request $request)
     {
         [$teacher,$unitId,$actorId]=$this->identity($request);
+        if ($request->boolean('no_show')) {
+            $payload=Validator::make($request->only(['lesson_id','reason']),['lesson_id'=>'required|integer|min:1','reason'=>'required|string|max:2000'])->validate();
+            DB::transaction(function() use ($unitId,$actorId,$teacher,$payload,$request) {
+                DB::table('erp_teachers')->where('id',$teacher->id)->lockForUpdate()->first();
+                [$current,$currentUnit]=$this->identity($request);
+                if ($current->id !== $teacher->id || $currentUnit !== $unitId || !DB::table('erp_lessons')->where('id',$payload['lesson_id'])->where('unit_id',$unitId)->where('teacher_id',$teacher->id)->exists()) throw new AuthorizationException('Only your own dated lessons in your unit can be marked.');
+                (new Attendance())->noShow($unitId,$actorId,$payload);
+            }, 3);
+            return redirect()->route('erp.teacher.index',['section'=>'attendance'])->with('status','Recorded as a no-show. The student is not charged and the class is not paid.');
+        }
         $payload=Validator::make($request->only(['lesson_id','actual_minutes','actual_starts_at','change_reason']),['actual_starts_at'=>'nullable|date_format:Y-m-d\\TH:i','change_reason'=>'nullable|string|max:4000','lesson_id'=>'required|integer|min:1','actual_minutes'=>'required|integer|min:1|max:480'])->validate();
         if (!empty($payload['actual_starts_at'])) $payload['actual_starts_at']=\Carbon\CarbonImmutable::createFromFormat('Y-m-d\\TH:i',$payload['actual_starts_at'],$teacher->timezone)->utc()->format('Y-m-d H:i:s');
         DB::transaction(function() use ($unitId,$actorId,$teacher,$payload,$request) {

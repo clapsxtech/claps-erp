@@ -19,6 +19,11 @@ class TeacherAllocationController extends Controller
         if($context?->lead_id && !$leads->contains('id',$context->lead_id))$leads->push((object)['id'=>$context->lead_id,'name'=>$context->name]);
         $subjects=DB::table('erp_subjects')->orderBy('name')->get(['id','name']);
         $matching=!empty($p['search'])?$service->matches($unit,$request->user(),$p):null;
+        $handoffs=(new \App\Modules\Erp\Services\TeamPermissions())->allows($request->user(),$unit,'action','allocation-regular')
+            ? DB::table('erp_demos as d')->join('erp_leads as l','l.id','=','d.lead_id')->leftJoin('erp_teachers as t','t.id','=','d.teacher_id')->leftJoin('erp_subjects as s','s.id','=','d.subject_id')
+                ->where('d.unit_id',$unit)->where('d.status','ATTENDED')->where('d.feedback_outcome','CONTINUE')->whereNull('d.enrollment_id')->where('l.status','LEAD')
+                ->orderBy('d.starts_at')->limit(50)->get(['d.id','d.lead_id','d.starts_at','l.name as lead_name','t.name as teacher_name','s.name as subject_name'])
+            : collect();
         $demos=$context?->lead_id?DB::table('erp_demos as d')->leftJoin('erp_teachers as t','t.id','=','d.teacher_id')->where('d.unit_id',$unit)->where('d.lead_id',$context->lead_id)->whereNotNull('d.starts_at')->select('d.*','t.name as teacher_name')->orderByDesc('d.starts_at')->limit(30)->get():collect();
         $seedDemo=!empty($p['demo_id'])?$demos->firstWhere('id',(int)$p['demo_id']):null;
         $seed=$p+['subject_id'=>$seedDemo?->subject_id,'medium'=>$seedDemo?->matching_medium,'timezone'=>$seedDemo?->timezone??$context?->timezone??$business->timezone,'duration_minutes'=>$seedDemo?->duration_minutes??60,'grade'=>$context?->grade,'syllabus'=>$context?->syllabus];
@@ -33,7 +38,7 @@ class TeacherAllocationController extends Controller
             $windows=DB::table('erp_availability')->where('unit_id',$unit)->where('teacher_id',$prepared->id)->orderBy('weekday')->get();
             $eligibilities=DB::table('erp_eligibilities as e')->join('erp_subjects as s','s.id','=','e.subject_id')->where('e.teacher_id',$prepared->id)->select('e.grade','e.syllabus','s.name')->get();
         }
-        return view('erp.teacher-allocation',compact('business','permissions','context','leads','subjects','matching','demos','seed','prepared','profile','windows','eligibilities','handoff','teacherDemoStats'));
+        return view('erp.teacher-allocation',compact('business','permissions','context','leads','subjects','matching','demos','seed','prepared','profile','windows','eligibilities','handoff','handoffs','teacherDemoStats'));
     }
     public function mutate(Request $request,int $unit,string $action)
     {

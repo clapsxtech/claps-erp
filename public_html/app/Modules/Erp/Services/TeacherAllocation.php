@@ -32,7 +32,8 @@ class TeacherAllocation
     private function lead(int $unit,User $actor,int $id,bool $lock=false): object
     {
         $q=DB::table('erp_leads')->where('unit_id',$unit)->where('id',$id);
-        if(in_array((new TeamPermissions())->role($actor,$unit),['sales_followups','academics'],true))$q->where(function($q)use($actor){$q->where('assigned_to',$actor->id)->orWhere(fn($q)=>$q->whereNull('assigned_to')->where('created_by',$actor->id));});
+        $role=(new TeamPermissions())->role($actor,$unit);
+        if($role==='sales_followups' || ($role==='academics' && !Admissions::awaitingAllocation($unit,$id)))$q->where(function($q)use($actor){$q->where('assigned_to',$actor->id)->orWhere(fn($q)=>$q->whereNull('assigned_to')->where('created_by',$actor->id));});
         if($lock)$q->lockForUpdate();$lead=$q->first();abort_unless($lead,404);return $lead;
     }
     public function slot(array $p,object $context): array
@@ -165,14 +166,15 @@ class TeacherAllocation
     public function feedback(int $unit,User $actor,array $p): object
     {
         $this->authorize($unit,$actor,'allocation-feedback');
-        $v=Validator::make($p,['demo_id'=>'required|integer|min:1','outcome'=>'required|in:CONTINUE,TRY_ANOTHER,AWAITING_FEEDBACK','note'=>'required|string|max:4000'])->validate();
+        $v=Validator::make($p,['demo_id'=>'required|integer|min:1','outcome'=>'required|in:CONTINUE,TRY_ANOTHER,AWAITING_FEEDBACK,NO_SHOW','note'=>'required|string|max:4000'])->validate();
         return DB::transaction(function()use($unit,$actor,$v){
             $demo=DB::table('erp_demos')->where('unit_id',$unit)->where('id',$v['demo_id'])->first();abort_unless($demo,404);
             $this->lead($unit,$actor,$demo->lead_id,true);
             $demo=DB::table('erp_demos')->where('unit_id',$unit)->where('id',$v['demo_id'])->lockForUpdate()->first();
             if(!$demo->ends_at || $demo->ends_at>CarbonImmutable::now('UTC')->format('Y-m-d H:i:s') || in_array($demo->status,['CANCELLED','NO_SHOW'],true))$this->fail('Record feedback only after an attended, timed demo.');
             if($demo->enrollment_id)$this->fail('This demo was already allocated. Use class follow-up for later feedback.');
-            DB::table('erp_demos')->where('id',$demo->id)->update(['status'=>'ATTENDED','completed_at'=>$demo->completed_at??now(),'feedback_outcome'=>$v['outcome'],'feedback_note'=>$v['note'],'updated_at'=>now()]);
+            $noShow=$v['outcome']==='NO_SHOW';
+            DB::table('erp_demos')->where('id',$demo->id)->update(['status'=>$noShow?'NO_SHOW':'ATTENDED','completed_at'=>$noShow?null:($demo->completed_at??now()),'feedback_outcome'=>$v['outcome'],'feedback_note'=>$v['note'],'updated_at'=>now()]);
             DB::table('erp_lead_activities')->insert(['unit_id'=>$unit,'lead_id'=>$demo->lead_id,'actor_id'=>$actor->id,'kind'=>'demo_feedback','summary'=>$v['note'],'outcome'=>$v['outcome'],'metadata'=>json_encode(['demo_id'=>$demo->id]),'occurred_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);
             Audit::record($unit,$actor->id,'matching.demo_feedback','demo',$demo->id,['outcome'=>$v['outcome'],'note'=>$v['note']]);return DB::table('erp_demos')->find($demo->id);
         });

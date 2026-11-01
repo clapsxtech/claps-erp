@@ -52,7 +52,8 @@ Path: `/erp/units/{unit}/{action}`.
 | `assign`, `end-assignment` | Manager, academics | Start/end an enrollment |
 | `availability`, `propose`, `confirm`, `materialize` | Manager, academics | Capture availability, agree a recurring schedule, generate dated lessons |
 | `reschedule`, `cancel`, `extra`, `exception`, `end-agreement` | Manager, academics | Manage scheduling changes |
-| `attendance`, `approve`, `correct`, `duplicate` | Manager, academics | Submit, review, correct attendance and resolve duplicate cases |
+| `pause-classes`, `stop-classes` | Manager, academics | Cancel a student's lessons for a date window, or stop after a last class day (ends assignments) |
+| `attendance`, `no-show`, `approve`, `correct`, `duplicate` | Manager, academics | Submit attendance or a no-show, review, correct, and resolve duplicate cases |
 | `payment` | Manager, finance | Record money actually received |
 | `import-batch` | Manager, finance | Import student class charges for reviewed attendance IDs |
 | `task`, `complete-task` | Manager, sales | Create/complete team tasks |
@@ -71,6 +72,7 @@ Path: `/erp/units/{unit}/business-actions/{action}`.
 | `task-update`, `task-item`, `task-item-complete`, `followup` | Manager, sales | Edit tasks, checklists and follow-up evidence |
 | `salary-paid`, `salary-reverse` | Manager, finance | Record/reverse an already-paid teacher settlement |
 | `receipt-reverse`, `receipt-correct` | Manager, finance | Audited receipt reversals/corrections |
+| `refund-paid`, `refund-reverse` | Manager, finance | Record a refund already paid from a credit balance; reverse a mistaken refund record |
 | `request-create`, `request-cancel`, `request-allocate` | Manager, finance | Payment requests and receipt allocation |
 | `membership-grant`, `membership-revoke`, `teacher-link`, `teacher-unlink` | Site administrator only | Team permissions and explicit teacher-account links |
 | `admission-create-lead`, `admission-update-lead` | Manager, sales | Create/edit enquiries within permitted ownership |
@@ -99,7 +101,7 @@ Path: `/erp/units/{unit}/tuition/{operation}`. Site administrator/team manager o
 
 ### Personal teacher and task actions
 
-- `POST /erp/teacher/attendance`: linked teacher submits own lesson attendance after the class ends.
+- `POST /erp/teacher/attendance`: linked teacher submits own lesson attendance after the class ends, or `no_show=1` with a `reason` when the student didn't attend.
 - `POST /erp/teacher/results`: linked teacher records results for an active assigned enrollment.
 - `POST /erp/my-tasks/{task}/complete`: assignee completes their own task with current team access.
 - `POST /erp/my-tasks/{task}/items/{item}/complete`: assignee completes their own checklist item. Read-only membership cannot complete tasks.
@@ -135,7 +137,7 @@ The Admissions report view is not permission to export every CRM dataset. The ex
 | Parent statement | Required `student_id` and `month=YYYY-MM`; signed-in private workspace access required |
 | Lookup endpoint | Required `type`, optional `q`; returns permitted form choices, not unrestricted directory access |
 
-Lookup types: common `students`, `teachers`, `subjects`; academic `enrollments`, `lessons`, `agreements`, `attendance`, `reviews`; finance `requests`, `payments`, `salary`, `attendance`; sales `tasks`, `items`, `members`. Managers/read-only get the combined permitted types; site administrator-only account lookups include `users` and `revocable_members`.
+Lookup types: common `students`, `teachers`, `subjects`; academic `enrollments`, `lessons`, `agreements`, `attendance`, `reviews`; finance `requests`, `payments`, `salary`, `refunds`, `attendance`; sales `tasks`, `items`, `members`. Managers/read-only get the combined permitted types; site administrator-only account lookups include `users` and `revocable_members`.
 
 ## Registered route inventory
 

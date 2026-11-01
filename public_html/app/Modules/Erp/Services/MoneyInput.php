@@ -13,7 +13,7 @@ class MoneyInput
             $fields = ['student_rate_inr' => 'student_rate_paise', 'teacher_rate_inr' => 'teacher_rate_paise'];
             $maxPaise = 100000000;
             $allowZero = true;
-        } elseif (in_array($action, ['payment', 'request-create', 'request-allocate', 'receipt-correct', 'salary-paid'], true)) {
+        } elseif (in_array($action, ['payment', 'request-create', 'request-allocate', 'receipt-correct', 'salary-paid', 'refund-paid'], true)) {
             $fields = ['amount_inr' => 'amount_paise'];
             $maxPaise = 1000000000;
             $allowZero = false;

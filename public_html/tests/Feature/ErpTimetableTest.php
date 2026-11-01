@@ -229,7 +229,7 @@ class ErpTimetableTest extends TestCase
             ->assertDontSee('href="#action-cancel">Cancel without charge',false)->assertDontSee('href="#action-attendance">Record attended minutes',false);
         $this->assertSame([$rescheduled], $this->ids($response->viewData('timetable')));
         $response = $this->get($this->url(['status' => 'no_show']))->assertOk()
-            ->assertSee('No show')->assertSee('No attended minutes recorded')
+            ->assertSee('No show')->assertSee("Student didn't attend", false)
             ->assertDontSee('href="#action-reschedule">Reschedule with agreement',false)->assertDontSee('href="#action-cancel">Cancel without charge',false);
         $this->assertSame([$noShow], $this->ids($response->viewData('timetable')));
         $response = $this->get($this->url(['status' => 'scheduled']))->assertOk()

@@ -105,7 +105,7 @@ class ErpMoneyInputHttpTest extends TestCase
     {
         DB::table('erp_ledger')->insert(['unit_id' => $this->unit, 'student_id' => $this->student, 'kind' => 'opening_balance', 'amount_paise' => -123429, 'currency' => 'INR', 'reference' => 'INR-DUE', 'event_key' => 'inr-due', 'occurred_at' => now(), 'created_by' => $this->admin->id]);
         $money = $this->get(route('erp.business', [$this->unit, 'money']))->assertOk()->assertSee('Amount (INR)')->assertSee('name="amount_inr"', false)->assertDontSee('name="amount_paise"', false)->assertSee('balance (INR)')->assertSee('INR -1,234.29');
-        $this->assertSame(5, substr_count($money->getContent(), 'name="amount_inr"'));
+        $this->assertSame(6, substr_count($money->getContent(), 'name="amount_inr"'));
         $this->get(route('erp.workspace', $this->unit))->assertOk()->assertSee('INR -1,234.29')->assertDontSee('<th>amount paise</th>', false)->assertDontSee('name="amount_paise"', false);
         $csv = $this->get(route('erp.export', [$this->unit, 'ledger']))->assertOk()->streamedContent();
         $this->assertStringContainsString('amount_paise', $csv);

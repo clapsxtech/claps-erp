@@ -41,6 +41,12 @@ class Admissions
             ->value('role');
     }
 
+    /** A successful demo waiting for a weekly class is handed to Academics, who own allocation. */
+    public static function awaitingAllocation(int $unitId, int $leadId): bool
+    {
+        return DB::table('erp_demos')->where('unit_id', $unitId)->where('lead_id', $leadId)->where('status', 'ATTENDED')->where('feedback_outcome', 'CONTINUE')->whereNull('enrollment_id')->exists();
+    }
+
     private function canViewAll(int $unitId, int $actorId): bool
     {
         return in_array($this->role($unitId, $actorId), ['superadmin', 'admin', 'staff', 'team_manager', 'read_only'], true);
@@ -55,7 +61,7 @@ class Admissions
     {
         $lead = DB::table('erp_leads')->where('unit_id', $unitId)->where('id', $leadId)->lockForUpdate()->first();
         abort_unless($lead, 404, 'Lead not found in this business unit.');
-        if (!$this->canViewAll($unitId, $actorId)) {
+        if (!$this->canViewAll($unitId, $actorId) && !($this->role($unitId, $actorId) === 'academics' && self::awaitingAllocation($unitId, $leadId))) {
             $owned = (int) $lead->assigned_to === $actorId || ($lead->assigned_to === null && (int) $lead->created_by === $actorId);
             abort_unless($owned, 403, 'This lead is assigned to another counselor.');
         }

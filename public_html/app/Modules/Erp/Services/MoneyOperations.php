@@ -6,7 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-/** Records completed external transactions only. Never transfers money or issues refunds. */
+/** Records completed external transactions only. Never transfers money; a refund entry records money already paid back. */
 class MoneyOperations
 {
     public function recordTeacherPayment(int $unitId, int $actorId, array $payload)
@@ -41,6 +41,41 @@ class MoneyOperations
             $entry = $this->lockedEntry($unitId, (int) ($payload['entry_id'] ?? 0), 'teacher_payment');
             $reversal = $this->reverse($unitId, $actorId, $entry, $reason, 'teacher_payment.reversed');
             return $this->withPayable($reversal, $unitId, (int) $entry->teacher_id);
+        });
+    }
+
+    /** Records money already paid back to a family from their credit balance. */
+    public function recordRefund(int $unitId, int $actorId, array $payload)
+    {
+        $amount = $this->amount($payload['amount_paise'] ?? null);
+        $reference = $this->reference($payload['reference'] ?? null);
+        $reason = $this->reason($payload['reason'] ?? null);
+        $paidOn = $this->date($payload['paid_on'] ?? null, 'paid_on');
+        if (!in_array($payload['already_paid'] ?? null, [true, 1, '1'], true)) $this->fail('already_paid', 'Explicitly confirm that this refund has already been paid outside the app.');
+        return DB::transaction(function () use ($unitId, $actorId, $payload, $amount, $reference, $reason, $paidOn) {
+            $studentId = (int) ($payload['student_id'] ?? 0);
+            $this->student($unitId, $studentId);
+            $this->notFuture($unitId, $paidOn, 'paid_on');
+            $key = 'refund:'.hash('sha256', $reference);
+            $existing = DB::table('erp_ledger')->where('reference', $reference)->orWhere('event_key', $key)->lockForUpdate()->first();
+            if ($existing) {
+                if ((int) $existing->unit_id !== $unitId || (int) $existing->student_id !== $studentId || $existing->kind !== 'refund' || (int) $existing->amount_paise !== -$amount || substr($existing->occurred_at, 0, 10) !== $paidOn) $this->fail('reference', 'Reference already identifies a different transaction.');
+                return $existing;
+            }
+            $credit = (int) DB::table('erp_ledger')->where('unit_id', $unitId)->where('student_id', $studentId)->lockForUpdate()->get()->sum('amount_paise');
+            if ($amount > $credit) $this->fail('amount_paise', 'A refund cannot exceed the student\'s current credit balance ('.number_format(max($credit, 0) / 100, 2).' INR).');
+            $id = $this->entry($unitId, $actorId, ['student_id' => $studentId, 'kind' => 'refund', 'amount_paise' => -$amount, 'reference' => $reference, 'event_key' => $key, 'occurred_at' => $paidOn.' 00:00:00']);
+            Audit::record($unitId, $actorId, 'refund.recorded', 'ledger', $id, ['reason' => $reason, 'paid_on' => $paidOn, 'already_paid' => true, 'amount_paise' => $amount, 'money_transferred_by_app' => false]);
+            return DB::table('erp_ledger')->where('id', $id)->first();
+        });
+    }
+
+    public function reverseRefund(int $unitId, int $actorId, array $payload)
+    {
+        $reason = $this->reason($payload['reason'] ?? null);
+        return DB::transaction(function () use ($unitId, $actorId, $payload, $reason) {
+            $entry = $this->lockedEntry($unitId, (int) ($payload['entry_id'] ?? 0), 'refund');
+            return $this->reverse($unitId, $actorId, $entry, $reason, 'refund.reversed');
         });
     }
 

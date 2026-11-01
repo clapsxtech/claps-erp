@@ -453,6 +453,84 @@ return json_decode(<<<'JSON'
         }
       ],
       "help": "Corrects bookkeeping only; it does not recover or transfer funds."
+    },
+    {
+      "title": "Record refund already paid to the family",
+      "action": "refund-paid",
+      "workspace": false,
+      "fields": [
+        {
+          "name": "student_id",
+          "label": "Student",
+          "type": "lookup",
+          "required": true,
+          "options": [
+            "students"
+          ]
+        },
+        {
+          "name": "amount_inr",
+          "label": "Amount (INR)",
+          "type": "money",
+          "required": true,
+          "options": null
+        },
+        {
+          "name": "reference",
+          "label": "Reference",
+          "type": "text",
+          "required": true,
+          "options": null
+        },
+        {
+          "name": "paid_on",
+          "label": "Paid On",
+          "type": "date",
+          "required": true,
+          "options": null
+        },
+        {
+          "name": "reason",
+          "label": "Reason",
+          "type": "text",
+          "required": true,
+          "options": null
+        },
+        {
+          "name": "already_paid",
+          "label": "Already Paid",
+          "type": "select",
+          "required": true,
+          "options": [
+            "1"
+          ]
+        }
+      ],
+      "help": "Records money already returned from the student's credit balance. It cannot exceed that credit. No money is sent."
+    },
+    {
+      "title": "Reverse mistaken refund record",
+      "action": "refund-reverse",
+      "workspace": false,
+      "fields": [
+        {
+          "name": "entry_id",
+          "label": "Ledger entry",
+          "type": "lookup",
+          "required": true,
+          "options": [
+            "refunds"
+          ]
+        },
+        {
+          "name": "reason",
+          "label": "Reason",
+          "type": "text",
+          "required": true,
+          "options": null
+        }
+      ],
+      "help": "Corrects bookkeeping only; it does not recover or transfer funds."
     }
   ],
   "followups": [

@@ -79,12 +79,57 @@ class Scheduling
             if (!DB::table('erp_eligibilities')->where('teacher_id',$teacher->id)->where('subject_id',$p['subject_id'])->where('grade',$student->grade)->where('syllabus',$student->syllabus)->lockForUpdate()->first()) $this->fail('Teacher is not eligible for this subject, grade and syllabus.');
             $q = DB::table('erp_enrollments')->where('student_id',$student->id)->where('subject_id',$p['subject_id'])->where(function ($q) use ($start) { $q->whereNull('ends_on')->orWhere('ends_on','>=',$start); });
             if ($end) $q->where('starts_on','<=',$end);
-            if ($q->lockForUpdate()->first()) $this->fail('An assignment already covers these dates for this student and subject.');
+            if ($q->lockForUpdate()->first()) $this->fail('An assignment already covers these dates for this student and subject. To add another weekly class to it, use Add a weekly slot on the Timetable.');
             $row = $this->insert('erp_enrollments', ['unit_id'=>$unitId,'student_id'=>$student->id,'teacher_id'=>$teacher->id,'subject_id'=>$p['subject_id'],'starts_on'=>$start,'ends_on'=>$end,'student_rate_paise'=>$this->integer($p['student_rate_paise'],0,100000000,'student rate'),'teacher_rate_paise'=>$this->integer($p['teacher_rate_paise'],0,100000000,'teacher rate'),'currency'=>'INR','status'=>'active']);
             $this->audit($unitId,$actorId,'assignment.created','enrollment',$row->id); return $row;
         });
     }
     /** Close prospectively, then create a new assignment for a teacher/rate change. Never mutate old rates. */
+    /** Cancel every scheduled lesson for a student within a date window (exam break, holiday). Lessons after it stay booked. */
+    public function pauseClasses(int $unitId, int $actorId, array $p) {
+        $this->required($p,['student_id','from','through','reason']);
+        $from = $this->date($p['from']); $through = $this->date($p['through']); $reason = trim((string) $p['reason']);
+        if ($through < $from) $this->fail('The pause must end on or after the day it starts.');
+        if ((new DateTimeImmutable($from))->diff(new DateTimeImmutable($through))->days > 366) $this->fail('Pause for at most a year. To end classes, stop them instead.');
+        return DB::transaction(function () use ($unitId,$actorId,$p,$from,$through,$reason) {
+            $student = $this->row('erp_students',$p['student_id'],$unitId,true);
+            $start = $this->localToUtc($from,'00:00',$student->timezone);
+            $end = $this->localToUtc((new DateTimeImmutable($through))->modify('+1 day')->format('Y-m-d'),'00:00',$student->timezone);
+            if ($start < $this->now()) $start = $this->now();
+            $ids = $this->cancelScheduled($unitId,$student->id,$start,$end,'Paused: '.$reason);
+            $this->audit($unitId,$actorId,'student.classes_paused','student',$student->id,['from'=>$from,'through'=>$through,'reason'=>$reason,'cancelled_lesson_ids'=>$ids]);
+            return (object) ['student_id'=>$student->id,'cancelled'=>count($ids)];
+        });
+    }
+
+    /** Stop a student's classes after their last class day: cancel later lessons and end every assignment. */
+    public function stopClasses(int $unitId, int $actorId, array $p) {
+        $this->required($p,['student_id','last_day','reason']);
+        $last = $this->date($p['last_day']); $reason = trim((string) $p['reason']);
+        if ($last < gmdate('Y-m-d', strtotime('-1 day'))) $this->fail('Choose today or a later last class day.');
+        return DB::transaction(function () use ($unitId,$actorId,$p,$last,$reason) {
+            $student = $this->row('erp_students',$p['student_id'],$unitId,true);
+            $cutoff = $this->localToUtc((new DateTimeImmutable($last))->modify('+1 day')->format('Y-m-d'),'00:00',$student->timezone);
+            $ids = $this->cancelScheduled($unitId,$student->id,max($cutoff,$this->now()),'9999-12-31 00:00:00','Stopped: '.$reason);
+            $ended = [];
+            foreach (DB::table('erp_enrollments')->where('unit_id',$unitId)->where('student_id',$student->id)->where('status','active')->where(function($q) use ($last) { $q->whereNull('ends_on')->orWhere('ends_on','>',$last); })->orderBy('id')->get() as $e) {
+                $this->endAssignment($unitId,$actorId,['enrollment_id'=>$e->id,'ends_on'=>max($last,$e->starts_on,gmdate('Y-m-d'))]);
+                $ended[] = $e->id;
+            }
+            $remaining = DB::table('erp_lessons')->where('unit_id',$unitId)->where('student_id',$student->id)->where('status','scheduled')->where('ends_at','>',$this->now())->exists();
+            if (!$remaining) DB::table('erp_students')->where('id',$student->id)->update(['status'=>'stopped','updated_at'=>$this->now()]);
+            $this->audit($unitId,$actorId,'student.classes_stopped','student',$student->id,['last_day'=>$last,'reason'=>$reason,'cancelled_lesson_ids'=>$ids,'ended_enrollment_ids'=>$ended,'status_stopped'=>!$remaining]);
+            return (object) ['student_id'=>$student->id,'cancelled'=>count($ids),'ended_assignments'=>count($ended),'stopped'=>!$remaining];
+        });
+    }
+
+    private function cancelScheduled(int $unitId, int $studentId, string $from, string $to, string $reason): array {
+        $ids = DB::table('erp_lessons as l')->where('l.unit_id',$unitId)->where('l.student_id',$studentId)->where('l.status','scheduled')->where('l.starts_at','>=',$from)->where('l.starts_at','<',$to)
+            ->whereNotExists(function($q) { $q->selectRaw('1')->from('erp_attendance as a')->whereColumn('a.lesson_id','l.id'); })->lockForUpdate()->pluck('l.id')->all();
+        if ($ids) DB::table('erp_lessons')->whereIn('id',$ids)->update(['status'=>'cancelled','cancellation_reason'=>mb_substr($reason,0,500),'updated_at'=>$this->now()]);
+        return array_map('intval',$ids);
+    }
+
     public function endAssignment(int $unitId, int $actorId, array $p) {
         $this->required($p,['enrollment_id','ends_on']);
         return DB::transaction(function () use ($unitId,$actorId,$p) {

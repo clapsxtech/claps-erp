@@ -99,7 +99,7 @@ The first run found 23 problems in 4 groups (items 8–11 above). The gaps in it
 Lead capture and editing with ownership, demo scheduling and outcome tracking, contact attempts (WhatsApp/call/email — recorded, never sent), reminders, ownership transfers, conversion to a student with an optional real initial payment, and a reporting view (`?report=1`).
 
 ### Teacher matching (allocation)
-Search for teachers by subject, grade, syllabus, medium and timezone-aware availability; verify qualifications and availability windows; book timed demos with teacher/parent confirmation; record demo feedback; hand a successful demo over to a regular recurring class with rates.
+Search for teachers by subject, grade, syllabus, medium and timezone-aware availability; verify qualifications and availability windows; book timed demos with teacher/parent confirmation; record demo feedback (continue, try another teacher, awaiting feedback, or no-show); hand a successful demo over to a regular recurring class with rates. Successful demos waiting for a weekly class appear in **Ready to allocate** for Academics.
 
 ### Teacher recruitment
 Candidate pipeline with stages, contact history, registration, approval and identity resolution. The registered/approved directory is shared with academics, sales and read-only staff; decisions stay with managers.
@@ -111,13 +111,13 @@ Student and teacher lists with search and dues filter, operational student updat
 Assessment results, subject coverage and a results export by date range.
 
 ### Scheduling and timetable
-Teacher availability, proposed and confirmed recurring agreements, generation of dated lessons, reschedule, cancel, extra class, teacher leave/exceptions, and ending agreements. Timetable view filters by date, student, teacher and status.
+Teacher availability, proposed and confirmed recurring agreements (including a second weekly slot), generation of dated lessons, reschedule, cancel, extra class, teacher leave/exceptions, and ending agreements. **Pause classes** for a date window and **stop classes** after a last class day, each in one step. Timetable view filters by date, student, teacher and status.
 
 ### Attendance
-Teacher-submitted attendance after the class ends, manager review/approval, corrections, duplicate-case resolution, partial-day exceptions, and the reviewed queue that feeds student charges.
+Teacher-submitted attendance after the class ends, **no-shows** (no charge, no teacher pay), manager review/approval, corrections, duplicate-case resolution, partial-day exceptions, a queue of **ended classes with no attendance**, and the reviewed queue that feeds student charges.
 
 ### Money & receipts
-Receipts for money actually received, payment requests with printable copies, receipt allocation, audited reversals and corrections, teacher salary settlements and reversals, balances and reconciliation totals. Recording never transfers money.
+Receipts for money actually received, payment requests with printable copies, receipt allocation, audited reversals and corrections, **refunds** already paid back from a credit balance (and their reversal), teacher salary settlements and reversals, balances and reconciliation totals. Recording never transfers money.
 
 ### Follow-ups and tasks
 Team tasks with checklists, follow-up evidence by student with priority filters (new this month / last month / older), and a personal **My assigned tasks** page.

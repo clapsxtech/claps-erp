@@ -37,6 +37,20 @@ class WorkQueues
         return [
             'student_import' => $student->orderBy('l.starts_at')->orderBy('a.id')->paginate(25, ['*'], 'import_queue_page')->withQueryString(),
             'teacher_approval' => $teacher->orderBy('l.starts_at')->orderBy('a.id')->paginate(25, ['*'], 'approval_queue_page')->withQueryString(),
+            'missing_submission' => $this->missingSubmission($unitId),
         ];
+    }
+
+    /** Lessons whose time has passed with no attendance and no no-show: teachers to chase. */
+    public function missingSubmission(int $unitId)
+    {
+        return DB::table('erp_lessons as l')
+            ->join('erp_students as s', function ($j) { $j->on('s.id', '=', 'l.student_id')->on('s.unit_id', '=', 'l.unit_id'); })
+            ->join('erp_teachers as t', 't.id', '=', 'l.teacher_id')
+            ->join('erp_subjects as subject', 'subject.id', '=', 'l.subject_id')
+            ->where('l.unit_id', $unitId)->where('l.status', 'scheduled')->where('l.ends_at', '<=', now('UTC')->format('Y-m-d H:i:s'))
+            ->whereNotExists(function ($q) { $q->selectRaw('1')->from('erp_attendance as a')->whereColumn('a.lesson_id', 'l.id'); })
+            ->select('l.id as lesson_id', 'l.starts_at', 'l.kind', 's.name as student_name', 's.code as student_code', 't.name as teacher_name', 'subject.name as subject_name')
+            ->orderBy('t.name')->orderBy('l.starts_at')->paginate(25, ['*'], 'missing_queue_page')->withQueryString();
     }
 }

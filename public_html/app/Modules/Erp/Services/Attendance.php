@@ -49,6 +49,26 @@ class Attendance
         }, 3); // Retry whole atomic submission on InnoDB gap-lock deadlocks between unrelated lessons.
     }
 
+    /** The student did not attend: close the lesson without attendance, charge or teacher earnings. */
+    public function noShow(int $unitId, int $actorId, array $payload)
+    {
+        $reason = trim((string) ($payload['reason'] ?? ''));
+        if ($reason === '') $this->fail('reason', 'Say what happened, for example who waited and how they tried to reach the student.');
+        if (strlen($reason) > 2000) $this->fail('reason', 'Use at most 2000 characters.');
+        return DB::transaction(function () use ($unitId, $actorId, $payload, $reason) {
+            $lesson = $this->lesson($unitId, (int) ($payload['lesson_id'] ?? 0));
+            DB::table('erp_teachers')->where('id', $lesson->teacher_id)->lockForUpdate()->first();
+            $lesson = $this->lesson($unitId, $lesson->id, true);
+            if ($lesson->status === 'no_show') return $lesson;
+            if ($lesson->status !== 'scheduled') $this->fail('lesson_id', 'Only a scheduled lesson can be marked as a no-show.');
+            if (Carbon::parse($lesson->ends_at, 'UTC')->isFuture()) $this->fail('lesson_id', 'Mark a no-show only after the lesson time has passed.');
+            if (DB::table('erp_attendance')->where('unit_id', $unitId)->where('lesson_id', $lesson->id)->lockForUpdate()->exists()) $this->fail('lesson_id', 'Attendance was already submitted. Use an audited correction instead.');
+            DB::table('erp_lessons')->where('unit_id', $unitId)->where('id', $lesson->id)->update(['status' => 'no_show', 'cancellation_reason' => $reason, 'updated_at' => now()->format('Y-m-d H:i:s')]);
+            Audit::record($unitId, $actorId, 'lesson.no_show', 'lesson', $lesson->id, ['reason' => $reason, 'student_charged' => false, 'teacher_paid' => false]);
+            return $this->lesson($unitId, $lesson->id);
+        });
+    }
+
     public function approve(int $unitId, int $actorId, int $attendanceId)
     {
         return DB::transaction(function () use ($unitId, $actorId, $attendanceId) {
