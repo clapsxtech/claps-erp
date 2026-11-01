@@ -30,7 +30,7 @@ class People
     {
         $v=Validator::make($data,['teacher_id'=>'required|integer','subject'=>'required|string|max:100','grade'=>'required|string|max:100','syllabus'=>'required|string|max:100'])->validate();
         abort_unless(DB::table('erp_teacher_units')->where('unit_id',$unitId)->where('teacher_id',$v['teacher_id'])->exists(),422,'Teacher must belong to this unit.');
-        return DB::transaction(function()use($unitId,$actorId,$v){$subject=DB::table('erp_subjects')->where('name',$v['subject'])->first();$sid=$subject?$subject->id:DB::table('erp_subjects')->insertGetId(['name'=>$v['subject'],'created_at'=>now(),'updated_at'=>now()]);$key=['teacher_id'=>$v['teacher_id'],'subject_id'=>$sid,'grade'=>$v['grade'],'syllabus'=>$v['syllabus']];DB::table('erp_eligibilities')->updateOrInsert($key,['created_at'=>now(),'updated_at'=>now()]);Audit::record($unitId,$actorId,'teacher.eligibility','teacher',$v['teacher_id'],['subject_id'=>$sid]);return $key;});
+        return DB::transaction(function()use($unitId,$actorId,$v){$name=preg_replace('/\s+/u',' ',trim($v['subject']));$subject=DB::table('erp_subjects')->whereRaw('LOWER(name) = ?',[mb_strtolower($name)])->orderBy('id')->first();$sid=$subject?$subject->id:DB::table('erp_subjects')->insertGetId(['name'=>$name,'created_at'=>now(),'updated_at'=>now()]);$key=['teacher_id'=>$v['teacher_id'],'subject_id'=>$sid,'grade'=>$v['grade'],'syllabus'=>$v['syllabus']];DB::table('erp_eligibilities')->updateOrInsert($key,['created_at'=>now(),'updated_at'=>now()]);Audit::record($unitId,$actorId,'teacher.eligibility','teacher',$v['teacher_id'],['subject_id'=>$sid]);return $key;});
     }
     public function task(int $unitId,int $actorId,array $data)
     {

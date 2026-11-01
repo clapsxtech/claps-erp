@@ -152,6 +152,23 @@ Regression tests: `tests/Feature/AdminJourneyTest.php`.
 
 Local note: this checkout's `.env` uses `SESSION_DRIVER=file`. With file sessions, "revoke sessions" and password resets can't sign out existing browser sessions, because they delete rows from the database session table. Production sets `database`. Suspension still takes effect immediately either way, because every request checks the account is active. The local site settings also hold placeholder emails ("Abc 673585"), which must be corrected before settings can be saved.
 
+## Opening a new team
+
+A third pass created "Calicut Centre" and took it from an empty team to its first paid class. First, every page, export and lookup of the **empty** team was crawled as each role: no errors (admin 49 pages, manager 48, read-only 47, academics 15, sales 15, finance 7). Then the go-live itself: **27 steps, 22 OK, 3 rules, 2 gaps; 1 bug found and fixed.**
+
+- **Team record:** a duplicate or lower-case code is refused. Name, phone and timezone can be changed while the team is empty.
+- **Teacher pool:** approving an applicant creates the teacher in the new team only; direct registration works too.
+- **First customer:** enquiry → demo → Ready to allocate → weekly class (5 pm India stored as 11:30 UTC) → attendance → parent review → approval → ₹350 charge → payment.
+- **Isolation:** the enquiry 404s through Kochi, and Kochi's ledger export doesn't include Calicut money.
+
+| Finding | Type | Detail |
+|---|---|---|
+| Typing "maths" created a second subject next to "Maths" | **Bug, fixed** | Subject matching was case-sensitive, and subjects are shared by every team, so matching and reports would split. `People::eligibility` now matches ignoring case and extra spaces. Test: `AdminJourneyTest::test_a_new_team_reuses_shared_subjects_whatever_the_case` |
+| 26. An empty team's Overview has no setup checklist | Gap | Added a go-live checklist to the [user guide](ERP_USER_GUIDE.md) (section 5) |
+| 27. Existing records for a new team can only be bulk-imported in the operator JSON format, which is off by default | Gap | Otherwise records are entered one by one |
+
+Existing duplicate subjects (if any were created before the fix) aren't merged automatically.
+
 ## Rules confirmed (correct refusals)
 
 - Pausing a student with future lessons, and ending an agreement with lessons beyond its end date, are refused with clear instructions. The rules are sound; the missing bulk action is gap 1.

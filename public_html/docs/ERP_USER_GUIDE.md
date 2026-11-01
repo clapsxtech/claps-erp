@@ -107,6 +107,18 @@ For example, if the application shows team ID `17`, Admissions is `/erp/units/17
 7. Use **Migration Center** for reviewed migration previews and controlled execution. It is not a normal daily data-entry screen. Previewing or viewing application totals does not certify source reconciliation.
 8. For a staff departure, suspend the account or revoke access; use the account actions to revoke sessions. Sensitive account actions require the administrator's current password.
 
+### Opening a new team: go-live checklist
+
+Verified end to end on 1 November 2026 (a new team taken to its first paid class). An empty team's pages all work, but Overview has no built-in setup checklist, so use this one:
+
+1. **Teams & accounts → Create team:** a code in capitals (for example `CL`, unique), name, timezone and optional phone. The timezone can still be changed while the team has no dated lessons.
+2. **Onboard staff** into the team with their role (one person can be in several teams with different roles). Add existing staff from the team's **Team access** page.
+3. **Build the teacher pool:** approve applicants in **Teacher recruitment** (approval creates the teacher in this team), or register teachers on **Students & teachers**. A teacher already working for another team needs a separate record and login in this team, because pools are separate.
+4. **Teaching details:** in **Teacher matching → Prepare a teacher**, verify each teacher's subjects, grades, syllabus and medium, and record their weekly availability. Subjects are shared by every team; typing an existing name in any case reuses it.
+5. **Teacher logins:** create the login (onboard as a staff role), switch it to **Teacher** on **Team access**, then link it to the teacher record.
+6. **First customers:** enquiries in **Admissions**, demos and weekly classes through **Teacher matching**, and existing students on **Students & teachers**. Existing records can be bulk-imported only through the Migration center's operator format, which is off by default.
+7. **Money:** rates are set per assignment (there are no team-wide price lists). Receipts, requests and charges are kept per team, and exports and reconciliation never mix teams.
+
 **Daily route:** `/superadmin/login` → `/erp/administration/operations` → `/` → selected team's Overview → unresolved exceptions.
 
 ## 6. Team manager / admin operations journey
