@@ -69,6 +69,8 @@ class ErpTeacherAllocationTest extends TestCase
         Carbon::setTestNow('2026-10-29 08:00:00');CarbonImmutable::setTestNow('2026-10-29 08:00:00');
         $this->postJson($this->url('feedback'),$feedback)->assertOk();
         $this->assertDatabaseHas('erp_lead_activities',['lead_id'=>$this->lead,'kind'=>'demo_feedback','outcome'=>'CONTINUE']);
+        $handoff=$this->get(route('erp.business',[$this->unit,'allocation','lead_id'=>$this->lead]))->assertOk()->assertSee('Allocate weekly class with');
+        $this->assertStringContainsString('date=2026-11-04',html_entity_decode($handoff->getContent()));
         $regular=$this->slot(['date'=>'2026-11-04','ends_on'=>'2026-11-25','reference'=>'MATCH-REGULAR-1','demo_id'=>$demo->id,'student_rate_inr'=>'250.50','teacher_rate_inr'=>'100.25']);
         $this->postJson($this->url('regular'),$regular)->assertOk();
         $this->postJson($this->url('regular'),$regular)->assertOk();

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\{Auth,Crypt,DB,Hash};
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use OTPHP\TOTP;
+use ParagonIE\ConstantTime\Base32;
 class TwoFactorController extends Controller
 {
     public function challenge(Request $request)
@@ -36,7 +37,7 @@ class TwoFactorController extends Controller
     public function setup(Request $request)
     {
         $this->password($request);abort_if($request->user()->two_factor_secret,422,'Two-factor authentication is already enabled.');
-        $request->session()->put('two_factor_setup',['secret'=>Crypt::encryptString(TOTP::generate()->getSecret()),'expires'=>time()+600]);
+        $request->session()->put('two_factor_setup',['secret'=>Crypt::encryptString(TOTP::createFromSecret(rtrim(Base32::encodeUpper(random_bytes(20)),'='))->getSecret()),'expires'=>time()+600]);
         return redirect()->route('account.security');
     }
     public function enable(Request $request)

@@ -7,5 +7,5 @@
 <h2>After sharing</h2><p>Record the evidence and deadline after sending this statement through your existing parent communication channel. Only the listed submitted entries are included. New or corrected entries require a new review.</p>
 @if($rows->where('status','submitted')->count())<form method="post" action="{{ route('erp.tuition.mutate',[$business->id,'monthly-review']) }}">@csrf
 @foreach($rows->where('status','submitted') as $row)<input type="hidden" name="attendance_ids[]" value="{{ $row->id }}"><input type="hidden" name="snapshots[{{ $row->id }}]" value="{{ \App\Modules\Erp\Services\TuitionWorkflows::reviewSnapshot($row) }}">@endforeach
-<label>Objection deadline (UTC)<input name="deadline_at" placeholder="YYYY-MM-DD HH:MM:SS" required></label><label>Sharing evidence<textarea name="note" maxlength="4000" required placeholder="When and where the parent received this statement"></textarea></label><button>Record statement sharing</button></form>@endif</div>
+<label>Objection deadline ({{ $business->timezone }} time)<input type="datetime-local" name="deadline_at" required></label><label>Sharing evidence<textarea name="note" maxlength="4000" required placeholder="When and where the parent received this statement"></textarea></label><button>Record statement sharing</button></form>@endif</div>
 </body></html>

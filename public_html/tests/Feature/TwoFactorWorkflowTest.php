@@ -12,6 +12,7 @@ class TwoFactorWorkflowTest extends TestCase
         $this->get(route('account.security'))->assertOk();
         $this->post(route('two-factor.setup'),['current_password'=>'Local-Testing-Only-2026'])->assertRedirect();
         $pending=session('two_factor_setup');$secret=Crypt::decryptString($pending['secret']);
+        $this->assertMatchesRegularExpression('/^[A-Z2-7]{32}$/',$secret,'Manual-entry secret should be 160 bits (32 characters).');
         $this->assertNotSame($secret,$pending['secret']);
         $this->get(route('account.security'))->assertOk()->assertSee($secret);
         $code=TOTP::createFromSecret($secret)->at(now()->timestamp);

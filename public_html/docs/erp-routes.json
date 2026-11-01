@@ -1,5 +1,5 @@
 {
-  "verified_on": "2026-10-26",
+  "verified_on": "2026-11-01",
   "scope": "Laravel registered routes; middleware is route-declared only, not full authorization",
   "routes": [
     {
@@ -922,18 +922,6 @@
     },
     {
       "method": "GET|HEAD",
-      "uri": "/admin/workhour/{workhour}",
-      "name": "workhour.show",
-      "action": "App\\Http\\Controllers\\WorkHourController@show",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
       "uri": "/admin/workhour/{workhour}/edit",
       "name": "workhour.edit",
       "action": "App\\Http\\Controllers\\WorkHourController@edit",
@@ -1017,78 +1005,6 @@
       "constraints": []
     },
     {
-      "method": "GET|HEAD",
-      "uri": "/admin/workreport/create",
-      "name": "workreport.create",
-      "action": "App\\Http\\Controllers\\TeacherReportController@create",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "POST",
-      "uri": "/admin/workreport",
-      "name": "workreport.store",
-      "action": "App\\Http\\Controllers\\TeacherReportController@store",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
-      "uri": "/admin/workreport/{workreport}",
-      "name": "workreport.show",
-      "action": "App\\Http\\Controllers\\TeacherReportController@show",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
-      "uri": "/admin/workreport/{workreport}/edit",
-      "name": "workreport.edit",
-      "action": "App\\Http\\Controllers\\TeacherReportController@edit",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "PUT|PATCH",
-      "uri": "/admin/workreport/{workreport}",
-      "name": "workreport.update",
-      "action": "App\\Http\\Controllers\\TeacherReportController@update",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "DELETE",
-      "uri": "/admin/workreport/{workreport}",
-      "name": "workreport.destroy",
-      "action": "App\\Http\\Controllers\\TeacherReportController@destroy",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
       "method": "POST",
       "uri": "/admin/syncTeachers",
       "name": "syncTeachers",
@@ -1149,78 +1065,6 @@
       "constraints": []
     },
     {
-      "method": "GET|HEAD",
-      "uri": "/admin/marklistreport/create",
-      "name": "marklistreport.create",
-      "action": "App\\Http\\Controllers\\MarklistReportController@create",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "POST",
-      "uri": "/admin/marklistreport",
-      "name": "marklistreport.store",
-      "action": "App\\Http\\Controllers\\MarklistReportController@store",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
-      "uri": "/admin/marklistreport/{marklistreport}",
-      "name": "marklistreport.show",
-      "action": "App\\Http\\Controllers\\MarklistReportController@show",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
-      "uri": "/admin/marklistreport/{marklistreport}/edit",
-      "name": "marklistreport.edit",
-      "action": "App\\Http\\Controllers\\MarklistReportController@edit",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "PUT|PATCH",
-      "uri": "/admin/marklistreport/{marklistreport}",
-      "name": "marklistreport.update",
-      "action": "App\\Http\\Controllers\\MarklistReportController@update",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "DELETE",
-      "uri": "/admin/marklistreport/{marklistreport}",
-      "name": "marklistreport.destroy",
-      "action": "App\\Http\\Controllers\\MarklistReportController@destroy",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
       "method": "POST",
       "uri": "/admin/syncMarklistReportData",
       "name": "syncMarklistReportData",
@@ -1257,78 +1101,6 @@
       "constraints": []
     },
     {
-      "method": "GET|HEAD",
-      "uri": "/admin/duereport/create",
-      "name": "duereport.create",
-      "action": "App\\Http\\Controllers\\DueController@create",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "POST",
-      "uri": "/admin/duereport",
-      "name": "duereport.store",
-      "action": "App\\Http\\Controllers\\DueController@store",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
-      "uri": "/admin/duereport/{duereport}",
-      "name": "duereport.show",
-      "action": "App\\Http\\Controllers\\DueController@show",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
-      "uri": "/admin/duereport/{duereport}/edit",
-      "name": "duereport.edit",
-      "action": "App\\Http\\Controllers\\DueController@edit",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "PUT|PATCH",
-      "uri": "/admin/duereport/{duereport}",
-      "name": "duereport.update",
-      "action": "App\\Http\\Controllers\\DueController@update",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "DELETE",
-      "uri": "/admin/duereport/{duereport}",
-      "name": "duereport.destroy",
-      "action": "App\\Http\\Controllers\\DueController@destroy",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
       "method": "POST",
       "uri": "/admin/syncDueReportData",
       "name": "syncDueReportData",
@@ -1345,78 +1117,6 @@
       "uri": "/admin/timetable",
       "name": "timetable.index",
       "action": "App\\Http\\Controllers\\TimeTableController@index",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
-      "uri": "/admin/timetable/create",
-      "name": "timetable.create",
-      "action": "App\\Http\\Controllers\\TimeTableController@create",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "POST",
-      "uri": "/admin/timetable",
-      "name": "timetable.store",
-      "action": "App\\Http\\Controllers\\TimeTableController@store",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
-      "uri": "/admin/timetable/{timetable}",
-      "name": "timetable.show",
-      "action": "App\\Http\\Controllers\\TimeTableController@show",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "GET|HEAD",
-      "uri": "/admin/timetable/{timetable}/edit",
-      "name": "timetable.edit",
-      "action": "App\\Http\\Controllers\\TimeTableController@edit",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "PUT|PATCH",
-      "uri": "/admin/timetable/{timetable}",
-      "name": "timetable.update",
-      "action": "App\\Http\\Controllers\\TimeTableController@update",
-      "middleware": [
-        "web",
-        "auth:web",
-        "admin"
-      ],
-      "constraints": []
-    },
-    {
-      "method": "DELETE",
-      "uri": "/admin/timetable/{timetable}",
-      "name": "timetable.destroy",
-      "action": "App\\Http\\Controllers\\TimeTableController@destroy",
       "middleware": [
         "web",
         "auth:web",

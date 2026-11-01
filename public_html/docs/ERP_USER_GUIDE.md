@@ -150,7 +150,7 @@ Sales users see owned/assigned enquiries, including their own unassigned enquiri
 3. In **Teacher matching**, verify the exact subject/grade/syllabus eligibility and medium, then record confirmed teacher availability with evidence. Imported free-text availability is not sufficient by itself.
 4. Search the proposed slot. Check teacher-local time, effective dates, exceptions and any outstanding matching requirements. Obtain bilateral confirmation.
 5. Book a demo or confirm a regular allocation within your permissions. Regular allocation creates dated lessons through the selected end date; check the resulting **Timetable**.
-6. Review changed classes in **Timetable** and send the lesson ID, agreed replacement time and reason to a manager. The current timetable's reschedule, cancel and extra-class links open the manager-only detailed workspace, so an academics user cannot complete those changes through those links even though the backend role permits the actions. A manager performs the change and preserves its history.
+6. Manage changed classes in **Timetable**. Each scheduled lesson's actions open the reschedule, cancel and attended-minutes forms on the same page, and the page also has extra-class, lesson-generation and teacher-leave forms. Saving returns you to Timetable, and history is preserved.
 7. Review submitted attendance and duplicate flags. Ask the manager to complete private parent review or resolve disputes, then approve eligible attendance from the teacher-approval queue. Escalate corrections that need the restricted detailed workspace.
 8. Check results and export permitted academic data. Close your own assigned tasks after their checklists are complete.
 
@@ -172,7 +172,7 @@ The full student-profile and detailed operations URLs are restricted to managers
 
 **Daily route:** `B/money` → payment request → received payment → allocation → printable receipt → settlement review.
 
-The current finance UI does not expose the Attendance/Overview charge queues, although the backend role permits the import action. Have a manager perform the reviewed charge import through the existing queue. Do not instruct finance users to type POST endpoints into a browser.
+**Money & receipts** shows the *Student consumption awaiting import* queue. Finance imports each reviewed class for student charge from there. Teacher approval stays with managers and academics.
 
 ## 10. HR / recruitment journey
 
@@ -239,7 +239,7 @@ flowchart LR
     Allocation --> Teacher[Teacher: deliver and submit attendance/results]
     Teacher --> Review[Manager: parent review and exceptions]
     Review --> Approval[Manager or academics: teacher accrual approval]
-    Teacher --> Charge[Manager: explicit student-charge import]
+    Teacher --> Charge[Manager or finance: explicit student-charge import]
     Charge --> Finance[Finance: receipts and reconciliation]
     Approval --> Settlement[Finance: record externally paid settlement]
 ```

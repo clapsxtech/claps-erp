@@ -4,8 +4,11 @@
 <section><h2>Daily operations</h2><p>Choose your business unit to open a workflow. These screens use unit records; historical records are not copied automatically.</p>
 <div class="scroll"><table><thead><tr><th>What you need to do</th><th>Use now</th><th>Open business unit</th></tr></thead><tbody>
 @foreach(['people'=>['Student / teacher directories and master assignments','Students & teachers'],'academics'=>['Record marks, review results and define subject eligibility','Academics'],'timetable'=>['Plan classes and review dated student timetables','Timetable'],'attendance'=>['Review delivered hours and approve attendance','Attendance'],'money'=>['Review dues, record receipts and teacher payments','Money & receipts'],'followups'=>['Track follow-ups and team checklists','Follow-ups'],'staff'=>['Manage access within a business unit','Team access'],'migration'=>['Export unit records and reconcile totals','Migration & exports']] as $destination=>$replacement)
-@if($destination !== 'staff' || $administrator)
-<tr><td>{{ $replacement[0] }}</td><td><span class="status-badge">{{ $replacement[1] }}</span></td><td>@forelse($units as $unit)<a class="legacy-unit-link" href="{{ route('erp.business',[$unit->id,$destination]) }}">{{ $unit->code }} @include('erp.icon',['name'=>'arrow'])</a>@empty<small>No administrator unit assigned.</small>@endforelse</td></tr>
+@php
+$allowedUnits=$units->filter(fn($unit)=>(new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$unit->id,'page',$destination));
+@endphp
+@if(($destination !== 'staff' || $administrator) && ($allowedUnits->isNotEmpty() || $units->isEmpty()))
+<tr><td>{{ $replacement[0] }}</td><td><span class="status-badge">{{ $replacement[1] }}</span></td><td>@forelse($allowedUnits as $unit)<a class="legacy-unit-link" href="{{ route('erp.business',[$unit->id,$destination]) }}">{{ $unit->code }} @include('erp.icon',['name'=>'arrow'])</a>@empty<small>No administrator unit assigned.</small>@endforelse</td></tr>
 @endif
 @endforeach
 </tbody></table></div></section>

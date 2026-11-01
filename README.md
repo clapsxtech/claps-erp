@@ -4,6 +4,8 @@ Laravel web application repository for logs.clapslearn.com.
 
 ## ERP user guide
 
+See [every feature and page, with the latest verification results](public_html/docs/FEATURES_AND_PAGES.md).
+
 Start with the [ERP user guide and journeys for each role](public_html/docs/ERP_USER_GUIDE.md) for login, daily workflows, permissions, handoffs and Sheets transition behavior. The [complete route reference](public_html/docs/ERP_ROUTE_REFERENCE.md) lists browser pages, form actions, exports and all registered Laravel routes.
 
 ## Architecture and cutover review

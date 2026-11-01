@@ -42,6 +42,11 @@ class TuitionController extends Controller
     public function mutate(Request $request,int $unit,string $operation)
     {
         $this->authorizeTeam($request,$unit,true);
+        // The date-time picker sends the team's local time; reviews store the deadline in UTC.
+        if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/',(string)$request->input('deadline_at'))) {
+            $timezone=DB::table('erp_units')->where('id',$unit)->value('timezone') ?: 'UTC';
+            $request->merge(['deadline_at'=>\Carbon\CarbonImmutable::createFromFormat('Y-m-d\TH:i',$request->input('deadline_at'),$timezone)->utc()->format('Y-m-d H:i:s')]);
+        }
         if ($operation==='monthly-review') {
             $v=$request->validate(['attendance_ids'=>'required|array|min:1|max:200','attendance_ids.*'=>'required|integer|min:1','snapshots'=>'required|array','snapshots.*'=>'required|string|size:64','deadline_at'=>'required|date_format:Y-m-d H:i:s','note'=>'required|string|max:4000']);
             DB::transaction(function()use($unit,$request,$v){

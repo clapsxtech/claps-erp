@@ -131,4 +131,28 @@ class ErpWorkQueuesTest extends TestCase
         $this->page('dashboard')->assertOk()->assertDontSee('Synthetic actionable task');
     }
 
+    public function test_finance_imports_student_charges_from_money_without_the_teacher_approval_queue(): void
+    {
+        $finance=$this->createMember(['name'=>'Queue Finance']);
+        DB::table('erp_memberships')->insert(['unit_id'=>$this->unit,'user_id'=>$finance->id,'role'=>'finance']);
+        $attendance=$this->attendance();
+        $this->actingAs($finance);
+        $page=$this->page('money')->assertOk()->assertSee('Student consumption awaiting import')->assertDontSee('Teacher approval and accrual review')->assertSee('Import this class for student charge');
+        $this->assertSame([$attendance],$this->ids($page,'student_import'));
+        $this->assertDoesNotMatchRegularExpression('#href="'.preg_quote(route('erp.workspace',$this->unit),'#').'["?\#]#',$page->getContent());
+    }
+
+    public function test_academics_manage_scheduled_lessons_from_the_timetable_page(): void
+    {
+        $academics=$this->createMember(['name'=>'Queue Academics']);
+        DB::table('erp_memberships')->insert(['unit_id'=>$this->unit,'user_id'=>$academics->id,'role'=>'academics']);
+        $lesson=DB::table('erp_lessons')->insertGetId(['unit_id'=>$this->unit,'enrollment_id'=>$this->enrollment,'student_id'=>$this->student,'teacher_id'=>$this->teacher,'subject_id'=>$this->subject,'starts_at'=>now('UTC')->addDays(2)->format('Y-m-d H:i:s'),'ends_at'=>now('UTC')->addDays(2)->addHour()->format('Y-m-d H:i:s'),'status'=>'scheduled','kind'=>'regular','student_rate_paise'=>10000,'teacher_rate_paise'=>8000]);
+        $this->actingAs($academics);
+        $this->get(route('erp.workspace',$this->unit))->assertForbidden();
+        $page=$this->get(route('erp.business',[$this->unit,'timetable','date'=>now('UTC')->addDays(2)->toDateString()]))->assertOk()
+            ->assertSee('href="#action-cancel">Cancel without charge',false)->assertSee('id="action-cancel"',false)->assertSee('id="action-reschedule"',false)->assertSee('id="action-extra"',false);
+        $this->assertDoesNotMatchRegularExpression('#href="'.preg_quote(route('erp.workspace',$this->unit),'#').'["?\#]#',$page->getContent());
+        $this->post(route('erp.mutate',[$this->unit,'cancel']),['lesson_id'=>$lesson,'reason'=>'Parent asked to skip','return_page'=>'timetable'])->assertRedirect(route('erp.business',[$this->unit,'timetable']));
+        $this->assertDatabaseHas('erp_lessons',['id'=>$lesson,'status'=>'cancelled']);
+    }
 }

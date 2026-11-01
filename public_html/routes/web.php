@@ -89,22 +89,22 @@ Route::group(['middleware' => ['auth:web', 'admin']], function () {
         Route::resource('marklist', MarklistController::class)->except(['show', 'destroy']);
         Route::resource('master', MasterController::class)->only(['index']);
         Route::resource('monthlyreport', WorkHourReportController::class)->only(['index']);
-        Route::resource('workhour', WorkHourController::class);
+        Route::resource('workhour', WorkHourController::class)->except(['show']);
         Route::get('studentinfoedit', [WorkHourController::class, 'getStudentedit'])->name('studentinfoedit');
 
         Route::get('teacherinfo', [MarklistController::class, 'getTeacherInfo'])->name('teacherinfo');
         Route::get('studentinfo', [WorkHourController::class, 'getStudentinfo'])->name('studentinfo');
-        Route::resource('workreport', TeacherReportController::class);
+        Route::resource('workreport', TeacherReportController::class)->only(['index']);
         Route::post('syncTeachers', [GoogleSpreadsheetController::class, 'sheetData'])->name('syncTeachers');
         Route::post('syncStudents', [StudentsController::class, 'sheetData'])->name('syncStudents');
         Route::post('syncMasters', [MasterController::class, 'MastersSynkdata'])->name('syncMasters');
         Route::post('syncTeacherReportData', [TeacherReportController::class, 'syncTeacherReportData'])->name('syncTeacherReportData');
-        Route::resource('marklistreport', MarklistReportController::class);
+        Route::resource('marklistreport', MarklistReportController::class)->only(['index']);
         Route::post('syncMarklistReportData', [MarklistReportController::class, 'syncMarklistReportData'])->name('syncMarklistReportData');
         Route::post('syncWorkHoureReportData', [WorkHourController::class, 'syncWorkHoureReportData'])->name('syncWorkHoureReportData');
-        Route::resource('duereport', DueController::class);
+        Route::resource('duereport', DueController::class)->only(['index']);
         Route::post('syncDueReportData', [DueController::class, 'syncDueReportData'])->name('syncDueReportData');
-        Route::resource('timetable', TimeTableController::class);
+        Route::resource('timetable', TimeTableController::class)->only(['index']);
 
         Route::post('syncTimeTableData', [TimeTableController::class, 'syncTimeTableData'])->name('syncTimeTableData');
         Route::get('studentTimetable', [TimeTableController::class, 'studentTimetable'])->name('studentTimetable');

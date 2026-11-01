@@ -16,7 +16,7 @@
 <form method="post" action="{{ route('erp.tuition.mutate',[$business->id,'parent-review']) }}">@csrf
 <input type="hidden" name="attendance_id" value="{{ $row->id }}">
 <label>Review update<select name="decision"><option value="share">Statement shared with parent</option><option value="accepted">Parent accepted / dispute resolved</option><option value="disputed">Parent disputed this entry</option></select></label>
-<label>Objection deadline (UTC; required when sharing)<input name="deadline_at" placeholder="YYYY-MM-DD HH:MM:SS"></label>
+<label>Objection deadline ({{ $business->timezone }} time; required when sharing)<input type="datetime-local" name="deadline_at"></label>
 <label>Sharing evidence, parent reply or resolution<textarea name="note" maxlength="4000" required></textarea></label><button>Save parent review</button></form>
 <form method="post" action="{{ route('erp.mutate',[$business->id,'approve']) }}">@csrf<input type="hidden" name="attendance_id" value="{{ $row->id }}"><button>Approve reviewed teaching for earnings</button></form></article>
 @empty<p>No attendance waiting for review.</p>@endforelse

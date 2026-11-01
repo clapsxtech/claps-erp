@@ -1,6 +1,6 @@
 # ClapsLearn ERP — complete route reference
 
-Verified against the local Laravel route collection on **26 October 2026**: **164 route definitions**, including 163 application definitions/redirects and the Sanctum CSRF endpoint. A definition may accept several HTTP methods. Dynamic page and action values are expanded below; they are not separate route definitions.
+Verified against the local Laravel route collection on **1 November 2026**: **139 route definitions**, including 138 application definitions/redirects and the Sanctum CSRF endpoint. A definition may accept several HTTP methods. Dynamic page and action values are expanded below; they are not separate route definitions.
 
 Read the [user guide and role journeys](ERP_USER_GUIDE.md) first. Download the same registered inventory as [CSV](erp-routes.csv) or [JSON](erp-routes.json). The configured host is `https://erp.clapslearn.in`; deployment of this exact code has not been verified.
 
@@ -57,9 +57,9 @@ Path: `/erp/units/{unit}/{action}`.
 | `import-batch` | Manager, finance | Import student class charges for reviewed attendance IDs |
 | `task`, `complete-task` | Manager, sales | Create/complete team tasks |
 
-The charge-import queue is currently rendered on Overview and Attendance, which Finance cannot open. Use the manager's reviewed queue workflow; the existence of the Finance-authorized action is not a claim that Finance has a corresponding visible queue page.
+The charge-import queue is rendered on Overview, Attendance and Money & receipts, so Finance can import reviewed classes from Money.
 
-Similarly, the timetable's reschedule, cancel and extra-class links lead to the composite workspace, which Academics cannot open. Academics can use the dedicated matching/allocation forms, but should hand those existing-class changes to a manager until the navigation gap is addressed.
+The Timetable page renders its own reschedule, cancel, attended-minutes, extra-class, lesson-generation and exception forms (they post to the workspace action path above with `return_page=timetable`), so Academics can manage existing classes without the composite workspace. Overview and Attendance render the duplicate-review form in place.
 
 ### Business actions
 
@@ -217,7 +217,7 @@ Use the role journeys in the user guide. Personal teacher routes are not team-wi
 | `GET\|HEAD\|POST\|PUT\|PATCH\|DELETE\|OPTIONS` | `/legacy` | `legacy.index` | `\Illuminate\Routing\RedirectController` | `web` |
 | `GET\|HEAD\|POST\|PUT\|PATCH\|DELETE\|OPTIONS` | `/erp` | `erp.compatibility` | `\Illuminate\Routing\RedirectController` | `web` |
 
-### Historical administration tools (84)
+### Historical administration tools (59)
 
 These routes require site administration and are not the normal team-manager workspace. `/admin/delete/{route}/{id}` is a legacy deletion-confirmation page, not an ordinary report. It is blocked in Sheets-authoritative mode. Old `sync*` actions are separate from the temporary read-only Sheets bridge.
 
@@ -262,7 +262,6 @@ These routes require site administration and are not the normal team-manager wor
 | `GET\|HEAD` | `/admin/workhour` | `workhour.index` | `WorkHourController@index` | `web, auth:web, admin` |
 | `GET\|HEAD` | `/admin/workhour/create` | `workhour.create` | `WorkHourController@create` | `web, auth:web, admin` |
 | `POST` | `/admin/workhour` | `workhour.store` | `WorkHourController@store` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/workhour/{workhour}` | `workhour.show` | `WorkHourController@show` | `web, auth:web, admin` |
 | `GET\|HEAD` | `/admin/workhour/{workhour}/edit` | `workhour.edit` | `WorkHourController@edit` | `web, auth:web, admin` |
 | `PUT\|PATCH` | `/admin/workhour/{workhour}` | `workhour.update` | `WorkHourController@update` | `web, auth:web, admin` |
 | `DELETE` | `/admin/workhour/{workhour}` | `workhour.destroy` | `WorkHourController@destroy` | `web, auth:web, admin` |
@@ -270,40 +269,16 @@ These routes require site administration and are not the normal team-manager wor
 | `GET\|HEAD` | `/admin/teacherinfo` | `teacherinfo` | `admin\MarklistController@getTeacherInfo` | `web, auth:web, admin` |
 | `GET\|HEAD` | `/admin/studentinfo` | `studentinfo` | `WorkHourController@getStudentinfo` | `web, auth:web, admin` |
 | `GET\|HEAD` | `/admin/workreport` | `workreport.index` | `TeacherReportController@index` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/workreport/create` | `workreport.create` | `TeacherReportController@create` | `web, auth:web, admin` |
-| `POST` | `/admin/workreport` | `workreport.store` | `TeacherReportController@store` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/workreport/{workreport}` | `workreport.show` | `TeacherReportController@show` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/workreport/{workreport}/edit` | `workreport.edit` | `TeacherReportController@edit` | `web, auth:web, admin` |
-| `PUT\|PATCH` | `/admin/workreport/{workreport}` | `workreport.update` | `TeacherReportController@update` | `web, auth:web, admin` |
-| `DELETE` | `/admin/workreport/{workreport}` | `workreport.destroy` | `TeacherReportController@destroy` | `web, auth:web, admin` |
 | `POST` | `/admin/syncTeachers` | `syncTeachers` | `admin\GoogleSpreadsheetController@sheetData` | `web, auth:web, admin` |
 | `POST` | `/admin/syncStudents` | `syncStudents` | `admin\StudentsController@sheetData` | `web, auth:web, admin` |
 | `POST` | `/admin/syncMasters` | `syncMasters` | `admin\MasterController@MastersSynkdata` | `web, auth:web, admin` |
 | `POST` | `/admin/syncTeacherReportData` | `syncTeacherReportData` | `TeacherReportController@syncTeacherReportData` | `web, auth:web, admin` |
 | `GET\|HEAD` | `/admin/marklistreport` | `marklistreport.index` | `MarklistReportController@index` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/marklistreport/create` | `marklistreport.create` | `MarklistReportController@create` | `web, auth:web, admin` |
-| `POST` | `/admin/marklistreport` | `marklistreport.store` | `MarklistReportController@store` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/marklistreport/{marklistreport}` | `marklistreport.show` | `MarklistReportController@show` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/marklistreport/{marklistreport}/edit` | `marklistreport.edit` | `MarklistReportController@edit` | `web, auth:web, admin` |
-| `PUT\|PATCH` | `/admin/marklistreport/{marklistreport}` | `marklistreport.update` | `MarklistReportController@update` | `web, auth:web, admin` |
-| `DELETE` | `/admin/marklistreport/{marklistreport}` | `marklistreport.destroy` | `MarklistReportController@destroy` | `web, auth:web, admin` |
 | `POST` | `/admin/syncMarklistReportData` | `syncMarklistReportData` | `MarklistReportController@syncMarklistReportData` | `web, auth:web, admin` |
 | `POST` | `/admin/syncWorkHoureReportData` | `syncWorkHoureReportData` | `WorkHourController@syncWorkHoureReportData` | `web, auth:web, admin` |
 | `GET\|HEAD` | `/admin/duereport` | `duereport.index` | `DueController@index` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/duereport/create` | `duereport.create` | `DueController@create` | `web, auth:web, admin` |
-| `POST` | `/admin/duereport` | `duereport.store` | `DueController@store` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/duereport/{duereport}` | `duereport.show` | `DueController@show` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/duereport/{duereport}/edit` | `duereport.edit` | `DueController@edit` | `web, auth:web, admin` |
-| `PUT\|PATCH` | `/admin/duereport/{duereport}` | `duereport.update` | `DueController@update` | `web, auth:web, admin` |
-| `DELETE` | `/admin/duereport/{duereport}` | `duereport.destroy` | `DueController@destroy` | `web, auth:web, admin` |
 | `POST` | `/admin/syncDueReportData` | `syncDueReportData` | `DueController@syncDueReportData` | `web, auth:web, admin` |
 | `GET\|HEAD` | `/admin/timetable` | `timetable.index` | `TimeTableController@index` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/timetable/create` | `timetable.create` | `TimeTableController@create` | `web, auth:web, admin` |
-| `POST` | `/admin/timetable` | `timetable.store` | `TimeTableController@store` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/timetable/{timetable}` | `timetable.show` | `TimeTableController@show` | `web, auth:web, admin` |
-| `GET\|HEAD` | `/admin/timetable/{timetable}/edit` | `timetable.edit` | `TimeTableController@edit` | `web, auth:web, admin` |
-| `PUT\|PATCH` | `/admin/timetable/{timetable}` | `timetable.update` | `TimeTableController@update` | `web, auth:web, admin` |
-| `DELETE` | `/admin/timetable/{timetable}` | `timetable.destroy` | `TimeTableController@destroy` | `web, auth:web, admin` |
 | `POST` | `/admin/syncTimeTableData` | `syncTimeTableData` | `TimeTableController@syncTimeTableData` | `web, auth:web, admin` |
 | `GET\|HEAD` | `/admin/studentTimetable` | `studentTimetable` | `TimeTableController@studentTimetable` | `web, auth:web, admin` |
 | `GET\|HEAD` | `/admin/work-hours/export` | `work_hours.export` | `WorkHourController@exportWorkHours` | `web, auth:web, admin` |

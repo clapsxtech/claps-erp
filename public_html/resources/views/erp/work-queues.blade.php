@@ -2,6 +2,7 @@
 <h3 id="daily-attendance-title">Attendance action queues</h3>
 <p>Two separate decisions: importing attended non-demo classes charges the student; approving attendance accrues teacher earnings. Neither action transfers money. Read each named record before submitting.</p>
 @foreach(['student_import'=>'Student consumption awaiting import','teacher_approval'=>'Teacher approval and accrual review'] as $queue=>$title)
+@continue($page==='money' && $queue!=='student_import')
 <h4>{{ $title }}</h4>
 <p>{{ $queues[$queue]->total() }} records · Oldest class first · Times in {{ $business->timezone }}</p>
 @if($queue==='student_import')<p><small>Demo classes are free and do not appear in this charge queue. Duplicate candidates remain importable under the confirmed policy; review and correction remain separate.</small></p>@endif
@@ -9,7 +10,7 @@
 @forelse($queues[$queue] as $record)
 <tr><td data-label="Student and class"><strong>{{ $record->student_name }}</strong> · {{ $record->student_code }}<br>{{ $record->subject_name }}<br>{{ \Carbon\CarbonImmutable::parse($record->starts_at,'UTC')->setTimezone($business->timezone)->format('j M Y H:i P') }}<br><small>Lesson #{{ $record->lesson_id }} · Attendance #{{ $record->id }}</small></td>
 <td data-label="Teacher">{{ $record->teacher_name }}</td><td data-label="Attended">{{ $record->actual_minutes }} minutes<br>{{ ucfirst($record->kind) }}@if($record->kind==='demo')<br><small>Free and unpaid</small>@endif</td>
-<td data-label="Review">@if($record->pending_reviews)<strong>{{ $record->pending_reviews }} pending duplicate review(s)</strong><br><a href="{{ route('erp.workspace',$business->id) }}#action-duplicate">Record teacher reply and resolve</a>@else No pending duplicate review @endif</td>
+<td data-label="Review">@if($record->pending_reviews)<strong>{{ $record->pending_reviews }} pending duplicate review(s)</strong><br>@if(!$business->archived_at && (new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$business->id,'action','duplicate'))<a href="#action-duplicate">Record teacher reply and resolve</a>@endif @else No pending duplicate review @endif</td>
 <td data-label="Next action">@if($business->archived_at || !(new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$business->id,'action',$queue==='student_import'?'import-batch':'approve'))<p>View only for your current access.</p>@elseif($queue==='student_import')
 <form method="post" action="{{ route('erp.mutate',[$business->id,'import-batch']) }}">@csrf
 <input type="hidden" name="return_page" value="{{ $page }}"><input type="hidden" name="attendance_ids[]" value="{{ $record->id }}">

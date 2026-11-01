@@ -28,9 +28,9 @@
 <details><summary>Lesson #{{ $lesson->id }} actions</summary>
 <p><small>Open the action, then select lesson #{{ $lesson->id }} by name or ID. Changes require explicit submission and existing scheduling checks.</small></p>
 @if($lesson->status==='scheduled')
-<p><a href="{{ route('erp.workspace',[$business->id,'q'=>$lesson->id]) }}#action-reschedule">Reschedule with agreement</a></p>
-<p><a href="{{ route('erp.workspace',[$business->id,'q'=>$lesson->id]) }}#action-cancel">Cancel without charge</a></p>
-@if($lesson->local_end->lte(now('UTC')))<p><a href="{{ route('erp.workspace',[$business->id,'q'=>$lesson->id]) }}#action-attendance">Record attended minutes</a></p>@endif
+@if(!$business->archived_at && (new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$business->id,'action','reschedule'))<p><a href="#action-reschedule">Reschedule with agreement</a></p>@endif
+@if(!$business->archived_at && (new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$business->id,'action','cancel'))<p><a href="#action-cancel">Cancel without charge</a></p>@endif
+@if($lesson->local_end->lte(now('UTC')) && !$business->archived_at && (new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$business->id,'action','attendance'))<p><a href="#action-attendance">Record attended minutes</a></p>@endif
 @elseif($lesson->status==='completed')<p><a href="{{ route('erp.business',[$business->id,'attendance']) }}">Review attendance</a></p>
 @elseif($lesson->status==='cancelled')<p><small>Cancelled lessons remain visible for history. No attendance or cancellation charge.</small></p>
 @elseif($lesson->status==='rescheduled')<p><small>Original time retained for history; the replacement is a separate dated lesson.</small></p>
@@ -41,6 +41,7 @@
 </section>
 @endforeach
 </div>
-<p><a href="{{ route('erp.workspace',$business->id) }}#action-extra">Schedule demo or extra class</a> · <a href="{{ route('erp.workspace',$business->id) }}#action-materialize">Generate dated lessons</a></p>
+@if(!$business->archived_at && (new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$business->id,'action','extra'))<p><a href="#action-extra">Schedule demo or extra class</a> · <a href="#action-materialize">Generate dated lessons</a></p>@endif
+<div class="action-list">@include('erp.action-forms',['actionForms'=>['extra','materialize','reschedule','cancel','attendance','exception'],'returnPage'=>'timetable'])</div>
 <p><small>Viewing this timetable changes no attendance, balances or teacher pay. Import and approval remain separate administrator actions.</small></p>
 </section>

@@ -72,9 +72,9 @@
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <h3 class="card-title" style="margin: 0;">Work Hour Managment</h3>
                                 <p id="lastSynced" style="margin: 0;"></p>
-                                {{-- <button type="button" class="btn btn-primary btn-modal"
+                                <button type="button" class="btn btn-primary btn-modal"
                                     data-href="{{ route('workhour.create') }}" data-container=".modal_class">
-                                    <i class="fa fa-plus-circle"></i> {{ __('common.add') }}</button> --}}
+                                    <i class="fa fa-plus-circle"></i> {{ __('common.add') }}</button>
                                
                             </div>
                         </div>
@@ -109,6 +109,7 @@
                                             <tfoot>
                                                 <tr>
                                                     <th colspan="11" style="text-align:right">Total:</th>
+                                                    <th></th>
                                                     <th></th>
                                                     <th></th>
                                                     <th></th>
@@ -465,6 +466,5 @@
     $("#bankingNav").addClass('active');
     $("#BankServiceCommissionGroupsNav").addClass('active');
 </script>
-@include('admin.layouts.scripts')
 
 @endsection

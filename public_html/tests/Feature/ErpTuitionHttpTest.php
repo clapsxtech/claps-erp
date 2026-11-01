@@ -38,4 +38,20 @@ class ErpTuitionHttpTest extends TestCase
         $this->get(route('erp.tuition',$other))->assertForbidden();
         $this->assertSame(1,DB::table('erp_candidates')->count());
     }
+
+    public function test_parent_deadline_from_the_date_time_picker_is_stored_in_utc(): void
+    {
+        $admin=$this->createAdmin();
+        $unit=DB::table('erp_units')->insertGetId(['code'=>'TUITION-IST','name'=>'India team','timezone'=>'Asia/Kolkata']);
+        $student=DB::table('erp_students')->insertGetId(['unit_id'=>$unit,'code'=>'IST-S','name'=>'Deadline Student','registered_on'=>'2026-01-01','timezone'=>'Asia/Kolkata','status'=>'active','grade'=>'8','syllabus'=>'State']);
+        $teacher=DB::table('erp_teachers')->insertGetId(['code'=>'IST-T','name'=>'Deadline Teacher','timezone'=>'Asia/Kolkata','status'=>'active']);
+        $subject=DB::table('erp_subjects')->insertGetId(['name'=>'Maths']);
+        $enrollment=DB::table('erp_enrollments')->insertGetId(['unit_id'=>$unit,'student_id'=>$student,'teacher_id'=>$teacher,'subject_id'=>$subject,'starts_on'=>'2026-01-01','student_rate_paise'=>12000,'teacher_rate_paise'=>6000,'currency'=>'INR','status'=>'active']);
+        $lesson=DB::table('erp_lessons')->insertGetId(['unit_id'=>$unit,'enrollment_id'=>$enrollment,'student_id'=>$student,'teacher_id'=>$teacher,'subject_id'=>$subject,'starts_at'=>'2026-10-20 10:00:00','ends_at'=>'2026-10-20 11:00:00','kind'=>'regular','status'=>'completed','student_rate_paise'=>12000,'teacher_rate_paise'=>6000,'currency'=>'INR']);
+        $attendance=DB::table('erp_attendance')->insertGetId(['unit_id'=>$unit,'lesson_id'=>$lesson,'actual_minutes'=>60,'status'=>'submitted','submitted_by'=>$admin->id,'created_at'=>now(),'updated_at'=>now()]);
+        $local=now('Asia/Kolkata')->addDays(3)->setTime(18,30);
+        $this->actingAs($admin)->get(route('erp.tuition',$unit))->assertOk()->assertSee('type="datetime-local" name="deadline_at"',false);
+        $this->post(route('erp.tuition.mutate',[$unit,'parent-review']),['attendance_id'=>$attendance,'decision'=>'share','deadline_at'=>$local->format('Y-m-d\\TH:i'),'note'=>'Shared on WhatsApp'])->assertRedirect(route('erp.tuition',$unit));
+        $this->assertSame($local->utc()->format('Y-m-d H:i:s'),DB::table('erp_attendance')->find($attendance)->parent_deadline_at);
+    }
 }

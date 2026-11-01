@@ -225,15 +225,15 @@ class ErpTimetableTest extends TestCase
         $replacement = $this->lesson('2026-10-21 10:00:00', '2026-10-21 11:00:00', ['replaces_lesson_id' => $rescheduled]);
         $noShow = $this->lesson('2026-10-22 10:00:00', '2026-10-22 11:00:00', ['status' => 'no_show']);
         $response = $this->get($this->url(['status' => 'rescheduled']))->assertOk()
-            ->assertSee('Original time retained for history')->assertDontSee('Reschedule with agreement')
-            ->assertDontSee('Cancel without charge')->assertDontSee('Record attended minutes');
+            ->assertSee('Original time retained for history')->assertDontSee('href="#action-reschedule">Reschedule with agreement',false)
+            ->assertDontSee('href="#action-cancel">Cancel without charge',false)->assertDontSee('href="#action-attendance">Record attended minutes',false);
         $this->assertSame([$rescheduled], $this->ids($response->viewData('timetable')));
         $response = $this->get($this->url(['status' => 'no_show']))->assertOk()
             ->assertSee('No show')->assertSee('No attended minutes recorded')
-            ->assertDontSee('Reschedule with agreement')->assertDontSee('Cancel without charge');
+            ->assertDontSee('href="#action-reschedule">Reschedule with agreement',false)->assertDontSee('href="#action-cancel">Cancel without charge',false);
         $this->assertSame([$noShow], $this->ids($response->viewData('timetable')));
         $response = $this->get($this->url(['status' => 'scheduled']))->assertOk()
-            ->assertSee('Reschedule with agreement')->assertSee('Cancel without charge');
+            ->assertSee('href="#action-reschedule">Reschedule with agreement',false)->assertSee('href="#action-cancel">Cancel without charge',false);
         $this->assertSame([$replacement], $this->ids($response->viewData('timetable')));
         $this->assertSame([$rescheduled, $replacement, $noShow], $this->ids($this->get($this->url())->assertOk()->viewData('timetable')));
     }

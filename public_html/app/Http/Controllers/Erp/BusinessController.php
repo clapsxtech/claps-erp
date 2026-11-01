@@ -46,7 +46,7 @@ class BusinessController extends Controller
             $filters=$request->validate(['date'=>'nullable|date_format:Y-m-d|after_or_equal:2000-01-03|before_or_equal:2099-12-27','student'=>'nullable|string|max:100','teacher'=>'nullable|string|max:100','status'=>'nullable|in:scheduled,completed,cancelled,rescheduled,no_show']);
             $timetable=(new \App\Modules\Erp\Services\Timetable())->week($unit,$business->timezone,$filters);
         }
-        $queues=in_array($page,['dashboard','attendance'])?(new \App\Modules\Erp\Services\WorkQueues())->attendance($unit):null;
+        $queues=in_array($page,['dashboard','attendance','money'])?(new \App\Modules\Erp\Services\WorkQueues())->attendance($unit):null;
         $labels=(new \App\Modules\Erp\Services\RecordLabels())->forPages($unit,$data);
         $permissions=new \App\Modules\Erp\Services\TeamPermissions();
         $forms=array_filter($business->archived_at?[]:config('erp_forms.'.$page,[]),fn($form)=>$permissions->allows($request->user(),$unit,'action',$form['action']));
