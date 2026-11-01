@@ -37,7 +37,13 @@ class TuitionController extends Controller
             ->where('a.unit_id',$unit)->where('l.unit_id',$unit)->where('l.student_id',$student->id)->where('a.status','!=','rejected')
             ->whereRaw('COALESCE(a.actual_starts_at,l.starts_at) >= ?',[$start->utc()->format('Y-m-d H:i:s')])->whereRaw('COALESCE(a.actual_starts_at,l.starts_at) < ?',[$start->addMonth()->utc()->format('Y-m-d H:i:s')])
             ->orderByRaw('COALESCE(a.actual_starts_at,l.starts_at)')->get(['a.*','l.starts_at','l.kind','l.student_rate_paise','s.name as subject_name','t.name as teacher_name']);
-        $month=$v['month']; return view('erp.parent-statement',compact('business','student','rows','month'));
+        // Account summary for the month. Ledger times are recorded in the installation timezone.
+        $ledgerZone=config('app.timezone'); $from=$start->setTimezone($ledgerZone)->format('Y-m-d H:i:s'); $to=$start->addMonth()->setTimezone($ledgerZone)->format('Y-m-d H:i:s');
+        $ledger=DB::table('erp_ledger')->where('unit_id',$unit)->where('student_id',$student->id);
+        $kinds=(clone $ledger)->where('occurred_at','>=',$from)->where('occurred_at','<',$to)->groupBy('kind')->selectRaw('kind, SUM(amount_paise) AS total, COUNT(*) AS entries')->pluck('total','kind')->map(fn($v)=>(int)$v);
+        $opening=(int)(clone $ledger)->where('occurred_at','<',$from)->sum('amount_paise');
+        $account=['opening'=>$opening,'kinds'=>$kinds,'closing'=>$opening+(int)$kinds->sum()];
+        $month=$v['month']; return view('erp.parent-statement',compact('business','student','rows','month','account'));
     }
     public function mutate(Request $request,int $unit,string $operation)
     {

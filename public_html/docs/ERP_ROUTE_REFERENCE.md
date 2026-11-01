@@ -53,6 +53,7 @@ Path: `/erp/units/{unit}/{action}`.
 | `availability`, `propose`, `confirm`, `materialize` | Manager, academics | Capture availability, agree a recurring schedule, generate dated lessons |
 | `reschedule`, `cancel`, `extra`, `exception`, `end-agreement` | Manager, academics | Manage scheduling changes |
 | `pause-classes`, `stop-classes` | Manager, academics | Cancel a student's lessons for a date window, or stop after a last class day (ends assignments) |
+| `switch-teacher` | Manager, academics | Move one subject to a new teacher from a date, rebooking the same weekly slots |
 | `attendance`, `no-show`, `approve`, `correct`, `duplicate` | Manager, academics | Submit attendance or a no-show, review, correct, and resolve duplicate cases |
 | `payment` | Manager, finance | Record money actually received |
 | `import-batch` | Manager, finance | Import student class charges for reviewed attendance IDs |

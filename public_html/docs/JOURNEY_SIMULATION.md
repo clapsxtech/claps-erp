@@ -169,6 +169,48 @@ A third pass created "Calicut Centre" and took it from an empty team to its firs
 
 Existing duplicate subjects (if any were created before the fix) aren't merged automatically.
 
+## Teacher, parent and sales in depth
+
+A fourth pass followed three people further than the first run did: Nisha (teacher), Priya Menon (parent), and two counsellors, Asha and Ravi (sales). Parents have no login, so the parent journey covers the documents they receive and the requests staff must handle for them.
+
+**Result: 44 steps, 32 OK, 6 rules, 6 gaps.** Two gaps were closed straight away, and the other five were built the same day (below). **After building them: 44 steps, 37 OK, 6 rules, 1 gap (no parent portal).**
+
+**Teacher (14 steps):** signing in lands on the teacher workspace. Overview shows her next classes. The timetable reflects a reschedule (Thu 12 Nov 10:00), an extra class and a cancellation. A late start submitted as 17:15 her time was stored as 11:45 UTC with 75 minutes. Future classes, report ranges over 366 days and staff pages are refused. Account security is reachable, and unlinking her login stops portal access immediately.
+
+**Sales (19 steps):** Today, Overdue and No-next-action filters each show the right enquiries. Today's reminder appears. Ravi can't see, search for or open Asha's enquiries. Asha hands Leo to Ravi, who accepts it himself, and Leo leaves her list. Lost with a reason; direct conversion with a ₹2,500 first payment; sales can't record later payments (finance only). The source report shows Instagram, Google and Referral outcomes. A new student appears in follow-ups.
+
+**Parent (11 steps):** the fee request shows requested, paid, outstanding and due date; the receipt shows student, amount, reference and date. The monthly statement lists classes, minutes and charges. None of the documents show internal notes or teacher pay.
+
+### Closed during this pass
+
+| Gap | Fix |
+|---|---|
+| Refunds had no printable note (404) | The receipt page also prints a **Refund acknowledgement** ("Paid back to the family"). It's linked from the student profile and the Money ledger |
+| Printed fee requests and receipts had no way to contact the centre | Both show the team's phone next to its name |
+
+### Gaps from this pass (28–32 resolved)
+
+| # | Gap | Who it affects | Workaround |
+|---|---|---|---|
+| 28 | The teacher's student list doesn't show the learning needs and parent concerns sales captured at handoff | Teacher | Staff pass them on outside the system |
+| 29 | The monthly statement shows classes and charges but not payments received or the balance | Parent | Finance or a manager quotes the balance separately |
+| 30 | Sales, usually the parent's contact, can't see a student's balance | Sales, parent | Ask finance or a manager |
+| 31 | Changing the teacher for **one** subject still means cancelling that subject's future lessons one by one before ending the assignment (Stop classes covers all subjects) | Parent, academics | Cancel each lesson, end the assignment, assign the new teacher |
+| 32 | The sales report groups outcomes by source only; there's no per-counsellor comparison | Manager, sales | Count from the leads export |
+| 18 | No parent portal (known) | Parent | Printed documents |
+
+### Resolved gaps 28–32
+
+| # | What was built | Where |
+|---|---|---|
+| 28 | The teacher's student cards show **Learning needs**, **Parent's concerns** and **About the student** from the latest admissions handoff. Notes about the parent and contact details stay hidden | Teacher workspace → My students |
+| 29 | The parent statement has an **Account summary**: balance at the start of the month, payments received, class charges posted, refunds, corrections, and the closing balance as credit or due | Class follow-up → parent statement |
+| 30 | Sales see each student's **balance** (read-only) on the Follow-ups list. Teacher pay stays visible only to roles with Money | Follow-ups |
+| 31 | **Change the teacher for one subject** from a date, in one step. It cancels that subject's later lessons, ends the assignment, creates the new one (same student rate unless changed), and rebooks the same weekly slots with the new teacher after checking eligibility and availability. Nothing changes if any check fails. In the simulation, 34 Tuesday and Saturday classes moved in one submission | People, Timetable, workspace (Academics and managers) |
+| 32 | **Outcomes by counsellor** in the sales report: enquiries, leads with a demo, joined, lost and conversion per current owner, for the same dates as the source table. Sales staff still see only their own enquiries | Admissions → Reports |
+
+Regression tests: `tests/Feature/ErpJourneyGapsTest.php` (teacher handoff notes, statement summary, sales balances, teacher switch including the all-or-nothing case, counsellor report).
+
 ## Rules confirmed (correct refusals)
 
 - Pausing a student with future lessons, and ending an agreement with lessons beyond its end date, are refused with clear instructions. The rules are sound; the missing bulk action is gap 1.

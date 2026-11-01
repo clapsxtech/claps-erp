@@ -42,6 +42,6 @@
 @endforeach
 </div>
 @if(!$business->archived_at && (new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$business->id,'action','extra'))<p><a href="#action-extra">Schedule demo or extra class</a> · <a href="#action-propose">Add a weekly slot</a> · <a href="#action-materialize">Generate dated lessons</a></p><p><small>Adding a weekly slot for an existing assignment: record availability if needed, propose the slot, record both confirmations, then generate dated lessons.</small></p>@endif
-<div class="action-list">@include('erp.action-forms',['actionForms'=>['availability','propose','confirm','materialize','extra','reschedule','cancel','attendance','no-show','pause-classes','stop-classes','end-agreement','exception'],'returnPage'=>'timetable'])</div>
+<div class="action-list">@include('erp.action-forms',['actionForms'=>['availability','propose','confirm','materialize','extra','reschedule','cancel','attendance','no-show','pause-classes','stop-classes','switch-teacher','end-agreement','exception'],'returnPage'=>'timetable'])</div>
 <p><small>Viewing this timetable changes no attendance, balances or teacher pay. Import and approval remain separate administrator actions.</small></p>
 </section>

@@ -38,6 +38,12 @@ class SalesReporting
             ->selectRaw("$source AS source, COUNT(*) AS enquiries, SUM(CASE WHEN l.status = 'JOINED' THEN 1 ELSE 0 END) AS joined, SUM(CASE WHEN l.status = 'LOST' THEN 1 ELSE 0 END) AS lost")
             ->selectRaw("SUM(CASE WHEN EXISTS (SELECT 1 FROM erp_demos d WHERE d.unit_id = l.unit_id AND d.lead_id = l.id) THEN 1 ELSE 0 END) AS demo_leads")
             ->groupByRaw($source)->orderBy('source')->get();
+        // Same leads as the campaign table, grouped by their current owner.
+        $counsellors = DB::table('erp_leads as l')->leftJoin('users as owner', 'owner.id', '=', 'l.assigned_to')->where('l.unit_id', $unit)->whereIn('l.id', $ids())
+            ->whereBetween('l.enquiry_date', [$dates['report_from'], $dates['report_to']])
+            ->selectRaw("COALESCE(owner.name, 'Unassigned') AS counsellor, COUNT(*) AS enquiries, SUM(CASE WHEN l.status = 'JOINED' THEN 1 ELSE 0 END) AS joined, SUM(CASE WHEN l.status = 'LOST' THEN 1 ELSE 0 END) AS lost")
+            ->selectRaw("SUM(CASE WHEN EXISTS (SELECT 1 FROM erp_demos d WHERE d.unit_id = l.unit_id AND d.lead_id = l.id) THEN 1 ELSE 0 END) AS demo_leads")
+            ->groupBy('l.assigned_to', 'owner.name')->orderBy('counsellor')->get();
         $due = DB::table('erp_leads as l')->where('l.unit_id', $unit)->whereIn('l.id', $ids())->where('l.status', 'LEAD')
             ->selectRaw('SUM(CASE WHEN next_follow_up_on IS NULL THEN 1 ELSE 0 END) AS unscheduled')
             ->selectRaw('SUM(CASE WHEN next_follow_up_on = ? THEN 1 ELSE 0 END) AS today', [$today])
@@ -54,6 +60,6 @@ class SalesReporting
                 ->where(function ($q) { $q->where('e.kind', 'payment')->orWhere(function ($q) { $q->where('original.kind', 'payment')->whereNull('original.teacher_id'); }); })
                 ->select('e.currency')->selectRaw('SUM(e.amount_paise) AS net_paise')->groupBy('e.currency')->get();
         }
-        return compact('dates', 'zone', 'staff', 'campaigns', 'due', 'collections');
+        return compact('dates', 'zone', 'staff', 'campaigns', 'counsellors', 'due', 'collections');
     }
 }

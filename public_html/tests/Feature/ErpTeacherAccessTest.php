@@ -27,6 +27,7 @@ class ErpTeacherAccessTest extends TestCase
         Facade::clearResolvedInstances(); Facade::setFacadeApplication($this->container);
         require_once __DIR__.'/../../database/migrations/2026_10_23_130000_create_erp_core_tables.php'; (new \CreateErpCoreTables())->up();
         require_once __DIR__.'/../../database/migrations/2026_10_23_150000_create_erp_business_workflows.php'; (new \CreateErpBusinessWorkflows())->up();
+        require_once __DIR__.'/../../database/migrations/2026_10_26_090000_create_erp_admissions.php'; (new \CreateErpAdmissions())->up();
         require_once __DIR__.'/../../database/migrations/2026_10_23_170000_add_intervals_to_erp_exceptions.php'; (new \AddIntervalsToErpExceptions())->up();
         (require __DIR__.'/../../database/migrations/2026_10_25_150000_add_team_lifecycle.php')->up();
         require_once __DIR__.'/../../database/migrations/2026_10_25_180000_add_erp_tuition_workflows.php'; (new \AddErpTuitionWorkflows())->up();

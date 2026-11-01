@@ -58,7 +58,10 @@ class TeacherController extends Controller
         $assignments=DB::table('erp_enrollments as e')->join('erp_students as s',function($join){$join->on('s.id','=','e.student_id')->on('s.unit_id','=','e.unit_id');})
             ->join('erp_subjects as subject','subject.id','=','e.subject_id')->where('e.teacher_id',$teacher->id)->where('e.unit_id',$unitId)
             ->where('e.status','active')->where('s.status','active')->orderBy('s.name')
-            ->get(['e.id','s.name','s.code','s.grade','s.syllabus','subject.name as subject_name']);
+            // Handoff notes from admissions help the teacher plan; notes about the parent stay with staff.
+            ->leftJoinSub(DB::table('erp_leads')->whereNotNull('student_id')->groupBy('student_id')->selectRaw('student_id, MAX(id) AS lead_id'),'latest_lead','latest_lead.student_id','=','s.id')
+            ->leftJoin('erp_leads as handoff',function($join){$join->on('handoff.id','=','latest_lead.lead_id')->on('handoff.unit_id','=','s.unit_id');})
+            ->get(['e.id','s.name','s.code','s.grade','s.syllabus','subject.name as subject_name','handoff.learning_requirement','handoff.concern','handoff.about_student']);
         $resultQuery=DB::table('erp_marks as m')->join('erp_enrollments as e',function($join){$join->on('e.id','=','m.enrollment_id')->on('e.unit_id','=','m.unit_id');})
             ->join('erp_students as s',function($join){$join->on('s.id','=','e.student_id')->on('s.unit_id','=','e.unit_id');})
             ->join('erp_subjects as subject','subject.id','=','e.subject_id')->where('e.teacher_id',$teacher->id)->where('m.unit_id',$unitId)

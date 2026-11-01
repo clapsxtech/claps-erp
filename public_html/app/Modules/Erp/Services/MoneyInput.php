@@ -9,7 +9,7 @@ class MoneyInput
 {
     public static function forAction(array $payload, string $action): array
     {
-        if ($action === 'assign') {
+        if ($action === 'assign' || $action === 'switch-teacher') {
             $fields = ['student_rate_inr' => 'student_rate_paise', 'teacher_rate_inr' => 'teacher_rate_paise'];
             $maxPaise = 100000000;
             $allowZero = true;
@@ -21,6 +21,8 @@ class MoneyInput
             return $payload;
         }
 
+        // Switching teacher keeps the student's current rate when that optional box is left blank.
+        if ($action === 'switch-teacher' && array_key_exists('student_rate_inr', $payload) && trim((string) $payload['student_rate_inr']) === '') unset($payload['student_rate_inr']);
         $inrFields = array_intersect_key($payload, $fields);
         if (!$inrFields) {
             // Existing API clients and integrations still supply paise; leave them unchanged.

@@ -123,6 +123,45 @@ class Scheduling
         });
     }
 
+    /** Move one subject to a new teacher from a date: same student, subject and weekly slots, re-confirmed with the new teacher. */
+    public function switchTeacher(int $unitId, int $actorId, array $p) {
+        $this->required($p,['enrollment_id','teacher_id','from','teacher_rate_paise','reason','confirmation_channel','teacher_confirmed','student_confirmed','confirmation_note']);
+        $from = $this->date($p['from']); $reason = trim((string) $p['reason']);
+        return DB::transaction(function () use ($unitId,$actorId,$p,$from,$reason) {
+            $old = $this->row('erp_enrollments',$p['enrollment_id'],$unitId,true);
+            if ((int) $old->teacher_id === (int) $p['teacher_id']) $this->fail('Choose a different teacher.');
+            $student = $this->row('erp_students',$old->student_id,$unitId,true);
+            $today = (new DateTimeImmutable('now',$this->zone($student->timezone)))->format('Y-m-d');
+            if ($from <= $today) $this->fail('Switch from tomorrow or later; today\'s classes stay with the current teacher.');
+            if ($from <= $old->starts_on || ($old->ends_on && $from > $old->ends_on)) $this->fail('The switch date must fall within the current assignment.');
+            $cutoff = $this->localToUtc($from,'00:00',$student->timezone);
+            $agreements = DB::table('erp_agreements')->where('unit_id',$unitId)->where('enrollment_id',$old->id)->where('status','confirmed')->where(function($q) use ($from) { $q->whereNull('ends_on')->orWhere('ends_on','>=',$from); })->orderBy('id')->get();
+            $through = [];
+            foreach ($agreements as $a) {
+                $last = DB::table('erp_lessons')->where('agreement_id',$a->id)->where('status','scheduled')->where('starts_at','>=',$cutoff)->max('starts_at');
+                if ($last) $through[$a->id] = (new DateTimeImmutable($last.' UTC'))->setTimezone($this->zone($a->timezone))->format('Y-m-d');
+            }
+            $cancelled = DB::table('erp_lessons as l')->where('l.unit_id',$unitId)->where('l.enrollment_id',$old->id)->where('l.status','scheduled')->where('l.starts_at','>=',$cutoff)
+                ->whereNotExists(function($q) { $q->selectRaw('1')->from('erp_attendance as a')->whereColumn('a.lesson_id','l.id'); })->lockForUpdate()->pluck('l.id')->all();
+            if ($cancelled) DB::table('erp_lessons')->whereIn('id',$cancelled)->update(['status'=>'cancelled','cancellation_reason'=>mb_substr('Teacher changed: '.$reason,0,500),'updated_at'=>$this->now()]);
+            $this->endAssignment($unitId,$actorId,['enrollment_id'=>$old->id,'ends_on'=>(new DateTimeImmutable($from))->modify('-1 day')->format('Y-m-d')]);
+            $new = $this->assign($unitId,$actorId,['student_id'=>$old->student_id,'teacher_id'=>$p['teacher_id'],'subject_id'=>$old->subject_id,'starts_on'=>$from,'ends_on'=>$old->ends_on,
+                'student_rate_paise'=>$p['student_rate_paise'] ?? $old->student_rate_paise,'teacher_rate_paise'=>$p['teacher_rate_paise']]);
+            $lessons = 0;
+            foreach ($agreements as $a) {
+                $starts = max($from,$a->starts_on);
+                $proposal = $this->proposeAgreement($unitId,$actorId,['enrollment_id'=>$new->id,'weekday'=>$a->weekday,'start_time'=>substr($a->start_time,0,5),'duration_minutes'=>$a->duration_minutes,'timezone'=>$a->timezone,'starts_on'=>$starts,'ends_on'=>$a->ends_on && (!$old->ends_on || $a->ends_on <= $old->ends_on) ? $a->ends_on : $old->ends_on]);
+                $this->confirmAgreement($unitId,$actorId,['agreement_id'=>$proposal->id,'confirmation_channel'=>$p['confirmation_channel'],'teacher_confirmed'=>$p['teacher_confirmed'],'student_confirmed'=>$p['student_confirmed'],'confirmation_note'=>$p['confirmation_note']]);
+                if (isset($through[$a->id])) {
+                    $this->materialize($unitId,$actorId,['agreement_id'=>$proposal->id,'from'=>$starts,'through'=>$through[$a->id]]);
+                    $lessons += DB::table('erp_lessons')->where('agreement_id',$proposal->id)->count();
+                }
+            }
+            $this->audit($unitId,$actorId,'assignment.teacher_switched','enrollment',$new->id,['previous_enrollment_id'=>$old->id,'from'=>$from,'reason'=>$reason,'cancelled_lesson_ids'=>$cancelled]);
+            return (object) ['enrollment_id'=>$new->id,'cancelled'=>count($cancelled),'lessons'=>$lessons];
+        });
+    }
+
     private function cancelScheduled(int $unitId, int $studentId, string $from, string $to, string $reason): array {
         $ids = DB::table('erp_lessons as l')->where('l.unit_id',$unitId)->where('l.student_id',$studentId)->where('l.status','scheduled')->where('l.starts_at','>=',$from)->where('l.starts_at','<',$to)
             ->whereNotExists(function($q) { $q->selectRaw('1')->from('erp_attendance as a')->whereColumn('a.lesson_id','l.id'); })->lockForUpdate()->pluck('l.id')->all();

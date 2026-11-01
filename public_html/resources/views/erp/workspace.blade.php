@@ -22,7 +22,7 @@
 @include('erp.action-forms',['actionForms'=>['confirm']])
 @include('erp.action-forms',['actionForms'=>['materialize']])
 @include('erp.action-forms',['actionForms'=>['reschedule']])
-@include('erp.action-forms',['actionForms'=>['cancel','pause-classes','stop-classes']])
+@include('erp.action-forms',['actionForms'=>['cancel','pause-classes','stop-classes','switch-teacher']])
 @include('erp.action-forms',['actionForms'=>['attendance','no-show']])
 <details><summary>Approve attended class for teacher accrual</summary><form method="post" action="{{ route('erp.mutate',[$business->id,'approve']) }}">@csrf
 <label>Attendance Id<input type="search" class="entity-search" placeholder="Search records" aria-label="Search attendance id"><select name="attendance_id" class="entity-picker" data-url="{{ route('erp.lookup',[$business->id,'type'=>'attendance']) }}" required><option value="">Choose a record</option></select></label><button type="submit">Save</button></form></details>
