@@ -17,12 +17,18 @@ class Administration
         $v=Validator::make($input,[
             'code'=>['required','regex:/^[A-Z][A-Z0-9_-]{1,19}$/',Rule::unique('erp_units','code')->ignore($id)],
             'name'=>'required|string|max:150','timezone'=>'required|timezone','phone'=>'nullable|string|max:30',
-        ])->validate();
+            'legal_name'=>'nullable|string|max:200','address'=>'nullable|string|max:1000','state'=>'nullable|string|max:60','tax_mode'=>'nullable|in:none,gst',
+            'tax_id'=>['nullable','required_if:tax_mode,gst','regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/'],'invoice_prefix'=>['nullable','regex:/^[A-Z0-9-]{1,20}$/'],
+        ],['tax_id.regex'=>'Enter a 15-character GSTIN in capitals, for example 32ABCDE1234F1Z5.','tax_id.required_if'=>'A GST-registered team needs its GSTIN.'])->validate();
+        if(($v['tax_mode']??null)==='gst' && empty($v['state'])) throw ValidationException::withMessages(['state'=>'A GST-registered team needs its state, to decide CGST/SGST or IGST.']);
+        if(array_key_exists('tax_mode',$v) && $v['tax_mode']===null) unset($v['tax_mode']);
         return DB::transaction(function()use($actor,$v,$id){
             if($id){
                 $unit=DB::table('erp_units')->where('id',$id)->lockForUpdate()->first(); abort_unless($unit,404);
                 // Dates already materialized in this team must retain their timezone semantics.
                 if($unit->timezone!==$v['timezone'] && DB::table('erp_lessons')->where('unit_id',$id)->exists()) throw ValidationException::withMessages(['timezone'=>'A team with dated lessons cannot change timezone.']);
+                // Post existing charges under the current tax settings before they change.
+                foreach(['tax_mode','state','tax_id'] as $taxField) if(array_key_exists($taxField,$v) && $v[$taxField]!==$unit->$taxField){ (new Books())->sync($id); break; }
                 DB::table('erp_units')->where('id',$id)->update($v+['updated_at'=>now()]);
             } else $id=DB::table('erp_units')->insertGetId($v+['created_at'=>now(),'updated_at'=>now()]);
             Audit::record($id,$actor->id,'team.saved','unit',$id,$v);return $id;

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 class BusinessController extends Controller
 {
     public function __construct() {}
-    private function pages(){return ['dashboard'=>'Overview','admissions'=>'Admissions & CRM','allocation'=>'Teacher matching','teacher-recruitment'=>'Teacher recruitment','people'=>'Students & teachers','academics'=>'Academics','timetable'=>'Timetable','attendance'=>'Attendance','money'=>'Money & receipts','followups'=>'Follow-ups','staff'=>'Team access','migration'=>'Migration & exports'];}
+    private function pages(){return ['dashboard'=>'Overview','admissions'=>'Admissions & CRM','allocation'=>'Teacher matching','teacher-recruitment'=>'Teacher recruitment','people'=>'Students & teachers','academics'=>'Academics','timetable'=>'Timetable','attendance'=>'Attendance','money'=>'Money & receipts','followups'=>'Follow-ups','staff'=>'Team access','migration'=>'Migration & exports','accounts'=>'Accounts & tax','insights'=>'Trends'];}
     public function page(Request $request,int $unit,string $page='dashboard')
     {
         (new Access())->unit($request->user(),$unit,false);abort_unless(isset($this->pages()[$page]),404);
@@ -16,6 +16,8 @@ class BusinessController extends Controller
         if ($page === 'admissions') return app(AdmissionsController::class)->index($request, $unit);
         if ($page === 'staff') (new \App\Modules\IdentityAccess\Services\SiteAccessPolicy())->assertAdministrator($request->user());
         if ($page === 'academics') return app(AcademicsController::class)->index($request, $unit);
+        if ($page === 'accounts') return app(AccountsController::class)->index($request, $unit);
+        if ($page === 'insights') return app(InsightsController::class)->index($request, $unit);
         $business=DB::table('erp_units')->find($unit);$pages=$this->pages();$data=[];$money=new MoneyOperations();
         $request->validate(['q'=>'nullable|string|max:100']);$search=trim((string)$request->query('q',''));
         if(in_array($page,['dashboard','people','money','followups'])){
@@ -59,6 +61,7 @@ class BusinessController extends Controller
         if (str_starts_with($action, 'allocation-')) return app(TeacherAllocationController::class)->mutate($request, $unit, $action);
         if (str_starts_with($action, 'teacher-candidate-')) return app(TeacherRecruitmentController::class)->mutate($request, $unit, $action);
         if (str_starts_with($action, 'admission-')) return app(AdmissionsController::class)->mutate($request, $unit, $action);
+        if (str_starts_with($action, 'books-')) return app(AccountsController::class)->mutate($request, $unit, $action);
         $map=[
             'student-update'=>[Operations::class,'updateStudent'],'task-update'=>[Operations::class,'updateTask'],'task-item'=>[Operations::class,'addTaskItem'],'task-item-complete'=>[Operations::class,'completeTaskItem'],'followup'=>[Operations::class,'recordFollowup'],'membership-grant'=>[Operations::class,'grantMembership'],'membership-revoke'=>[Operations::class,'revokeMembership'],'teacher-link'=>[Operations::class,'linkTeacherUser'],'teacher-unlink'=>[Operations::class,'unlinkTeacherUser'],
             'salary-paid'=>[MoneyOperations::class,'recordTeacherPayment'],'salary-reverse'=>[MoneyOperations::class,'reverseTeacherPayment'],'receipt-reverse'=>[MoneyOperations::class,'reverseReceipt'],'receipt-correct'=>[MoneyOperations::class,'correctReceipt'],'request-create'=>[MoneyOperations::class,'createPaymentRequest'],'request-cancel'=>[MoneyOperations::class,'cancelPaymentRequest'],'request-allocate'=>[MoneyOperations::class,'allocateReceipt'],'refund-paid'=>[MoneyOperations::class,'recordRefund'],'refund-reverse'=>[MoneyOperations::class,'reverseRefund']];

@@ -13,12 +13,26 @@ class People
         $months = ($now->year-$joined->year)*12+$now->month-$joined->month;
         return $months === 0 ? 'Super Priority' : ($months === 1 ? 'High Priority' : 'Medium Priority');
     }
+    public const PROFILE_RULES=['date_of_birth'=>'nullable|date_format:Y-m-d|after:1940-01-01|before:today','billing_state'=>'nullable|string|max:60'];
+
+    /** Date of birth (parent portal sign-in) and billing state (GST place of supply) live on the student profile. */
+    public static function saveProfile(int $unitId,int $studentId,array $fields): array
+    {
+        $fields=array_intersect_key($fields,self::PROFILE_RULES);
+        if(!$fields)return [];
+        foreach($fields as $k=>$v)$fields[$k]=is_string($v)&&trim($v)===''?null:(is_string($v)?trim($v):$v);
+        $existing=DB::table('erp_student_profiles')->where('student_id',$studentId)->first();
+        if($existing){$changes=array_filter($fields,fn($v,$k)=>$existing->$k!==$v,ARRAY_FILTER_USE_BOTH);if($changes)DB::table('erp_student_profiles')->where('id',$existing->id)->update($changes+['updated_at'=>now()]);return $changes;}
+        DB::table('erp_student_profiles')->insert($fields+['unit_id'=>$unitId,'student_id'=>$studentId,'created_at'=>now(),'updated_at'=>now()]);
+        return array_filter($fields,fn($v)=>$v!==null);
+    }
+
     public function student(int $unitId,int $actorId,array $data)
     {
-        $v=Validator::make($data,['code'=>'required|string|max:100|unique:erp_students,code','name'=>'required|string|max:255','registered_on'=>'required|date_format:Y-m-d','timezone'=>'required|timezone','grade'=>'required|string|max:100','syllabus'=>'required|string|max:100','guardian_contact'=>'nullable|string|max:255','meeting_url'=>'nullable|url|max:255'])->validate();
+        $v=Validator::make($data,['code'=>'required|string|max:100|unique:erp_students,code','name'=>'required|string|max:255','registered_on'=>'required|date_format:Y-m-d','timezone'=>'required|timezone','grade'=>'required|string|max:100','syllabus'=>'required|string|max:100','guardian_contact'=>'nullable|string|max:255','meeting_url'=>'nullable|url|max:255']+self::PROFILE_RULES)->validate();$profile=array_intersect_key($v,self::PROFILE_RULES);$v=array_diff_key($v,self::PROFILE_RULES);
         $unitTimezone=DB::table('erp_units')->where('id',$unitId)->value('timezone');
         abort_unless($unitTimezone && $v['registered_on'] <= CarbonImmutable::now($unitTimezone)->toDateString(),422,'Registration cannot be in the future in this business unit.');
-        return DB::transaction(function()use($unitId,$actorId,$v){$id=DB::table('erp_students')->insertGetId($v+['unit_id'=>$unitId,'status'=>'active','created_at'=>now(),'updated_at'=>now()]);Audit::record($unitId,$actorId,'student.registered','student',$id,['code'=>$v['code']]);return DB::table('erp_students')->find($id);});
+        return DB::transaction(function()use($unitId,$actorId,$v,$profile){$id=DB::table('erp_students')->insertGetId($v+['unit_id'=>$unitId,'status'=>'active','created_at'=>now(),'updated_at'=>now()]);self::saveProfile($unitId,$id,$profile);Audit::record($unitId,$actorId,'student.registered','student',$id,['code'=>$v['code']]);return DB::table('erp_students')->find($id);});
     }
     public function teacher(int $unitId,int $actorId,array $data)
     {

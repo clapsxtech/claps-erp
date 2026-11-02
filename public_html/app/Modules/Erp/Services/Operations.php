@@ -36,10 +36,12 @@ class Operations
         $changes=[]; foreach ($values as $key=>$value) if (($row->$key ?? null) !== $value) $changes[$key]=['from'=>$row->$key ?? null,'to'=>$value]; return $changes;
     }
     public function updateStudent(int $unitId,int $actorId,array $payload) {
-        $v=Validator::make($payload,['student_id'=>'required|integer|min:1','name'=>'sometimes|required|string|max:255','registered_on'=>'sometimes|required|date_format:Y-m-d','timezone'=>'sometimes|required|timezone','status'=>'sometimes|required|in:active,paused,stopped','grade'=>'sometimes|required|string|max:100','syllabus'=>'sometimes|required|string|max:100','guardian_contact'=>'sometimes|nullable|string|max:255','meeting_url'=>'sometimes|nullable|url|max:255'])->validate();
-        return DB::transaction(function() use ($unitId,$actorId,$v) {
+        $v=Validator::make($payload,['student_id'=>'required|integer|min:1','name'=>'sometimes|required|string|max:255','registered_on'=>'sometimes|required|date_format:Y-m-d','timezone'=>'sometimes|required|timezone','status'=>'sometimes|required|in:active,paused,stopped','grade'=>'sometimes|required|string|max:100','syllabus'=>'sometimes|required|string|max:100','guardian_contact'=>'sometimes|nullable|string|max:255','meeting_url'=>'sometimes|nullable|url|max:255']+array_map(fn($r)=>'sometimes|'.$r,People::PROFILE_RULES))->validate();$profile=array_intersect_key($v,People::PROFILE_RULES);$v=array_diff_key($v,People::PROFILE_RULES);
+        return DB::transaction(function() use ($unitId,$actorId,$v,$profile) {
             $unit=$this->actor($unitId,$actorId); $student=$this->row('erp_students',(int)$v['student_id'],$unitId); $values=$v; unset($values['student_id']);
-            if (!$values) $this->invalid('Provide at least one profile field to update.');
+            if (!$values && !$profile) $this->invalid('Provide at least one profile field to update.');
+            if ($profileChanges=People::saveProfile($unitId,$student->id,$profile)) $this->audit($unitId,$actorId,'student.profile_updated','student',$student->id,['fields'=>array_keys($profileChanges)]);
+            if (!$values) return $this->row('erp_students',$student->id,$unitId);
             if (isset($values['registered_on']) && $values['registered_on']>CarbonImmutable::now($unit->timezone)->toDateString()) $this->invalid('Registration cannot be in the future in this unit.');
             if (isset($values['meeting_url']) && !preg_match('~^https?://~i',$values['meeting_url'])) $this->invalid('Meeting links must use HTTP or HTTPS.');
             if (isset($values['timezone']) && $values['timezone']!==$student->timezone) {

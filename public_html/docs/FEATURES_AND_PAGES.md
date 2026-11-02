@@ -131,6 +131,38 @@ Linked teachers see their own overview, timetable, students, attendance history,
 ### Administration
 Create, update and archive teams; onboard staff; update accounts; grant/revoke team membership and link teacher accounts; operations and audit view; migration center.
 
+### Parent portal
+Families sign in at `/parent` with the student ID and date of birth (one sign-in per child). They see upcoming and past classes, results, the balance, fee requests, invoices, receipts and refunds, and monthly statements, and can flag a class record as wrong. A flagged class that isn't approved yet is held as disputed. Staff answer flags under **Class follow-up → Parent queries**.
+
+Security:
+- **Lockout:** 5 failed attempts lock that student ID for 15 minutes, and site-wide failures are capped. Lockouts aren't keyed on IP, because the deployment's proxy hides real addresses.
+- **Messages:** every failure shows the same message, so it doesn't reveal which half was wrong.
+- **Sessions:** a session expires after 30 idle minutes, and changing the date of birth signs the family out.
+- **Archived teams and missing DOB:** families in archived teams, or without a date of birth on file, can't sign in.
+- **Audit:** every sign-in and query is audited.
+- **What stays hidden:** staff notes, teacher pay, contact details and parent-handling notes are never shown.
+
+### Accounts & tax
+Double-entry books per team, posted automatically from the operational ledger. Each charge, receipt, refund, teacher accrual, teacher payment, opening balance and reversal posts exactly one balanced journal, so the Student accounts control account always equals the students' balances. Also includes:
+- **Manual journals and reversals:** with custom accounts, for rent, bank charges, GST payments and capital.
+- **Reports:** trial balance, general ledger with running balances, profit and loss, and balance sheet.
+
+**GST teams** (enabled under Teams & accounts with GSTIN, legal name, address and state):
+- **Rates:** class rates include 18% GST.
+- **Split:** each charge splits into taxable value plus CGST and SGST, or IGST when the student's billing state differs from the team's state.
+- **Tax invoices:** issued monthly per student (SAC 999293, numbered `PREFIX/2026-27/0001` per financial year, dated the day they're issued). Cancelling one issues a credit note (`PREFIX-CN/…`).
+- **GST summary:** compares tax booked with tax on documents issued, by place of supply.
+
+Non-GST teams get plain invoices. Tax is applied when a charge is posted; turning GST on posts existing charges under the old setting first. Tax-exclusive pricing isn't supported, because it would make the books disagree with the balances staff see.
+
+### Trends
+Six months side by side per team (managers, read-only and admins):
+- **Sales:** enquiries, demos, joins and conversion.
+- **Students and classes:** new and active students, hours taught, cancellations, no-shows and the no-show rate.
+- **Money:** billed, collected, refunds, teacher cost, gross margin, and dues owed at month end.
+
+Headline figures are for the last complete month, with a column chart for each measure and a full table.
+
 ### Historical records and tools
 The original sheet-backed tools kept for reference: users, roles, subjects, topics, teacher/student/assignment records synced from Sheets, assessment and work-hour records, monthly and teacher-hour reports, historical dues and timetable, attendance and assessment history reports, and work-hour CSV export.
 
@@ -171,6 +203,17 @@ Status is from the 1 November 2026 crawl as site administrator. `{unit}` is a te
 | Teacher entry | `/teacher` | Linked teachers; others see setup guidance | ✅ 200 |
 | Teacher dashboard (6 sections) | `/erp/teacher?section=…` | Linked teachers only | ✅ 403 for non-teacher, as designed; covered by `ErpTeacherHttpTest` |
 | From Sheets | `/erp/from-sheets` | When the bridge is enabled | ✅ 404 while disabled, as designed |
+
+### Parent portal, accounts and trends (added 2 November 2026)
+
+| Page | Path | Who |
+|---|---|---|
+| Parent sign-in | `/parent/login` | Families (student ID + date of birth) |
+| Parent portal | `/parent`, `/parent/classes`, `/parent/results`, `/parent/fees` | Signed-in family |
+| Parent documents | `/parent/statement?month=…`, `/parent/documents/{receipt|request|invoice}/{id}` | Signed-in family, own child only |
+| Accounts & tax | `B/accounts?view=overview|journals|ledger|reports|invoices|tax|chart` | Admin, manager, finance; read-only can view |
+| Invoice / credit note print | `/erp/units/{unit}/invoices/{id}` | Same as Accounts & tax |
+| Trends | `B/insights` | Admin, manager, read-only |
 
 ### Administration
 

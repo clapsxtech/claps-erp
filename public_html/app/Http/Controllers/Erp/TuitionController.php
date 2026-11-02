@@ -24,7 +24,9 @@ class TuitionController extends Controller
         $candidates=DB::table('erp_candidates')->where('unit_id',$unit)->orderByDesc('id')->limit(200)->get();
         $students=DB::table('erp_students')->where('unit_id',$unit)->orderBy('name')->get(['id','name','code']);
         $interviews=DB::table('erp_candidate_interviews')->where('unit_id',$unit)->orderByDesc('id')->limit(200)->get();
-        return view('erp.tuition',compact('business','lessons','pending','notes','candidates','interviews','shortfalls','students'));
+        $parentRequests=DB::table('erp_parent_requests as r')->join('erp_students as s','s.id','=','r.student_id')->leftJoin('erp_attendance as a','a.id','=','r.attendance_id')->leftJoin('erp_lessons as l','l.id','=','a.lesson_id')
+            ->where('r.unit_id',$unit)->where('r.status','open')->orderBy('r.created_at')->limit(100)->get(['r.*','s.name as student_name','s.code as student_code','a.actual_minutes','a.status as attendance_status','l.starts_at']);
+        return view('erp.tuition',compact('business','lessons','pending','notes','candidates','interviews','shortfalls','students','parentRequests'));
     }
     public function statement(Request $request,int $unit)
     {
@@ -32,17 +34,7 @@ class TuitionController extends Controller
         $v=$request->validate(['student_id'=>'required|integer|min:1','month'=>'required|date_format:Y-m']);
         $student=DB::table('erp_students')->where('unit_id',$unit)->where('id',$v['student_id'])->first(); abort_unless($student,404);
         $business=DB::table('erp_units')->find($unit);
-        $start=\Carbon\CarbonImmutable::createFromFormat('!Y-m',$v['month'],$student->timezone)->startOfMonth();
-        $rows=DB::table('erp_attendance as a')->join('erp_lessons as l','l.id','=','a.lesson_id')->join('erp_subjects as s','s.id','=','l.subject_id')->join('erp_teachers as t','t.id','=','l.teacher_id')
-            ->where('a.unit_id',$unit)->where('l.unit_id',$unit)->where('l.student_id',$student->id)->where('a.status','!=','rejected')
-            ->whereRaw('COALESCE(a.actual_starts_at,l.starts_at) >= ?',[$start->utc()->format('Y-m-d H:i:s')])->whereRaw('COALESCE(a.actual_starts_at,l.starts_at) < ?',[$start->addMonth()->utc()->format('Y-m-d H:i:s')])
-            ->orderByRaw('COALESCE(a.actual_starts_at,l.starts_at)')->get(['a.*','l.starts_at','l.kind','l.student_rate_paise','s.name as subject_name','t.name as teacher_name']);
-        // Account summary for the month. Ledger times are recorded in the installation timezone.
-        $ledgerZone=config('app.timezone'); $from=$start->setTimezone($ledgerZone)->format('Y-m-d H:i:s'); $to=$start->addMonth()->setTimezone($ledgerZone)->format('Y-m-d H:i:s');
-        $ledger=DB::table('erp_ledger')->where('unit_id',$unit)->where('student_id',$student->id);
-        $kinds=(clone $ledger)->where('occurred_at','>=',$from)->where('occurred_at','<',$to)->groupBy('kind')->selectRaw('kind, SUM(amount_paise) AS total, COUNT(*) AS entries')->pluck('total','kind')->map(fn($v)=>(int)$v);
-        $opening=(int)(clone $ledger)->where('occurred_at','<',$from)->sum('amount_paise');
-        $account=['opening'=>$opening,'kinds'=>$kinds,'closing'=>$opening+(int)$kinds->sum()];
+        ['rows'=>$rows,'account'=>$account]=\App\Modules\Erp\Services\ParentPortal::statement($unit,$student,$v['month']);
         $month=$v['month']; return view('erp.parent-statement',compact('business','student','rows','month','account'));
     }
     public function mutate(Request $request,int $unit,string $operation)
@@ -63,6 +55,13 @@ class TuitionController extends Controller
                 }
             });
             return redirect()->route('erp.tuition',$unit)->with('status','Statement sharing recorded for the selected attendance entries.');
+        }
+        if ($operation==='parent-request-resolve') {
+            $v=$request->validate(['request_id'=>'required|integer|min:1','reply'=>'required|string|max:2000']);
+            $updated=DB::table('erp_parent_requests')->where('unit_id',$unit)->where('id',$v['request_id'])->where('status','open')->update(['status'=>'resolved','resolved_by'=>$request->user()->id,'resolved_at'=>now(),'updated_at'=>now()]);
+            abort_unless($updated,404);
+            \App\Modules\Erp\Services\Audit::record($unit,(int)$request->user()->id,'parent_request.resolved','parent_request',(int)$v['request_id'],['reply'=>$v['reply']]);
+            return redirect()->route('erp.tuition',$unit)->with('status','Parent query marked as answered. Correct or accept the class record separately if needed.');
         }
         $method=['note'=>'note','parent-review'=>'parentReview','candidate'=>'candidate','interview'=>'interview'][$operation]??null;
         abort_unless($method,404);

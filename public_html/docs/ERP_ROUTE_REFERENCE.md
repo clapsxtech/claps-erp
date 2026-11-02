@@ -107,6 +107,16 @@ Path: `/erp/units/{unit}/tuition/{operation}`. Site administrator/team manager o
 - `POST /erp/my-tasks/{task}/complete`: assignee completes their own task with current team access.
 - `POST /erp/my-tasks/{task}/items/{item}/complete`: assignee completes their own checklist item. Read-only membership cannot complete tasks.
 
+### Accounts, invoices and parent portal
+
+| Path | Values | Who |
+|---|---|---|
+| `POST /erp/units/{unit}/business-actions/{action}` | `books-account`, `books-journal`, `books-journal-reverse`, `books-invoice-run`, `books-invoice-cancel` | Manager, finance |
+| `POST /parent/login`, `/parent/logout`, `/parent/disputes` | Student ID + date of birth; class queries | Families (separate from staff accounts) |
+| `POST /erp/units/{unit}/tuition/parent-request-resolve` | Mark a family's class query answered | Admin, team manager |
+
+The D1 schema change for these features is `cloudflare/migrations/0012_parent_portal_and_accounting.sql`. Apply it before deploying this code.
+
 ## CSV exports: expand `{dataset}`
 
 Path: `GET /erp/units/{unit}/exports/{dataset}`. Supported datasets:

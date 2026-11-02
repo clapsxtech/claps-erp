@@ -45,7 +45,7 @@
 @php
     $navigationUnits = (new \App\Modules\Erp\Services\Access())->units(auth()->user());
     $currentUnit = $business ?? null;
-    $navigationPages = ['dashboard'=>['Overview','home'],'admissions'=>['Admissions & CRM','chat'],'allocation'=>['Teacher matching','calendar'],'teacher-recruitment'=>['Teacher recruitment','people'],'people'=>['Students & teachers','people'],'academics'=>['Academics','book'],'timetable'=>['Timetable','calendar'],'attendance'=>['Attendance','check'],'money'=>['Money & receipts','wallet'],'followups'=>['Follow-ups','chat'],'staff'=>['Team access','shield'],'migration'=>['Migration & exports','download']];
+    $navigationPages = ['dashboard'=>['Overview','home'],'admissions'=>['Admissions & CRM','chat'],'allocation'=>['Teacher matching','calendar'],'teacher-recruitment'=>['Teacher recruitment','people'],'people'=>['Students & teachers','people'],'academics'=>['Academics','book'],'timetable'=>['Timetable','calendar'],'attendance'=>['Attendance','check'],'money'=>['Money & receipts','wallet'],'followups'=>['Follow-ups','chat'],'staff'=>['Team access','shield'],'migration'=>['Migration & exports','download'],'accounts'=>['Accounts & tax','chart'],'insights'=>['Trends','spark']];
     if (!$toolAdministrator && $currentUnit) $navigationPages=array_filter($navigationPages,fn($item,$key)=>(new \App\Modules\Erp\Services\TeamPermissions())->allows(auth()->user(),$currentUnit->id,'page',$key),ARRAY_FILTER_USE_BOTH);
     $currentPage = request()->route('page');
     $isHome = request()->routeIs('erp.index');

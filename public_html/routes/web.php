@@ -115,6 +115,17 @@ Route::group(['middleware' => ['auth:web', 'admin']], function () {
     });
 });
 
+// Family portal: student ID + date of birth. Separate from staff accounts; lockouts are applied per student ID.
+Route::prefix('parent')->name('parent.')->group(function () {
+    Route::get('/login', [\App\Http\Controllers\ParentPortalController::class, 'showLogin'])->name('login');
+    Route::post('/login', [\App\Http\Controllers\ParentPortalController::class, 'login'])->name('login.submit');
+    Route::post('/logout', [\App\Http\Controllers\ParentPortalController::class, 'logout'])->name('logout');
+    Route::get('/statement', [\App\Http\Controllers\ParentPortalController::class, 'statement'])->name('statement');
+    Route::get('/documents/{type}/{id}', [\App\Http\Controllers\ParentPortalController::class, 'document'])->whereIn('type', ['receipt', 'request', 'invoice'])->whereNumber('id')->name('document');
+    Route::post('/disputes', [\App\Http\Controllers\ParentPortalController::class, 'dispute'])->name('dispute');
+    Route::get('/{section?}', [\App\Http\Controllers\ParentPortalController::class, 'index'])->whereIn('section', ['overview', 'classes', 'results', 'fees'])->name('home');
+});
+
 Route::middleware('guest')->group(function () {
     Route::get('/two-factor', [\App\Http\Controllers\Auth\TwoFactorController::class,'challenge'])->name('two-factor.challenge');
     Route::post('/two-factor', [\App\Http\Controllers\Auth\TwoFactorController::class,'verify'])->middleware('throttle:6,1,two-factor-challenge')->name('two-factor.verify');

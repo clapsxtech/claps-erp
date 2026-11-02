@@ -18,6 +18,7 @@ Route::middleware(['auth', \App\Http\Middleware\TeamAuthorization::class])->pref
     Route::get('/units/{unit}/exports/{dataset}',[\App\Http\Controllers\Erp\BusinessController::class,'export'])->whereNumber('unit')->name('export');
     Route::get('/units/{unit}/reconciliation',[\App\Http\Controllers\Erp\BusinessController::class,'reconciliation'])->whereNumber('unit')->name('reconciliation');
     Route::get('/units/{unit}/lookup',[\App\Http\Controllers\Erp\BusinessController::class,'lookup'])->whereNumber('unit')->name('lookup');
+    Route::get('/units/{unit}/invoices/{id}',[\App\Http\Controllers\Erp\AccountsController::class,'invoice'])->whereNumber('unit')->whereNumber('id')->name('invoice');
     Route::get('/units/{unit}/payment-requests/{id}',[\App\Http\Controllers\Erp\BusinessController::class,'requestPrint'])->whereNumber('unit')->whereNumber('id')->name('request.print');
     Route::get('/units/{unit}',[WorkspaceController::class,'workspace'])->whereNumber('unit')->name('workspace');
     Route::post('/units/{unit}/{action}',[WorkspaceController::class,'mutate'])->whereNumber('unit')->name('mutate');

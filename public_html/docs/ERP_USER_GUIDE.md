@@ -236,7 +236,9 @@ The private parent-review/HR workspace and site account administration remain un
 
 ## 13. Parents, students and task-only staff
 
-**Parents/students:** there is no implemented parent/student self-service login journey in the current route set. Authorized staff prepare the monthly statement, print/save it and share it manually. Parents respond through the agreed channel; staff record acceptance or dispute. The `/tuition/statement` URL is staff-protected, so sharing that URL alone does not give a parent access.
+**Parent portal:** share `/parent` with families. To give a family access, record the student's **date of birth** under Students & teachers (register or update a student). They sign in with the student ID on their receipts and fee requests plus that date. One sign-in per child. If they're locked out after wrong attempts, they wait 15 minutes. Check their flagged classes under **Class follow-up → Parent queries**: correct or accept the class, then mark the query answered.
+
+**Statements:** staff can still prepare, print and share the monthly statement and record acceptance or dispute. Families can now also see the same statement in the parent portal. The staff `/tuition/statement` URL stays staff-only.
 
 **Assigned-task journey:** open `/erp/my-tasks` → read due work → finish each checklist item → complete the task. The list is restricted to tasks assigned to that login in current, active team memberships. Read-only users cannot complete tasks. Legacy `sales` memberships can use this limited portal, but the new Sales / follow-ups role is `sales_followups` and also enables the CRM pages.
 

@@ -4,6 +4,11 @@
 <p>{{ $business->name }} · Private to admins and team managers</p>
 <p><a href="{{ route('erp.business',[$business->id,'dashboard']) }}">Back to dashboard</a></p>
 <nav class="tabs"><a href="#review">Parent review</a><a href="#class-notes">Internal notes</a><a href="#hr">Teacher recruitment</a></nav>
+<section id="parent-queries"><h2>Parent queries from the portal <span class="count-pill">{{ $parentRequests->count() }}</span></h2><p>Families can flag a class record from the parent portal at <a href="{{ route('parent.login') }}">{{ route('parent.login') }}</a> (student ID and date of birth). Unapproved classes they flag are held as disputed. Correct the attendance or record acceptance, then mark the query answered.</p>
+<div class="scroll"><table><thead><tr><th>Received</th><th>Student</th><th>Class</th><th>Parent's message</th><th>Answer</th></tr></thead><tbody>
+@forelse($parentRequests as $query)<tr><td>{{ \Carbon\CarbonImmutable::parse($query->created_at)->format('j M Y H:i') }}</td><td>{{ $query->student_name }} · {{ $query->student_code }}</td><td>@if($query->starts_at){{ \Carbon\CarbonImmutable::parse($query->starts_at,'UTC')->setTimezone($business->timezone)->format('j M Y H:i') }} · {{ $query->actual_minutes }} min · {{ $query->attendance_status }}<br><small>Attendance #{{ $query->attendance_id }}</small>@endif</td><td>{{ $query->note }}</td>
+<td><form method="post" action="{{ route('erp.tuition.mutate',[$business->id,'parent-request-resolve']) }}">@csrf<input type="hidden" name="request_id" value="{{ $query->id }}"><label>What you told the parent<input name="reply" maxlength="2000" required></label><button>Mark answered</button></form></td></tr>
+@empty<tr><td colspan="5">No open parent queries.</td></tr>@endforelse</tbody></table></div></section>
 <section id="review"><h2>Monthly parent statement</h2>
 <form method="get" action="{{ route('erp.tuition.statement',$business->id) }}"><label>Student<select name="student_id" required>@foreach($students as $student)<option value="{{ $student->id }}">{{ $student->name }} · {{ $student->code }}</option>@endforeach</select></label><label>Month<input type="month" name="month" value="{{ now($business->timezone)->format('Y-m') }}" required></label><button>Prepare parent statement</button></form>
 <h2>Attendance awaiting review</h2>

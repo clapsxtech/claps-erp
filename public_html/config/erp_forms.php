@@ -62,6 +62,20 @@ return json_decode(<<<'JSON'
           "type": "url",
           "required": false,
           "options": null
+        },
+        {
+          "name": "date_of_birth",
+          "label": "Date of birth (for the parent portal)",
+          "type": "date",
+          "required": false,
+          "options": null
+        },
+        {
+          "name": "billing_state",
+          "label": "Billing state (GST place of supply, if not the team's state)",
+          "type": "text",
+          "required": false,
+          "options": null
         }
       ],
       "help": ""
@@ -166,6 +180,20 @@ return json_decode(<<<'JSON'
           "name": "meeting_url",
           "label": "Meeting Url",
           "type": "url",
+          "required": false,
+          "options": null
+        },
+        {
+          "name": "date_of_birth",
+          "label": "Date of birth (for the parent portal)",
+          "type": "date",
+          "required": false,
+          "options": null
+        },
+        {
+          "name": "billing_state",
+          "label": "Billing state (GST place of supply, if not the team's state)",
+          "type": "text",
           "required": false,
           "options": null
         }

@@ -24,6 +24,7 @@ class TeamAuthorization
             'erp.export'=>['export',(string)$request->route('dataset')],
             'erp.academics.export'=>['export','marks'],
             'erp.receipt','erp.request.print'=>['page','money'],
+            'erp.invoice'=>['page','accounts'],
             'erp.reconciliation'=>['page','migration'],
             // These legacy composite screens contain financial and personal histories.
             'erp.workspace','erp.student-profile'=>['detail','all'],
