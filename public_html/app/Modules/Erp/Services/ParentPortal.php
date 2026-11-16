@@ -15,6 +15,7 @@ class ParentPortal
     public const IDLE_MINUTES = 30;
     private const CODE_ATTEMPTS = 5;        // failed attempts per student ID…
     private const CODE_DECAY = 900;         // …per 15 minutes
+    private const CODE_DAILY_ATTEMPTS = 10; // and per student ID per day, so slow guessing stays slow
     private const IP_ATTEMPTS = 20;         // failed attempts per public client IP per 15 minutes (only when real client IPs are visible)
     private const SITE_ATTEMPTS = 200;      // failed attempts across all IDs per minute: a distributed guessing attack
 
@@ -24,7 +25,11 @@ class ParentPortal
      */
     public static function clientIp(?string $ip): ?string
     {
-        return $ip && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) ? $ip : null;
+        // Only trust the address when a proxy is explicitly configured (TRUSTED_PROXIES), and never a private, reserved or shared (100.64/10) one.
+        if (trim((string) config('proxy.trusted_proxies', '')) === '' || !$ip) return null;
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return null;
+        if (\Symfony\Component\HttpFoundation\IpUtils::checkIp($ip, '100.64.0.0/10')) return null;
+        return $ip;
     }
 
     public static function normalizeCode(string $code): string
@@ -38,9 +43,13 @@ class ParentPortal
         $code = self::normalizeCode($code);
         $codeKey = 'parent-login:'.hash('sha256', $code);
         $ipKey = 'parent-login-ip:'.hash('sha256', (string) $ip);
+        $dayKey = 'parent-login-day:'.hash('sha256', $code);
         // During a site-wide attack, IDs that have already had a wrong guess are frozen, while
         // families whose ID has not been tried can still sign in (no lockout for everyone).
         $underAttack = RateLimiter::tooManyAttempts('parent-login:site', self::SITE_ATTEMPTS);
+        if (RateLimiter::tooManyAttempts($dayKey, self::CODE_DAILY_ATTEMPTS)) {
+            throw ValidationException::withMessages(['student_code' => 'Too many attempts for this student ID today. Please try again tomorrow, or contact the centre.']);
+        }
         if (RateLimiter::tooManyAttempts($codeKey, self::CODE_ATTEMPTS) || ($ip !== null && RateLimiter::tooManyAttempts($ipKey, self::IP_ATTEMPTS))
             || ($underAttack && RateLimiter::attempts($codeKey) > 0)) {
             throw ValidationException::withMessages(['student_code' => 'Too many attempts. Please wait 15 minutes, or contact the centre.']);
@@ -52,11 +61,12 @@ class ParentPortal
             ->select('s.*')->first();
         if (!$student) {
             RateLimiter::hit($codeKey, self::CODE_DECAY);
+            RateLimiter::hit($dayKey, 86400);
             if ($ip !== null) RateLimiter::hit($ipKey, self::CODE_DECAY);
             RateLimiter::hit('parent-login:site', 60);
             throw ValidationException::withMessages(['student_code' => 'The student ID and date of birth do not match our records.']);
         }
-        RateLimiter::clear($codeKey);
+        RateLimiter::clear($codeKey); RateLimiter::clear($dayKey);
         Audit::record((int) $student->unit_id, null, 'parent.signed_in', 'student', (int) $student->id, []);
         return $student;
     }

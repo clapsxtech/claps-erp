@@ -177,7 +177,8 @@ class Books
     {
         $lines = array_values(array_filter($lines, fn ($l) => $l['debit_paise'] || $l['credit_paise']));
         $debits = array_sum(array_column($lines, 'debit_paise')); $credits = array_sum(array_column($lines, 'credit_paise'));
-        if ($debits !== $credits || !$lines) throw new \RuntimeException("Unbalanced journal for {$sourceType} {$sourceId}: {$debits} / {$credits}");
+        // A zero-amount ledger row posts as an entry with no lines, so it is marked done instead of blocking every later sync.
+        if ($debits !== $credits || (!$lines && $sourceType !== 'ledger')) throw new \RuntimeException("Unbalanced journal for {$sourceType} {$sourceId}: {$debits} / {$credits}");
         $id = DB::table('erp_journal_entries')->insertGetId(['unit_id' => $unit, 'entry_date' => $date, 'reference' => mb_substr($reference, 0, 120), 'memo' => $memo, 'source_type' => $sourceType, 'source_id' => $sourceId, 'reverses_id' => $reverses, 'created_by' => $actor, 'created_at' => now(), 'updated_at' => now()]);
         foreach ($lines as $l) DB::table('erp_journal_lines')->insert($l + ['entry_id' => $id, 'unit_id' => $unit, 'created_at' => now(), 'updated_at' => now()]);
         return $id;

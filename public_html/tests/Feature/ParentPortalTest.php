@@ -63,12 +63,18 @@ class ParentPortalTest extends TestCase
         for ($i=0; $i<4; $i++) $this->signIn('PP-1001','2000-01-01');
         $this->signIn()->assertSessionHasErrors(['student_code'=>'Too many attempts. Please wait 15 minutes, or contact the centre.']);
         $this->signIn('PP-1002','2012-01-01')->assertRedirect(route('parent.home'));
+        // Slow guessing: after the 15-minute window passes, after 10 wrong guesses in a day the ID is closed until tomorrow, even with the right date.
+        \Illuminate\Support\Facades\RateLimiter::clear('parent-login:'.hash('sha256','PP-1001'));
+        for ($i=0; $i<5; $i++) $this->signIn('PP-1001','2000-02-0'.($i+1));
+        \Illuminate\Support\Facades\RateLimiter::clear('parent-login:'.hash('sha256','PP-1001'));
+        $this->signIn()->assertSessionHasErrors(['student_code'=>'Too many attempts for this student ID today. Please try again tomorrow, or contact the centre.']);
         $this->assertSame(1,DB::table('erp_audit')->where('action','parent.signed_in')->count());
     }
 
     public function test_one_source_cannot_spray_ids_and_an_attack_does_not_lock_out_everyone(): void
     {
         $ids=fn($n)=>'PP-'.(5000+$n);
+        config(['proxy.trusted_proxies'=>'192.0.2.10']);
         $this->withServerVariables(['REMOTE_ADDR'=>'203.0.113.7']);
         for ($i=0; $i<20; $i++) $this->signIn($ids($i),'2013-04-21');
         $this->signIn()->assertSessionHasErrors(['student_code'=>'Too many attempts. Please wait 15 minutes, or contact the centre.']);
@@ -86,7 +92,11 @@ class ParentPortalTest extends TestCase
     {
         $this->assertNull(\App\Modules\Erp\Services\ParentPortal::clientIp('10.0.0.5'));
         $this->assertNull(\App\Modules\Erp\Services\ParentPortal::clientIp('127.0.0.1'));
+        $this->assertNull(\App\Modules\Erp\Services\ParentPortal::clientIp('203.0.113.7'),'No trusted proxy configured: the address is not the family\'s.');
+        config(['proxy.trusted_proxies'=>'192.0.2.10']);
+        $this->assertNull(\App\Modules\Erp\Services\ParentPortal::clientIp('100.64.0.1'));
         $this->assertSame('203.0.113.7',\App\Modules\Erp\Services\ParentPortal::clientIp('203.0.113.7'));
+        config(['proxy.trusted_proxies'=>'']);
         $this->withServerVariables(['REMOTE_ADDR'=>'10.0.0.5']);
         for ($i=0; $i<25; $i++) $this->signIn('PP-'.(6000+$i),'2013-04-21');
         $this->signIn()->assertRedirect(route('parent.home'));

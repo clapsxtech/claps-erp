@@ -174,12 +174,15 @@ class AccountingTest extends TestCase
     public function test_changing_a_billing_state_keeps_the_tax_on_charges_already_made(): void
     {
         $this->actingAs($this->admin);
-        DB::table('erp_student_profiles')->insert(['unit_id'=>$this->unit,'student_id'=>$this->student,'billing_state'=>'Kerala']);
+        // No profile yet: the first billing state set still posts earlier charges under the team's state.
         $this->ledger('lesson_charge',-11800,'CHG-BEFORE-MOVE');
         $this->post(route('erp.business.mutate',[$this->unit,'student-update']),['student_id'=>$this->student,'billing_state'=>'Tamil Nadu'])->assertRedirect();
         $this->ledger('lesson_charge',-11800,'CHG-AFTER-MOVE');
         (new Books())->sync($this->unit);
         $this->assertSame([-900,-900,-1800],[$this->balance('cgst'),$this->balance('sgst'),$this->balance('igst')]);
+        $this->ledger('payment',0,'PAY-ZERO');
+        $this->assertSame(1,(new Books())->sync($this->unit),'A zero-amount row is marked posted and does not block later syncs.');
+        $this->assertSame(0,(new Books())->pendingCount($this->unit));
     }
 
     public function test_page_loads_post_a_bounded_batch_and_say_what_is_left(): void
