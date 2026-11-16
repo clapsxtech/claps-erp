@@ -24,10 +24,20 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # CLOUDFLARE_API_TOKEN is stored as a secret of this GitHub environment.
+    environment: CLOUDFLARE_API_TOKEN
     defaults:
       run:
         working-directory: public_html
     steps:
+      - name: Check Cloudflare token is available
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN secret is empty for this job"
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
