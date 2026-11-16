@@ -1,0 +1,49 @@
+name: Deploy to Cloudflare
+
+# Deploys the clapslearn-logs Worker (erp.clapslearn.in) and its Laravel
+# container image whenever main changes. Requires the repository secret
+# CLOUDFLARE_API_TOKEN (Workers Scripts, Containers, D1, R2 edit on the account
+# set in public_html/wrangler.jsonc). D1 migrations are not applied here.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public_html/**'
+      - '.github/workflows/cloudflare-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two deploys at once; a newer push waits for the current one.
+concurrency:
+  group: cloudflare-deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: public_html
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: public_html/.nvmrc
+          cache: npm
+          cache-dependency-path: public_html/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Asset and deployment tests
+        run: npm test
+      - name: Build assets, push container image and deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        # npm appends the arguments to the final `wrangler deploy` in cf:deploy.
+        run: npm run cf:deploy -- --message "GitHub Actions ${GITHUB_SHA::7} (run ${GITHUB_RUN_ID})"
+      - name: Show active deployment
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deployments status
