@@ -30,6 +30,7 @@ jobs:
       run:
         working-directory: public_html
     steps:
+      - uses: actions/checkout@v4
       - name: Check Cloudflare token is available
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -38,7 +39,6 @@ jobs:
             echo "::error::CLOUDFLARE_API_TOKEN secret is empty for this job"
             exit 1
           fi
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: public_html/.nvmrc
