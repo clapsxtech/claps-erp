@@ -73,3 +73,22 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx wrangler deployments status
+      # A running container keeps the old code until it restarts. Restart it and
+      # wait until the app reports ready (the endpoint allows up to 180 seconds).
+      - name: Restart the app on the new version
+        env:
+          INTERNAL_TOKEN: ${{ secrets.INTERNAL_TOKEN }}
+        run: |
+          if [ -z "$INTERNAL_TOKEN" ]; then
+            echo "::warning::INTERNAL_TOKEN is not set; restart the app manually to run the new version."
+            exit 0
+          fi
+          curl -fsS -m 240 -X POST -H "Authorization: Bearer $INTERNAL_TOKEN" https://erp.clapslearn.in/__cloudflare/restart -o "$RUNNER_TEMP/restart.json"
+          cat "$RUNNER_TEMP/restart.json"; echo
+          grep -q '"ready":true' "$RUNNER_TEMP/restart.json"
+      - name: Check the live site
+        run: |
+          for path in /health /ready /parent/login; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 "https://erp.clapslearn.in$path")
+            echo "$path $code"; [ "$code" = 200 ]
+          done
