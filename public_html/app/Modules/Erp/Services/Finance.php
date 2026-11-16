@@ -159,6 +159,7 @@ class Finance
                 $key = 'reversal:'.$entry->id;
                 $id = $this->entry($unitId, $actorId, ['student_id' => $entry->student_id, 'teacher_id' => $entry->teacher_id, 'attendance_id' => $attendanceId, 'kind' => 'reversal', 'amount_paise' => -$entry->amount_paise, 'reference' => 'ERP:'.$key, 'event_key' => $key, 'reverses_id' => $entry->id]);
                 Audit::record($unitId, $actorId, 'ledger.reversed', 'ledger', $id, ['reverses_id' => $entry->id, 'reason' => $reason]);
+                (new Invoicing())->creditReversedCharge($unitId, $actorId, $entry, $reason);
             }
         });
     }

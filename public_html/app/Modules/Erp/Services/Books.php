@@ -57,6 +57,27 @@ class Books
         return ['taxable' => $sign * $taxable, 'cgst' => $sign * $cgst, 'sgst' => $sign * ($interstate ? 0 : $tax - $cgst), 'igst' => $sign * ($interstate ? $tax : 0), 'interstate' => $interstate];
     }
 
+    /**
+     * The tax split each charge was actually booked with, keyed by ledger id (positive amounts).
+     * Invoices use this so they always agree with the books, even if team GST settings or a
+     * student's billing state changed after the charge was posted.
+     */
+    public function postedSplits(int $unit, array $ledgerIds): array
+    {
+        if (!$ledgerIds) return [];
+        $rows = DB::table('erp_journal_entries as e')->join('erp_journal_lines as l', 'l.entry_id', '=', 'e.id')->join('erp_accounts as a', 'a.id', '=', 'l.account_id')
+            ->where('e.unit_id', $unit)->where('e.source_type', 'ledger')->whereIn('e.source_id', $ledgerIds)->whereIn('a.system_key', ['tuition', 'cgst', 'sgst', 'igst'])
+            ->get(['e.source_id', 'a.system_key', 'l.debit_paise', 'l.credit_paise']);
+        $splits = [];
+        foreach ($rows as $r) {
+            $key = $r->system_key === 'tuition' ? 'taxable' : $r->system_key;
+            $splits[(int) $r->source_id] ??= ['taxable' => 0, 'cgst' => 0, 'sgst' => 0, 'igst' => 0];
+            $splits[(int) $r->source_id][$key] += (int) $r->credit_paise - (int) $r->debit_paise;
+        }
+        foreach ($splits as &$split) $split['interstate'] = $split['igst'] !== 0;
+        return $splits;
+    }
+
     /** Post journals for any ledger rows not yet in the books. Safe to call repeatedly. */
     public function sync(int $unit): int
     {
@@ -234,12 +255,14 @@ class Books
         return ['account' => $account, 'opening' => $opening, 'lines' => $lines];
     }
 
-    /** Output tax by month from the books and from issued tax documents (they should agree once a month is fully invoiced). */
+    /** Output tax for a month from the books and from the documents billing that month (they agree once the month is fully invoiced). */
     public function taxSummary(int $unit, string $month): array
     {
         $start = $month.'-01'; $end = CarbonImmutable::createFromFormat('Y-m-d', $start)->endOfMonth()->toDateString();
         $booked = $this->balances($unit, $start, $end)->whereIn('system_key', ['tuition', 'cgst', 'sgst', 'igst'])->keyBy('system_key')->map(fn ($r) => -$r->balance);
-        $docs = DB::table('erp_invoices')->where('unit_id', $unit)->whereBetween('issue_date', [$start, $end])->get();
+        // Documents count towards the month they bill (credit notes inherit it), so both sides cover the same charges.
+        $docs = DB::table('erp_invoices')->where('unit_id', $unit)
+            ->where(fn ($q) => $q->where('billing_period', $month)->orWhere(fn ($q) => $q->whereNull('billing_period')->whereBetween('issue_date', [$start, $end])))->get();
         $signed = fn ($i, $f) => ($i->document_type === 'credit_note' ? -1 : 1) * (int) $i->$f;
         $issued = ['taxable' => $docs->sum(fn ($i) => $signed($i, 'subtotal_paise')), 'cgst' => $docs->sum(fn ($i) => $signed($i, 'cgst_paise')), 'sgst' => $docs->sum(fn ($i) => $signed($i, 'sgst_paise')), 'igst' => $docs->sum(fn ($i) => $signed($i, 'igst_paise')), 'total' => $docs->sum(fn ($i) => $signed($i, 'total_paise'))];
         $byState = $docs->groupBy(fn ($i) => $i->place_of_supply ?: 'Not recorded')->map(fn ($g) => ['documents' => $g->count(), 'taxable' => $g->sum(fn ($i) => $signed($i, 'subtotal_paise')), 'tax' => $g->sum(fn ($i) => $signed($i, 'tax_paise'))])->sortKeys();

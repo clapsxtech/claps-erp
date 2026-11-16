@@ -1,7 +1,7 @@
 <?php
 namespace Tests\Feature;
 
-use App\Modules\Erp\Services\{Books,Invoicing};
+use App\Modules\Erp\Services\{Books,Finance,Invoicing};
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -89,6 +89,64 @@ class AccountingTest extends TestCase
         $this->post(route('parent.login.submit'),['student_code'=>'KT-001','date_of_birth'=>'2013-04-21']);
         $this->get(route('parent.home',['section'=>'fees']))->assertSee('KT/'.$fy.'/0002')->assertSee('(credit note)');
         $this->get(route('parent.document',['type'=>'invoice','id'=>$invoice->id]))->assertOk()->assertSee('CANCELLED')->assertSee('Back to the parent portal');
+    }
+
+    public function test_invoices_use_the_tax_each_charge_was_booked_with(): void
+    {
+        $this->actingAs($this->admin);
+        DB::table('erp_units')->where('id',$this->unit)->update(['tax_mode'=>'none']);
+        $this->ledger('lesson_charge',-118000,'CHG-PRE-GST');
+        (new Books())->sync($this->unit);
+        DB::table('erp_units')->where('id',$this->unit)->update(['tax_mode'=>'gst']);
+        $this->ledger('lesson_charge',-59000,'CHG-GST');
+        (new Books())->sync($this->unit);
+        // The family moves state after the GST charge was booked; the invoice keeps the booked CGST/SGST.
+        DB::table('erp_student_profiles')->insert(['unit_id'=>$this->unit,'student_id'=>$this->student,'billing_state'=>'Tamil Nadu']);
+        $month=now('Asia/Kolkata')->format('Y-m');
+        $this->post(route('erp.business.mutate',[$this->unit,'books-invoice-run']),['month'=>$month])->assertSessionHas('status',fn($s)=>str_contains($s,'2 invoice(s) issued for 2 class charge(s)'));
+        $plain=DB::table('erp_invoices')->where('document_type','invoice')->first();
+        $taxed=DB::table('erp_invoices')->where('document_type','tax_invoice')->first();
+        $this->assertSame([118000,0,null],[(int)$plain->subtotal_paise,(int)$plain->tax_paise,$plain->supplier_tax_id],'Charges booked before GST are not invoiced with GST.');
+        $this->assertSame([50000,4500,4500,0,'Kerala'],[(int)$taxed->subtotal_paise,(int)$taxed->cgst_paise,(int)$taxed->sgst_paise,(int)$taxed->igst_paise,$taxed->place_of_supply]);
+        $tax=(new Books())->taxSummary($this->unit,$month);
+        foreach(['taxable','cgst','sgst','igst'] as $k) $this->assertSame($tax['booked'][$k],$tax['issued'][$k],"Books and invoices agree on $k.");
+    }
+
+    public function test_tax_summary_counts_documents_in_the_month_they_bill(): void
+    {
+        $this->actingAs($this->admin);
+        $lastMonth=now('Asia/Kolkata')->subMonthNoOverflow()->startOfMonth();
+        $this->ledger('lesson_charge',-59000,'CHG-LAST-MONTH',['occurred_at'=>$lastMonth->addDays(10)->format('Y-m-d H:i:s')]);
+        $this->post(route('erp.business.mutate',[$this->unit,'books-invoice-run']),['month'=>$lastMonth->format('Y-m')])->assertSessionHas('status',fn($s)=>str_contains($s,'1 invoice(s) issued'));
+        $last=(new Books())->taxSummary($this->unit,$lastMonth->format('Y-m'));
+        $this->assertSame([50000,50000,1],[$last['booked']['taxable'],$last['issued']['taxable'],$last['documents']],'An invoice issued this month for last month counts in last month.');
+        $this->assertSame(0,(new Books())->taxSummary($this->unit,now('Asia/Kolkata')->format('Y-m'))['documents']);
+    }
+
+    public function test_reversing_an_invoiced_class_charge_issues_a_credit_note(): void
+    {
+        $this->actingAs($this->admin);
+        $subject=DB::table('erp_subjects')->insertGetId(['name'=>'Accounts Maths']);
+        $enrollment=DB::table('erp_enrollments')->insertGetId(['unit_id'=>$this->unit,'student_id'=>$this->student,'teacher_id'=>$this->teacher,'subject_id'=>$subject,'starts_on'=>'2026-01-01','status'=>'active','student_rate_paise'=>45000,'teacher_rate_paise'=>30000,'currency'=>'INR']);
+        $at=now('UTC')->subHours(3)->format('Y-m-d H:00:00');
+        $lesson=DB::table('erp_lessons')->insertGetId(['unit_id'=>$this->unit,'enrollment_id'=>$enrollment,'student_id'=>$this->student,'teacher_id'=>$this->teacher,'subject_id'=>$subject,'starts_at'=>$at,'ends_at'=>$at,'status'=>'completed','kind'=>'regular','student_rate_paise'=>45000,'teacher_rate_paise'=>30000,'currency'=>'INR']);
+        $attendance=DB::table('erp_attendance')->insertGetId(['unit_id'=>$this->unit,'lesson_id'=>$lesson,'actual_minutes'=>60,'status'=>'approved','submitted_by'=>$this->admin->id,'created_at'=>now(),'updated_at'=>now()]);
+        $charge=$this->ledger('lesson_charge',-45000,'CHG-CLASS',['attendance_id'=>$attendance]);
+        $this->ledger('lesson_charge',-30000,'CHG-OTHER');
+        $month=now('Asia/Kolkata')->format('Y-m');
+        $this->post(route('erp.business.mutate',[$this->unit,'books-invoice-run']),['month'=>$month])->assertSessionHas('status',fn($s)=>str_contains($s,'1 invoice(s) issued for 2 class charge(s)'));
+        $invoice=DB::table('erp_invoices')->first();
+
+        (new Finance())->reverseAttendance($this->unit,$this->admin->id,$attendance,'Class did not happen');
+        $this->assertSame('cancelled',DB::table('erp_invoices')->find($invoice->id)->status);
+        $note=DB::table('erp_invoices')->where('document_type','credit_note')->first();
+        $this->assertSame([(int)$invoice->id,75000],[(int)$note->credits_invoice_id,(int)$note->total_paise]);
+        $this->assertStringContainsString('Class did not happen',$note->notes);
+        // The remaining charge is invoiced again on the next run; the reversed one is not.
+        $this->post(route('erp.business.mutate',[$this->unit,'books-invoice-run']),['month'=>$month])->assertSessionHas('status',fn($s)=>str_contains($s,'1 invoice(s) issued for 1 class charge(s)'));
+        $this->assertNull(DB::table('erp_ledger')->find($charge)->invoice_id);
+        $tax=(new Books())->taxSummary($this->unit,$month);
+        $this->assertSame($tax['booked']['taxable'],$tax['issued']['taxable']);
     }
 
     public function test_tax_settings_are_validated_and_existing_charges_keep_their_treatment(): void

@@ -51,8 +51,11 @@ class ParentPortalController extends Controller
     {
         if (!$student = $this->student($request)) return redirect()->route('parent.login');
         $v = $request->validate(['attendance_id' => 'required|integer|min:1', 'note' => 'required|string|max:1000']);
-        (new ParentPortal())->dispute($student, (int) $v['attendance_id'], $v['note']);
-        return redirect()->route('parent.home', ['section' => 'classes'])->with('status', 'Thank you. The centre will check this class and get back to you. It will not be billed until it is resolved.');
+        $query = (new ParentPortal())->dispute($student, (int) $v['attendance_id'], $v['note']);
+        $message = $query->held
+            ? 'Thank you. The centre will check this class and get back to you. It will not be billed until it is resolved.'
+            : 'Thank you. The centre will check this class and get back to you. It has already been billed; if the centre agrees it was wrong, they will correct your account.';
+        return redirect()->route('parent.home', ['section' => 'classes'])->with('status', $message);
     }
 
     public function statement(Request $request)

@@ -150,10 +150,10 @@ Double-entry books per team, posted automatically from the operational ledger. E
 **GST teams** (enabled under Teams & accounts with GSTIN, legal name, address and state):
 - **Rates:** class rates include 18% GST.
 - **Split:** each charge splits into taxable value plus CGST and SGST, or IGST when the student's billing state differs from the team's state.
-- **Tax invoices:** issued monthly per student (SAC 999293, numbered `PREFIX/2026-27/0001` per financial year, dated the day they're issued). Cancelling one issues a credit note (`PREFIX-CN/…`).
-- **GST summary:** compares tax booked with tax on documents issued, by place of supply.
+- **Tax invoices:** issued monthly per student (SAC 999293, numbered `PREFIX/2026-27/0001` per financial year, dated the day they're issued). Cancelling one issues a credit note (`PREFIX-CN/…`). Reversing an invoiced class charge (for example a correction) cancels its invoice with a credit note automatically; the other charges are invoiced again on the next run.
+- **GST summary:** compares tax booked in a month with tax on the documents that bill that month (credit notes count against the month they cancel), by place of supply.
 
-Non-GST teams get plain invoices. Tax is applied when a charge is posted; turning GST on posts existing charges under the old setting first. Tax-exclusive pricing isn't supported, because it would make the books disagree with the balances staff see.
+Non-GST teams get plain invoices. Tax is applied when a charge is posted; turning GST on posts existing charges under the old setting first. Invoices always use the tax each charge was booked with, so charges from before GST registration go on a plain invoice, and a later change to a student's billing state doesn't change tax already booked. Tax-exclusive pricing isn't supported, because it would make the books disagree with the balances staff see.
 
 ### Trends
 Six months side by side per team (managers, read-only and admins):

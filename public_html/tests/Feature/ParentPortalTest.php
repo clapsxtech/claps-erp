@@ -93,7 +93,7 @@ class ParentPortalTest extends TestCase
         $attendance=DB::table('erp_attendance')->value('id');
         $this->signIn();
         $this->post(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'Too short'])->assertSessionHasErrors('note');
-        $this->post(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'The class was only 40 minutes long'])->assertRedirect(route('parent.home',['section'=>'classes']));
+        $this->post(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'The class was only 40 minutes long'])->assertRedirect(route('parent.home',['section'=>'classes']))->assertSessionHas('status',fn($s)=>str_contains($s,'will not be billed until it is resolved'));
         $this->assertSame('disputed',DB::table('erp_attendance')->find($attendance)->parent_review_status);
         $this->get(route('parent.home',['section'=>'classes']))->assertSee('Being checked by the centre')->assertSee('Query sent');
         $this->post(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'Sending the same thing again'])->assertSessionHasErrors('attendance_id');
@@ -105,6 +105,12 @@ class ParentPortalTest extends TestCase
         $this->get(route('erp.tuition',$this->unit))->assertOk()->assertSee('The class was only 40 minutes long');
         $this->post(route('erp.tuition.mutate',[$this->unit,'parent-request-resolve']),['request_id'=>$request,'reply'=>'Checked with the teacher; corrected to 40 minutes'])->assertRedirect(route('erp.tuition',$this->unit));
         $this->assertSame('resolved',DB::table('erp_parent_requests')->find($request)->status);
+
+        // An approved class is already charged, so the family is not promised it will be held.
+        DB::table('erp_attendance')->where('id',$attendance)->update(['status'=>'approved','parent_review_status'=>'unshared']);
+        \Illuminate\Support\Facades\Auth::logout(); $this->signIn();
+        $this->post(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'This class was cancelled by the teacher'])->assertSessionHas('status',fn($s)=>str_contains($s,'already been billed') && !str_contains($s,'will not be billed'));
+        $this->assertSame('unshared',DB::table('erp_attendance')->find($attendance)->parent_review_status);
     }
 
     public function test_staff_record_date_of_birth_and_billing_state(): void

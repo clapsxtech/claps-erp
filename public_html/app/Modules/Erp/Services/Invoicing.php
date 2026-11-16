@@ -7,7 +7,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Monthly invoices from posted class charges. GST teams issue tax invoices (SAC 999293, rates include 18% GST);
- * other teams issue plain invoices. Numbers run per financial year (April–March). Cancelling issues a credit note.
+ * other teams, and charges booked before GST registration, go on plain invoices. Numbers run per financial year (April–March). Cancelling issues a credit note.
  */
 class Invoicing
 {
@@ -32,10 +32,10 @@ class Invoicing
     {
         $v = validator($p, ['month' => 'required|date_format:Y-m'])->validate();
         $team = DB::table('erp_units')->find($unit);
-        if ($team->tax_mode === 'gst' && (!$team->tax_id || !$team->state || !$team->legal_name)) throw ValidationException::withMessages(['month' => 'Add the GSTIN, legal name and state in Teams & accounts before issuing tax invoices.']);
         $today = CarbonImmutable::now($team->timezone)->toDateString();
         if ($v['month'].'-01' > $today) throw ValidationException::withMessages(['month' => 'Choose this month or an earlier one.']);
-        (new Books())->sync($unit);
+        $books = new Books();
+        $books->sync($unit);
         $zone = config('app.timezone');
         $start = CarbonImmutable::createFromFormat('!Y-m', $v['month'], $zone); $end = $start->addMonth();
         $issueDate = $today; // Issued when run; the billing period records the month it covers (no back-dating).
@@ -43,25 +43,33 @@ class Invoicing
         $charges = DB::table('erp_ledger as l')->where('l.unit_id', $unit)->where('l.kind', 'lesson_charge')->whereNull('l.invoice_id')->whereNotNull('l.student_id')
             ->where('l.occurred_at', '>=', $start->format('Y-m-d H:i:s'))->where('l.occurred_at', '<', $end->format('Y-m-d H:i:s'))
             ->whereNotExists(function ($q) { $q->selectRaw('1')->from('erp_ledger as r')->whereColumn('r.reverses_id', 'l.id'); })
-            ->orderBy('l.student_id')->orderBy('l.occurred_at')->get()->groupBy('student_id');
-        foreach ($charges as $studentId => $rows) {
-            DB::transaction(function () use ($unit, $actor, $team, $studentId, $rows, $issueDate, $v, &$created, &$lines) {
+            ->orderBy('l.student_id')->orderBy('l.occurred_at')->get();
+        // Each charge is invoiced with the tax it was booked with, so invoices and the books always agree.
+        $splits = $books->postedSplits($unit, $charges->pluck('id')->all());
+        $splitFor = fn ($row) => $splits[(int) $row->id] ?? Books::taxSplit($team, abs((int) $row->amount_paise), DB::table('erp_student_profiles')->where('student_id', $row->student_id)->value('billing_state'));
+        $taxed = fn ($row) => ($s = $splitFor($row))['cgst'] + $s['sgst'] + $s['igst'] !== 0;
+        if (($team->tax_mode === 'gst' || $charges->contains($taxed)) && (!$team->tax_id || !$team->state || !$team->legal_name)) throw ValidationException::withMessages(['month' => 'Add the GSTIN, legal name and state in Teams & accounts before issuing tax invoices.']);
+        // Charges booked with GST go on a tax invoice; charges booked without it (e.g. before registration) go on a plain invoice.
+        $groups = $charges->groupBy(fn ($row) => $row->student_id.'|'.($taxed($row) ? 'tax_invoice' : 'invoice'));
+        foreach ($groups as $groupKey => $rows) {
+            [$studentId, $type] = explode('|', $groupKey);
+            DB::transaction(function () use ($unit, $actor, $team, $studentId, $type, $rows, $issueDate, $v, $splitFor, &$created, &$lines) {
                 $ids = $rows->pluck('id')->all();
                 if (DB::table('erp_ledger')->whereIn('id', $ids)->whereNotNull('invoice_id')->lockForUpdate()->exists()) return;
                 $student = DB::table('erp_students')->find($studentId);
                 $state = DB::table('erp_student_profiles')->where('student_id', $studentId)->value('billing_state');
-                $type = $team->tax_mode === 'gst' ? 'tax_invoice' : 'invoice';
-                $totals = ['taxable' => 0, 'cgst' => 0, 'sgst' => 0, 'igst' => 0, 'gross' => 0]; $prepared = [];
+                $totals = ['taxable' => 0, 'cgst' => 0, 'sgst' => 0, 'igst' => 0, 'gross' => 0]; $prepared = []; $interstate = false;
                 foreach ($rows as $row) {
-                    $gross = abs((int) $row->amount_paise); $split = Books::taxSplit($team, $gross, $state);
+                    $gross = abs((int) $row->amount_paise); $split = $splitFor($row);
                     foreach (['taxable', 'cgst', 'sgst', 'igst'] as $k) $totals[$k] += $split[$k];
-                    $totals['gross'] += $gross;
+                    $totals['gross'] += $gross; $interstate = $interstate || $split['interstate'];
                     $prepared[] = ['ledger_id' => $row->id, 'description' => $this->describe($row, $student), 'quantity' => 1, 'unit_rate_paise' => $split['taxable'], 'amount_paise' => $gross, 'taxable_paise' => $split['taxable'], 'tax_paise' => $gross - $split['taxable'], 'sac' => $type === 'tax_invoice' ? Books::SAC_TUITION : null];
                 }
+                $placeOfSupply = $type === 'tax_invoice' && !$interstate ? $team->state : ($state ?: $team->state);
                 $id = DB::table('erp_invoices')->insertGetId(['unit_id' => $unit, 'student_id' => $studentId, 'invoice_number' => $this->nextNumber($unit, $team, $type, $issueDate), 'status' => 'issued', 'issue_date' => $issueDate, 'due_date' => null, 'currency' => 'INR',
                     'subtotal_paise' => $totals['taxable'], 'discount_paise' => 0, 'tax_paise' => $totals['cgst'] + $totals['sgst'] + $totals['igst'], 'total_paise' => $totals['gross'],
                     'billing_name' => $student->name, 'billing_contact' => null, 'notes' => null, 'created_by' => $actor, 'created_at' => now(), 'updated_at' => now(),
-                    'document_type' => $type, 'billing_period' => $v['month'], 'place_of_supply' => $state ?: $team->state, 'cgst_paise' => $totals['cgst'], 'sgst_paise' => $totals['sgst'], 'igst_paise' => $totals['igst'], 'supplier_tax_id' => $team->tax_id]);
+                    'document_type' => $type, 'billing_period' => $v['month'], 'place_of_supply' => $placeOfSupply, 'cgst_paise' => $totals['cgst'], 'sgst_paise' => $totals['sgst'], 'igst_paise' => $totals['igst'], 'supplier_tax_id' => $type === 'tax_invoice' ? $team->tax_id : null]);
                 foreach ($prepared as $line) DB::table('erp_invoice_lines')->insert($line + ['unit_id' => $unit, 'invoice_id' => $id, 'created_at' => now(), 'updated_at' => now()]);
                 DB::table('erp_ledger')->whereIn('id', $ids)->update(['invoice_id' => $id]);
                 Audit::record($unit, $actor, 'invoice.issued', 'invoice', $id, ['charges' => count($ids), 'total_paise' => $totals['gross']]);
@@ -88,6 +96,18 @@ class Invoicing
             Audit::record($unit, $actor, 'invoice.cancelled', 'invoice', $invoice->id, ['credit_note_id' => $creditId, 'reason' => $v['reason']]);
             return DB::table('erp_invoices')->find($creditId);
         });
+    }
+
+    /**
+     * Called when a class charge is reversed. If it was already invoiced, that invoice is cancelled with a credit note
+     * so the family is not left holding a bill for a reversed class; its other charges are invoiced again on the next run.
+     */
+    public function creditReversedCharge(int $unit, int $actor, object $charge, string $reason): ?object
+    {
+        if ($charge->kind !== 'lesson_charge' || !$charge->invoice_id) return null;
+        $invoice = DB::table('erp_invoices')->where('unit_id', $unit)->where('id', $charge->invoice_id)->first();
+        if (!$invoice || $invoice->status !== 'issued' || $invoice->document_type === 'credit_note') return null;
+        return $this->cancel($unit, $actor, ['invoice_id' => $invoice->id, 'reason' => mb_substr('Class charge reversed: '.$reason, 0, 500)]);
     }
 
     private function describe(object $row, object $student): string

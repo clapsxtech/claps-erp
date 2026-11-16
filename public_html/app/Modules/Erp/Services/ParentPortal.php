@@ -135,7 +135,9 @@ class ParentPortal
             // Hold a class that is still awaiting approval; approved classes are corrected by staff.
             if ($attendance->status === 'submitted') DB::table('erp_attendance')->where('id', $attendance->id)->update(['parent_review_status' => 'disputed', 'parent_review_note' => mb_substr('Parent portal: '.$note, 0, 2000), 'updated_at' => now()]);
             Audit::record((int) $student->unit_id, null, 'parent.disputed_class', 'attendance', (int) $attendance->id, ['request_id' => $id]);
-            return DB::table('erp_parent_requests')->find($id);
+            $request = DB::table('erp_parent_requests')->find($id);
+            $request->held = $attendance->status === 'submitted'; // false: already approved (and charged); staff correct it if needed
+            return $request;
         });
     }
 
