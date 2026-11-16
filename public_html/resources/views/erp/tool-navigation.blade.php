@@ -10,7 +10,7 @@
 </nav></details>
 @endforeach
 @else
-<div class="sidebar-section-label">MY REPORTS</div>
+<div class="sidebar-section-label">My reports</div>
 <nav class="sidebar-nav" aria-label="My reports">
 @foreach(['markreport'=>'Assessment history','attendanceReport'=>'Attendance history','student-attendance-report'=>'Student attendance history'] as $reportRoute => $label)
 <a href="{{ route($reportRoute) }}" @if(request()->routeIs($reportRoute)) aria-current="page" @endif>@include('erp.icon',['name'=>'book'])<span>{{ $label }}</span></a>

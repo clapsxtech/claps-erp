@@ -79,7 +79,7 @@ class ErpMoneyInputHttpTest extends TestCase
         $settlement['amount_inr'] = '60.01';
         $this->business('salary-paid', $settlement + ['already_paid' => '1'])->assertSessionHasErrors('amount_paise');
         $this->assertSame(1, DB::table('erp_ledger')->where('kind', 'teacher_payment')->count());
-        $this->get(route('erp.business', [$this->unit, 'money']))->assertOk()->assertSee('earned (INR)')->assertSee('paid (INR)')->assertSee('net payable (INR)')->assertSee('INR 100.25')->assertSee('INR 40.25')->assertSee('INR 60.00');
+        $this->get(route('erp.business', [$this->unit, 'money']))->assertOk()->assertSee('Earned (INR)')->assertSee('Paid (INR)')->assertSee('Net payable (INR)')->assertSee('INR 100.25')->assertSee('INR 40.25')->assertSee('INR 60.00');
         $this->get(route('erp.workspace', $this->unit))->assertOk()->assertSee('These are earned amounts, not proof of payment')->assertSee('approved earnings (INR)');
     }
 
@@ -104,7 +104,7 @@ class ErpMoneyInputHttpTest extends TestCase
     public function test_browser_money_fields_and_signed_displays_are_inr_but_exports_stay_paise(): void
     {
         DB::table('erp_ledger')->insert(['unit_id' => $this->unit, 'student_id' => $this->student, 'kind' => 'opening_balance', 'amount_paise' => -123429, 'currency' => 'INR', 'reference' => 'INR-DUE', 'event_key' => 'inr-due', 'occurred_at' => now(), 'created_by' => $this->admin->id]);
-        $money = $this->get(route('erp.business', [$this->unit, 'money']))->assertOk()->assertSee('Amount (INR)')->assertSee('name="amount_inr"', false)->assertDontSee('name="amount_paise"', false)->assertSee('balance (INR)')->assertSee('INR -1,234.29');
+        $money = $this->get(route('erp.business', [$this->unit, 'money']))->assertOk()->assertSee('Amount (INR)')->assertSee('name="amount_inr"', false)->assertDontSee('name="amount_paise"', false)->assertSee('Balance (INR)')->assertSee('INR -1,234.29');
         $this->assertSame(6, substr_count($money->getContent(), 'name="amount_inr"'));
         $this->get(route('erp.workspace', $this->unit))->assertOk()->assertSee('INR -1,234.29')->assertDontSee('<th>amount paise</th>', false)->assertDontSee('name="amount_paise"', false);
         $csv = $this->get(route('erp.export', [$this->unit, 'ledger']))->assertOk()->streamedContent();

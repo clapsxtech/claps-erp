@@ -42,7 +42,7 @@ class ParentPortalTest extends TestCase
     {
         $this->get(route('parent.home'))->assertRedirect(route('parent.login'));
         $this->signIn(' pp-1001 ')->assertRedirect(route('parent.home'));
-        $this->get(route('parent.home'))->assertOk()->assertSee('Anya Joseph')->assertSee('INR 3,600.00 paid in advance')->assertSee('+91 98470 10000');
+        $this->get(route('parent.home'))->assertOk()->assertSee('Anya Joseph')->assertSee('INR 3,600.00')->assertSee('Paid in advance')->assertSee('+91 98470 10000');
         $this->get(route('parent.home',['section'=>'classes']))->assertOk()->assertSee('60 minutes taught')->assertDontSee('Private staff observation');
         $this->get(route('parent.home',['section'=>'results']))->assertOk()->assertSee('Algebra quiz')->assertSee('Good work');
         $fees=$this->get(route('parent.home',['section'=>'fees']))->assertOk()->assertSee('PP-UPI-1')->assertDontSee('PP-OTHER-PAY');

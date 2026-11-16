@@ -1,6 +1,6 @@
 @extends('erp.layout')
 @section('content')
-<div class="page-heading"><div><div class="eyebrow">SUPERADMIN</div><h1>Teams & accounts</h1><p>Create teams, onboard staff and control account access.</p></div><a class="button button-secondary" href="{{ route('erp.operations') }}">Operations & audit</a></div>
+<div class="page-heading"><div><div class="eyebrow">Superadmin</div><h1>Teams & accounts</h1><p>Create teams, onboard staff and control account access.</p></div><a class="button button-secondary" href="{{ route('erp.operations') }}">Operations & audit</a></div>
 <nav class="workflow-actions" aria-label="Administration shortcuts"><a class="button" href="#action-onboard-staff">@include('erp.icon',['name'=>'plus']) Add staff</a><a class="button button-secondary" href="#accounts">Find account</a><a class="button button-secondary" href="#teams">Manage teams</a><a class="button button-secondary" href="#action-create-team">Create team</a></nav>
 <details id="action-onboard-staff"><summary>Onboard staff</summary><p>Create a login and its team assignments together. No invitation email is sent.</p>
 <form method="post" action="{{ route('erp.onboard') }}">@csrf

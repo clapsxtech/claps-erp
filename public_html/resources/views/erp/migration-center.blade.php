@@ -1,6 +1,6 @@
 @extends('erp.layout')
 @section('content')
-<div class="page-heading"><div><div class="eyebrow">SUPERADMIN</div><h1>Migration center</h1><p>Preview, review and import an approved historical snapshot.</p></div></div>
+<div class="page-heading"><div><div class="eyebrow">Superadmin</div><h1>Migration center</h1><p>Preview, review and import an approved historical snapshot.</p></div></div>
 <section><h2>1. Prepare the source</h2><p>Export and map the authoritative records into the normalized JSON format. Include stable student/teacher codes, team mappings, subject mappings, a cutoff date, and approved opening balances. Preserve the original export.</p><p>Only normalized JSON is accepted here, up to 5 MiB and 5,000 rows for preview. The operator format and example are documented in <code>docs/ERP_MIGRATION.md</code>. This screen does not convert arbitrary spreadsheets.</p></section>
 <section><h2>2. Preview without importing</h2><form method="post" enctype="multipart/form-data" action="{{ route('erp.migration.preview') }}">@csrf<label>Normalized source file<input type="file" name="source" accept=".json,application/json" required></label><button>Validate and preview</button></form></section>
 @if($report)<section><h2>{{ $report['valid']?'Preview passed':'Resolve these issues before import' }}</h2><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ json_encode($report,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) }}</pre></section>@endif
