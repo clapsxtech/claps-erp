@@ -68,7 +68,13 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         # npm appends the arguments to the final `wrangler deploy` in cf:deploy.
-        run: npm run cf:deploy -- $SECRETS_ARGS --message "GitHub Actions ${GITHUB_SHA::7} (run ${GITHUB_RUN_ID})"
+        # The version is labelled with the commit and its subject line (Cloudflare keeps
+        # messages to 100 characters), and tagged with the short commit for filtering.
+        run: |
+          subject=$(git log -1 --format=%s "$GITHUB_SHA" | tr -d '\r\n')
+          message="${GITHUB_SHA::7} ${subject}"
+          message="${message:0:100}"
+          npm run cf:deploy -- $SECRETS_ARGS --tag "${GITHUB_SHA::7}" --message "$message"
       - name: Show active deployment
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
