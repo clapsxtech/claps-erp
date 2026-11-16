@@ -11,7 +11,7 @@
     $crmViews = ['pipeline'=>['Pipeline','grid'], 'today'=>['Today','check'], 'demos'=>['Demos','calendar'], 'reminders'=>['Reminders','clock'], 'transfers'=>['Transfers','people'], 'reports'=>['Reports','chart']];
 @endphp
 <div class="sales-crm">
-<header class="crm-heading"><div><div class="eyebrow">{{ $business->name }} <span>SALES WORKSPACE</span></div><h1>Sales CRM<span class="crm-live-dot" aria-hidden="true"></span></h1><p>Your conversations. Your next steps. Your admissions.</p></div>@if($crmCan['create-lead'] && $crmView !== 'new')<a class="button crm-create" href="{{ $crmUrl(['view'=>'new']) }}">@include('erp.icon',['name'=>'plus']) New enquiry</a>@endif</header>
+<header class="crm-heading"><div><div class="eyebrow">{{ $business->name }} <span>Sales</span></div><h1>Sales CRM<span class="crm-live-dot" aria-hidden="true"></span></h1><p>Enquiries, demos and follow-ups for this team</p></div>@if($crmCan['create-lead'] && $crmView !== 'new')<a class="button crm-create" href="{{ $crmUrl(['view'=>'new']) }}">@include('erp.icon',['name'=>'plus']) New enquiry</a>@endif</header>
 <nav class="crm-view-tabs" aria-label="Sales CRM sections">@foreach($crmViews as $key=>$item)<a class="crm-view-{{ $key }}" href="{{ $crmUrl(['view'=>$key]) }}" @if($crmView===$key && !$selectedLead) aria-current="page" @endif>@include('erp.icon',['name'=>$item[1]]){{ $item[0] }}@if($key==='transfers' && $transferCount)<span class="crm-nav-count">{{ $transferCount }}</span>@endif</a>@endforeach</nav>
 
 @if($selectedLead)

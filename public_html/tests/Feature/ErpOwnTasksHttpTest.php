@@ -52,6 +52,10 @@ class ErpOwnTasksHttpTest extends TestCase
         DB::table('erp_memberships')->where('user_id',$this->teacher->id)->delete();
         $this->get(route('erp.tasks.mine'))->assertForbidden(); $this->post(route('erp.tasks.complete',$this->theirs))->assertForbidden();
     }
+    public function test_superadmin_without_team_membership_sees_an_empty_task_list(): void {
+        $admin=$this->createMember(['user_type'=>'superadmin']);
+        $this->actingAs($admin)->get(route('erp.tasks.mine'))->assertOk()->assertDontSee('My sales task')->assertDontSee('Other assignee secret');
+    }
     public function test_deleted_wrong_site_and_guest_access_is_denied(): void {
         $this->sales->forceFill(['deleted_at'=>now()])->save(); $this->actingAs($this->sales)->get(route('erp.tasks.mine'))->assertForbidden();
         $this->post(route('erp.tasks.complete',$this->own))->assertForbidden();

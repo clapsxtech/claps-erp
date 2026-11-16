@@ -79,8 +79,8 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <button class="nav-backdrop" type="button" aria-label="Close navigation" tabindex="-1" hidden></button>
 <aside class="app-sidebar" id="app-navigation" aria-label="Main navigation">
-    <a class="brand" href="{{ route('erp.index') }}"><span class="brand-symbol">@include('erp.icon',['name'=>'book'])</span><span>ClapsLearn<small>OPERATIONS</small></span></a>
-    <div class="sidebar-section-label">WORKSPACE</div>
+    <a class="brand" href="{{ route('erp.index') }}"><span class="brand-symbol">@include('erp.icon',['name'=>'book'])</span><span>ClapsLearn<small>Operations</small></span></a>
+    <div class="sidebar-section-label">Workspace</div>
     <nav class="sidebar-nav" aria-label="Workspace navigation">
         <a href="{{ route('account.security') }}">Account security</a>
         @if(config('sheet_transition.enabled'))<a href="{{ route('erp.sheets', $currentUnit ? ['unit'=>$currentUnit->id] : []) }}">From Sheets</a>@endif
@@ -92,15 +92,15 @@
     @if($toolScreen)
         @include('erp.tool-navigation')
     @elseif($currentUnit)
-        <div class="sidebar-section-label">BUSINESS UNIT</div>
+        <div class="sidebar-section-label">Business unit</div>
         <details class="unit-switcher"><summary><span class="unit-avatar small">{{ $currentUnit->code }}</span><span>{{ $currentUnit->name }}</span>@include('erp.icon',['name'=>'chevron'])</summary><div class="unit-switcher-options">@foreach($navigationUnits as $navigationUnit)<a href="{{ route('erp.business',[$navigationUnit->id,(new \App\Modules\Erp\Services\TeamPermissions())->landing(auth()->user(),$navigationUnit->id)]) }}">{{ $navigationUnit->name }}</a>@endforeach</div></details>
         <nav class="sidebar-nav" aria-label="Business workflows">@foreach($navigationPages as $key=>$item)<a href="{{ route('erp.business',[$currentUnit->id,$key]) }}" @if($currentPage===$key) aria-current="page" @endif>@include('erp.icon',['name'=>$item[1]])<span>{{ $item[0] }}</span></a>@endforeach</nav>
     @else
-        @if($navigationUnits->isNotEmpty())<div class="sidebar-section-label">YOUR UNITS</div><nav class="sidebar-nav unit-nav" aria-label="Your business units">@foreach($navigationUnits as $navigationUnit)<a href="{{ route('erp.business',[$navigationUnit->id,(new \App\Modules\Erp\Services\TeamPermissions())->landing(auth()->user(),$navigationUnit->id)]) }}"><span class="unit-dot">{{ $navigationUnit->code }}</span><span>{{ $navigationUnit->name }}</span>@include('erp.icon',['name'=>'chevron'])</a>@endforeach</nav>@endif
+        @if($navigationUnits->isNotEmpty())<div class="sidebar-section-label">Your units</div><nav class="sidebar-nav unit-nav" aria-label="Your business units">@foreach($navigationUnits as $navigationUnit)<a href="{{ route('erp.business',[$navigationUnit->id,(new \App\Modules\Erp\Services\TeamPermissions())->landing(auth()->user(),$navigationUnit->id)]) }}"><span class="unit-dot">{{ $navigationUnit->code }}</span><span>{{ $navigationUnit->name }}</span>@include('erp.icon',['name'=>'chevron'])</a>@endforeach</nav>@endif
     @endif
     <div class="sidebar-bottom"><a class="legacy-link" href="{{ route('teacher.portal') }}">@include('erp.icon',['name'=>'calendar'])<span>Teacher workspace</span></a>
         <a class="legacy-link" href="{{ route('tools.index') }}">@include('erp.icon',['name'=>'external'])<span>Records & administration</span></a>
-        <div class="account-block"><span class="user-avatar">{{ $userInitials }}</span><span class="account-name">{{ $displayName }}<small>Signed in to ClapsLearn</small></span><form method="post" action="{{ route('logout') }}">@csrf<button class="icon-button" aria-label="Sign out" title="Sign out">@include('erp.icon',['name'=>'logout'])</button></form></div>
+        <div class="account-block"><span class="user-avatar">{{ $userInitials }}</span><span class="account-name">{{ $displayName }}<small>Signed in</small></span><form method="post" action="{{ route('logout') }}">@csrf<button class="icon-button" aria-label="Sign out" title="Sign out">@include('erp.icon',['name'=>'logout'])</button></form></div>
     </div>
 </aside>
 <div class="app-body">
@@ -111,7 +111,7 @@
         @if($errors->any())<div class="error" id="error-summary" tabindex="-1" aria-labelledby="error-heading"><h2 id="error-heading">There is a problem</h2><p>Your changes were not saved. Review the details below and try again.</p><ul>@foreach($errors->messages() as $field=>$messages)@foreach($messages as $message)<li data-error-field="{{ $field }}">{{ $message }}</li>@endforeach @endforeach</ul></div>@endif
         @if($toolScreen)<div class="page-heading"><div><div class="eyebrow">{{ $toolGroup }}</div><h1>{{ $toolTitle }}</h1><p>{{ $toolDescription }}</p></div><a class="button button-secondary" href="{{ route('tools.index') }}">All tools</a></div>@endif
         @yield('content')
-        <footer class="page-footer"><span>ClapsLearn Operations</span><span>Built around better learning.</span></footer>
+        <footer class="page-footer"><span>ClapsLearn Operations</span></footer>
     </main>
     @include('erp.mobile-navigation')
 </div>

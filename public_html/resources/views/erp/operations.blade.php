@@ -1,6 +1,6 @@
 @extends('erp.layout')
 @section('content')
-<div class="page-heading"><div><div class="eyebrow">SUPERADMIN</div><h1>Operations & audit</h1><p>Current health indicators and an account/team activity trail.</p></div><a href="{{ route('erp.administration') }}">Teams & accounts</a></div>
+<div class="page-heading"><div><div class="eyebrow">Superadmin</div><h1>Operations & audit</h1><p>Current health indicators and an account/team activity trail.</p></div><a href="{{ route('erp.administration') }}">Teams & accounts</a></div>
 <section><h2>Health: {{ ucfirst($health['status']) }}</h2><p>Reload to refresh. A healthy response does not certify backups or a completed recovery drill.</p>
 @foreach($health['checks'] as $name=>$check)<details open><summary>{{ ucwords(str_replace('_',' ',$name)) }} · {{ $check['status'] }}</summary><dl>@foreach($check as $key=>$value)@if($key!=='status')<dt>{{ str_replace('_',' ',$key) }}</dt><dd>{{ is_bool($value)?($value?'Yes':'No'):($value??'None') }}</dd>@endif
 @endforeach</dl></details>@endforeach</section>

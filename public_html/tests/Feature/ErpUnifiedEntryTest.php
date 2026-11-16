@@ -15,7 +15,7 @@ class ErpUnifiedEntryTest extends TestCase
         $admin=$this->createAdmin();
         $unit=DB::table('erp_units')->insertGetId(['code'=>'ENTRY','name'=>'Entry Unit','timezone'=>'UTC']);
         DB::table('erp_memberships')->insert(['unit_id'=>$unit,'user_id'=>$admin->id,'role'=>'admin']);
-        $this->actingAs($admin)->get('/')->assertOk()->assertSee('Your workspace')->assertSee('Entry Unit')->assertSee('Records & administration', false)->assertDontSee('Existing application');
+        $this->actingAs($admin)->get('/')->assertOk()->assertSee('Business units')->assertSee('Entry Unit')->assertSee('Records & administration', false)->assertDontSee('Existing application');
         $this->assertSame(url('/'),route('erp.index'));
         $this->get('/tools')->assertOk()->assertSee('Daily operations')->assertSee('User accounts')->assertSee('Academics');
     }

@@ -8,7 +8,7 @@
 <nav class="tabs" aria-label="Parent portal sections">@foreach(['overview'=>'Overview','classes'=>'Classes','results'=>'Results','fees'=>'Fees & documents'] as $key=>$label)<a href="{{ route('parent.home',['section'=>$key]) }}" @if($section===$key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
 
 @if($section==='overview')
-<div class="teacher-metrics"><div><span>Balance</span><strong>{{ $balanceText($data['balance']) }}</strong></div><div><span>Next class</span><strong>{{ $data['upcoming']->first() ? $local($data['upcoming']->first()->starts_at)->format('D j M, H:i') : 'None booked' }}</strong></div><div><span>Open fee requests</span><strong>{{ $data['open_requests'] }}</strong></div><div><span>Latest result</span><strong>{{ $data['results']->first() ? $data['results']->first()->score.'/'.$data['results']->first()->maximum : '—' }}</strong></div></div>
+<div class="teacher-metrics"><div><span>Balance</span><strong>{{ \App\Modules\Erp\Services\MoneyDisplay::inr(abs((int)$data['balance'])) }}</strong><small>{{ $data['balance']>0 ? 'Paid in advance' : ($data['balance']<0 ? 'Due now' : 'Nothing due') }}</small></div><div><span>Next class</span><strong>{{ $data['upcoming']->first() ? $local($data['upcoming']->first()->starts_at)->format('D j M, H:i') : 'None booked' }}</strong></div><div><span>Open fee requests</span><strong>{{ $data['open_requests'] }}</strong></div><div><span>Latest result</span><strong>{{ $data['results']->first() ? $data['results']->first()->score.'/'.$data['results']->first()->maximum : '—' }}</strong></div></div>
 <h2>Upcoming classes</h2><div class="teacher-cards">@forelse($data['upcoming'] as $lesson)<article class="teacher-card"><p class="teacher-time">{{ $local($lesson->starts_at)->format('D j M Y') }}<small>{{ $local($lesson->starts_at)->format('H:i') }}–{{ $local($lesson->ends_at)->format('H:i') }}</small></p><h2>{{ $lesson->subject_name }}@if($lesson->kind==='demo') (demo)@elseif($lesson->kind==='extra') (extra class)@endif</h2><p>with {{ $lesson->teacher_name }}</p></article>@empty<div class="teacher-empty"><h2>No upcoming classes</h2><p>Contact the centre to book classes.</p></div>@endforelse</div>
 @endif
 
@@ -29,7 +29,7 @@
 @endif
 
 @if($section==='fees')
-<div class="teacher-metrics"><div><span>Balance</span><strong>{{ $balanceText($data['balance']) }}</strong></div></div>
+<div class="teacher-metrics"><div><span>Balance</span><strong>{{ \App\Modules\Erp\Services\MoneyDisplay::inr(abs((int)$data['balance'])) }}</strong><small>{{ $data['balance']>0 ? 'Paid in advance' : ($data['balance']<0 ? 'Due now' : 'Nothing due') }}</small></div></div>
 <h2>Fee requests</h2><div class="scroll"><table><thead><tr><th>Reference</th><th>Requested</th><th>Paid</th><th>Outstanding</th><th>Due</th><th></th></tr></thead><tbody>
 @forelse($data['requests'] as $request)<tr><td>{{ $request->reference }}</td><td>{{ $inr($request->requested_paise) }}</td><td>{{ $inr($request->covered_paise) }}</td><td>{{ $inr($request->outstanding_paise) }}</td><td>{{ $request->due_on ?? '—' }}</td><td><a href="{{ route('parent.document',['type'=>'request','id'=>$request->id]) }}">View / print</a></td></tr>
 @empty<tr><td colspan="6">No fee requests.</td></tr>@endforelse</tbody></table></div>
