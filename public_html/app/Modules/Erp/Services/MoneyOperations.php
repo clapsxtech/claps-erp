@@ -242,7 +242,6 @@ class MoneyOperations
         $key = 'reversal:'.$entry->id;
         $id = $this->entry($unitId, $actorId, ['student_id' => $entry->student_id, 'teacher_id' => $entry->teacher_id, 'kind' => 'reversal', 'amount_paise' => -(int) $entry->amount_paise, 'reference' => 'ERP:'.$key, 'event_key' => $key, 'reverses_id' => $entry->id]);
         Audit::record($unitId, $actorId, $action, 'ledger', $id, ['reverses_id' => $entry->id, 'reason' => $reason, 'money_transferred_by_app' => false]);
-        (new Invoicing())->creditReversedCharge($unitId, $actorId, $entry, $reason);
         return DB::table('erp_ledger')->where('id', $id)->first();
     }
 

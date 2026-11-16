@@ -107,7 +107,8 @@ class Invoicing
         if ($charge->kind !== 'lesson_charge' || !$charge->invoice_id) return null;
         $invoice = DB::table('erp_invoices')->where('unit_id', $unit)->where('id', $charge->invoice_id)->first();
         if (!$invoice || $invoice->status !== 'issued' || $invoice->document_type === 'credit_note') return null;
-        return $this->cancel($unit, $actor, ['invoice_id' => $invoice->id, 'reason' => mb_substr('Class charge reversed: '.$reason, 0, 500)]);
+        // Families can open credit notes, so the staff reason stays in the audit log (ledger.reversed), not on the document.
+        return $this->cancel($unit, $actor, ['invoice_id' => $invoice->id, 'reason' => 'A class on this invoice was corrected or removed. The other classes will be re-invoiced.']);
     }
 
     private function describe(object $row, object $student): string

@@ -110,6 +110,9 @@ class AccountingTest extends TestCase
         $this->assertSame([50000,4500,4500,0,'Kerala'],[(int)$taxed->subtotal_paise,(int)$taxed->cgst_paise,(int)$taxed->sgst_paise,(int)$taxed->igst_paise,$taxed->place_of_supply]);
         $tax=(new Books())->taxSummary($this->unit,$month);
         foreach(['taxable','cgst','sgst','igst'] as $k) $this->assertSame($tax['booked'][$k],$tax['issued'][$k],"Books and invoices agree on $k.");
+        $this->get(route('erp.invoice',[$this->unit,$plain->id]))->assertOk()->assertDontSee('Tax invoice')->assertDontSee('GSTIN')->assertSee('No tax is charged on this invoice.');
+        DB::table('erp_units')->where('id',$this->unit)->update(['tax_mode'=>'none']);
+        $this->get(route('erp.invoice',[$this->unit,$taxed->id]))->assertOk()->assertSee('Tax invoice')->assertSee('GSTIN: 32ABCDE1234F1Z5')->assertSee('CGST 9%');
     }
 
     public function test_tax_summary_counts_documents_in_the_month_they_bill(): void
@@ -141,7 +144,7 @@ class AccountingTest extends TestCase
         $this->assertSame('cancelled',DB::table('erp_invoices')->find($invoice->id)->status);
         $note=DB::table('erp_invoices')->where('document_type','credit_note')->first();
         $this->assertSame([(int)$invoice->id,75000],[(int)$note->credits_invoice_id,(int)$note->total_paise]);
-        $this->assertStringContainsString('Class did not happen',$note->notes);
+        $this->assertStringNotContainsString('Class did not happen',$note->notes,'Staff reasons stay off documents families can open.');
         // The remaining charge is invoiced again on the next run; the reversed one is not.
         $this->post(route('erp.business.mutate',[$this->unit,'books-invoice-run']),['month'=>$month])->assertSessionHas('status',fn($s)=>str_contains($s,'1 invoice(s) issued for 1 class charge(s)'));
         $this->assertNull(DB::table('erp_ledger')->find($charge)->invoice_id);

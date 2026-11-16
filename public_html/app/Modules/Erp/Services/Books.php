@@ -64,18 +64,22 @@ class Books
      */
     public function postedSplits(int $unit, array $ledgerIds): array
     {
-        if (!$ledgerIds) return [];
-        $rows = DB::table('erp_journal_entries as e')->join('erp_journal_lines as l', 'l.entry_id', '=', 'e.id')->join('erp_accounts as a', 'a.id', '=', 'l.account_id')
-            ->where('e.unit_id', $unit)->where('e.source_type', 'ledger')->whereIn('e.source_id', $ledgerIds)->whereIn('a.system_key', ['tuition', 'cgst', 'sgst', 'igst'])
-            ->get(['e.source_id', 'a.system_key', 'l.debit_paise', 'l.credit_paise']);
         $splits = [];
-        foreach ($rows as $r) {
+        // Chunked: D1 limits bound parameters per query.
+        foreach (array_chunk($ledgerIds, 50) as $chunk) foreach ($this->postedLines($unit, $chunk) as $r) {
             $key = $r->system_key === 'tuition' ? 'taxable' : $r->system_key;
             $splits[(int) $r->source_id] ??= ['taxable' => 0, 'cgst' => 0, 'sgst' => 0, 'igst' => 0];
             $splits[(int) $r->source_id][$key] += (int) $r->credit_paise - (int) $r->debit_paise;
         }
         foreach ($splits as &$split) $split['interstate'] = $split['igst'] !== 0;
         return $splits;
+    }
+
+    private function postedLines(int $unit, array $ledgerIds): Collection
+    {
+        return DB::table('erp_journal_entries as e')->join('erp_journal_lines as l', 'l.entry_id', '=', 'e.id')->join('erp_accounts as a', 'a.id', '=', 'l.account_id')
+            ->where('e.unit_id', $unit)->where('e.source_type', 'ledger')->whereIn('e.source_id', $ledgerIds)->whereIn('a.system_key', ['tuition', 'cgst', 'sgst', 'igst'])
+            ->get(['e.source_id', 'a.system_key', 'l.debit_paise', 'l.credit_paise']);
     }
 
     /** Post journals for any ledger rows not yet in the books. Safe to call repeatedly. */
