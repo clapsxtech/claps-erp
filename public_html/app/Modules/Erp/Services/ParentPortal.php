@@ -25,8 +25,9 @@ class ParentPortal
      */
     public static function clientIp(?string $ip): ?string
     {
-        // Only trust the address when a proxy is explicitly configured (TRUSTED_PROXIES), and never a private, reserved or shared (100.64/10) one.
-        if (trim((string) config('proxy.trusted_proxies', '')) === '' || !$ip) return null;
+        // Only trust the address when real visitor addresses are known (Cloudflare Worker, or an explicit TRUSTED_PROXIES),
+        // and never a private, reserved or shared (100.64/10) one.
+        if ((!config('proxy.client_ip_from_worker') && trim((string) config('proxy.trusted_proxies', '')) === '') || !$ip) return null;
         if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return null;
         if (\Symfony\Component\HttpFoundation\IpUtils::checkIp($ip, '100.64.0.0/10')) return null;
         return $ip;

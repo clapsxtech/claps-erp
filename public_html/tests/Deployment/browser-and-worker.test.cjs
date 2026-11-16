@@ -204,6 +204,15 @@ test('Worker replaces all client-supplied forwarding origin headers and strips s
     }
 });
 
+test('Worker passes the Cloudflare visitor address and ignores a visitor-supplied copy', async () => {
+    const h = workerHarness();
+    await h.worker.fetch(new Request('https://logs.example.test/parent/login', { headers: { 'CF-Connecting-IP': '198.51.100.23', 'X-ERP-Client-IP': '203.0.113.66' } }));
+    assert.equal(h.forwarded[0].headers.get('x-erp-client-ip'), '198.51.100.23');
+    assert.equal(h.startOptions.env.ERP_CLIENT_IP_FROM_WORKER, 'true');
+    await h.worker.fetch(new Request('https://logs.example.test/parent/login', { headers: { 'X-ERP-Client-IP': '203.0.113.66' } }));
+    assert.equal(h.forwarded[1].headers.get('x-erp-client-ip'), null);
+});
+
 test('HTTP local development does not enable canonical HTTPS mode', async () => {
     const h = workerHarness('http://localhost:8787');
     await h.worker.fetch(new Request('http://localhost:8787/health'));

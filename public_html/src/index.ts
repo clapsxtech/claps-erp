@@ -75,6 +75,11 @@ export class LaravelContainer extends DurableObject<Env> {
             }
         });
         forwardingHeaders.forEach((name) => headers.delete(name));
+        // The visitor's address, from Cloudflare's edge (visitors cannot set CF-Connecting-IP).
+        // Sent under a private name so Laravel never mistakes a visitor-supplied header for it.
+        headers.delete("x-erp-client-ip");
+        const clientIp = request.headers.get("cf-connecting-ip");
+        if (clientIp) headers.set("x-erp-client-ip", clientIp);
         headers.set("host", original.host);
         headers.set("x-forwarded-host", original.host);
         headers.set("x-forwarded-proto", original.protocol.slice(0, -1));
@@ -114,6 +119,8 @@ export class LaravelContainer extends DurableObject<Env> {
                     // Laravel applies it only to requests with this exact Host.
                     PUBLIC_ORIGIN: secureOrigin ? this.env.APP_URL : "",
                     TRUSTED_PROXIES: this.env.TRUSTED_PROXIES ?? "",
+                    // Laravel reads the visitor address from x-erp-client-ip, which only this Worker sets.
+                    ERP_CLIENT_IP_FROM_WORKER: "true",
                     ERP_BUSINESS_ID: this.env.ERP_BUSINESS_ID ?? "1",
                     ERP_SHEETS_TRANSITION_ENABLED: this.env.ERP_SHEETS_TRANSITION_ENABLED ?? "false",
                     ERP_DATA_AUTHORITY: this.env.ERP_DATA_AUTHORITY ?? "application",

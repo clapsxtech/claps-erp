@@ -27,6 +27,15 @@ class TrustProxies extends Middleware
         $trusted = filter_var($remote, FILTER_VALIDATE_IP) !== false
             && $proxies !== [] && IpUtils::checkIp($remote, $proxies);
 
+        // Behind the Cloudflare Worker every request comes from the same internal address; the Worker
+        // passes the visitor's address separately. Use it for request()->ip() (rate limits, audit),
+        // and drop the header in every other deployment so a visitor cannot supply it.
+        $workerClientIp = $request->headers->get('x-erp-client-ip');
+        $request->headers->remove('x-erp-client-ip');
+        if (config('proxy.client_ip_from_worker') && $workerClientIp !== null && filter_var($workerClientIp, FILTER_VALIDATE_IP) !== false) {
+            $request->server->set('REMOTE_ADDR', $workerClientIp);
+        }
+
         foreach (array_keys($request->headers->all()) as $header) {
             if ($header === 'forwarded' || $header === 'x-forwarded-host'
                 || $header === 'x-forwarded-prefix' || $header === 'x-original-url'

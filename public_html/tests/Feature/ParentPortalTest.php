@@ -102,6 +102,17 @@ class ParentPortalTest extends TestCase
         $this->signIn()->assertRedirect(route('parent.home'));
     }
 
+    public function test_the_worker_supplied_visitor_address_is_used_only_behind_the_worker(): void
+    {
+        \Illuminate\Support\Facades\Route::get('/__ip-probe',fn(\Illuminate\Http\Request $r)=>response($r->ip().'|'.var_export($r->headers->has('x-erp-client-ip'),true)));
+        $this->withServerVariables(['REMOTE_ADDR'=>'10.0.0.5']);
+        $this->get('/__ip-probe',['X-ERP-Client-IP'=>'198.51.100.23'])->assertSee('10.0.0.5|false',false);
+        config(['proxy.client_ip_from_worker'=>true]);
+        $this->get('/__ip-probe',['X-ERP-Client-IP'=>'198.51.100.23'])->assertSee('198.51.100.23|false',false);
+        $this->get('/__ip-probe',['X-ERP-Client-IP'=>'not-an-ip'])->assertSee('10.0.0.5|false',false);
+        $this->assertSame('198.51.100.23',\App\Modules\Erp\Services\ParentPortal::clientIp('198.51.100.23'));
+    }
+
     public function test_children_without_a_date_of_birth_or_in_archived_teams_cannot_sign_in(): void
     {
         DB::table('erp_student_profiles')->where('student_id',$this->student)->update(['date_of_birth'=>null]);
