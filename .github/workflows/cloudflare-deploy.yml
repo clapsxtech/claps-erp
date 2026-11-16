@@ -1,9 +1,9 @@
 name: Deploy to Cloudflare
 
 # Deploys the clapslearn-logs Worker (erp.clapslearn.in) and its Laravel
-# container image whenever main changes. Requires the repository secret
-# CLOUDFLARE_API_TOKEN (Workers Scripts, Containers, D1, R2 edit on the account
-# set in public_html/wrangler.jsonc). D1 migrations are not applied here.
+# container image whenever main changes. Requires the secret
+# CLOUDFLARE_API_TOKEN in the GitHub environment of the same name (Workers
+# Scripts, Containers, D1, R2 edit on the account in public_html/wrangler.jsonc). D1 migrations are not applied here.
 on:
   push:
     branches: [main]
