@@ -152,6 +152,48 @@ class AccountingTest extends TestCase
         $this->assertSame($tax['booked']['taxable'],$tax['issued']['taxable']);
     }
 
+    public function test_states_are_chosen_from_a_list_and_abbreviations_mean_the_same_place(): void
+    {
+        $team=(object)['tax_mode'=>'gst','state'=>'Kerala'];
+        $this->assertFalse(Books::taxSplit($team,11800,'KL')['interstate'],'KL is Kerala, so CGST/SGST.');
+        $this->assertFalse(Books::taxSplit($team,11800,' kerala')['interstate']);
+        $this->assertTrue(Books::taxSplit($team,11800,'tamil nadu')['interstate']);
+
+        $this->actingAs($this->admin);
+        $this->post(route('erp.business.mutate',[$this->unit,'student-update']),['student_id'=>$this->student,'billing_state'=>'Kerla'])->assertSessionHasErrors('billing_state');
+        $this->post(route('erp.business.mutate',[$this->unit,'student-update']),['student_id'=>$this->student,'billing_state'=>'tn'])->assertRedirect();
+        $this->assertSame('Tamil Nadu',DB::table('erp_student_profiles')->where('student_id',$this->student)->value('billing_state'));
+        $this->get(route('erp.business',[$this->unit,'people']))->assertSee('<option value="Tamil Nadu">',false);
+
+        $team=['code'=>'KT','name'=>'Kochi Tuition','timezone'=>'Asia/Kolkata','tax_mode'=>'gst','legal_name'=>'ClapsLearn Education Pvt Ltd'];
+        $this->post(route('erp.teams.update',$this->unit),$team+['state'=>'Tamil Nadu','tax_id'=>'32ABCDE1234F1Z5'])->assertSessionHasErrors('tax_id');
+        $this->post(route('erp.teams.update',$this->unit),$team+['state'=>'KL','tax_id'=>'32ABCDE1234F1Z5'])->assertSessionHasNoErrors();
+        $this->assertSame('Kerala',DB::table('erp_units')->where('id',$this->unit)->value('state'));
+    }
+
+    public function test_changing_a_billing_state_keeps_the_tax_on_charges_already_made(): void
+    {
+        $this->actingAs($this->admin);
+        DB::table('erp_student_profiles')->insert(['unit_id'=>$this->unit,'student_id'=>$this->student,'billing_state'=>'Kerala']);
+        $this->ledger('lesson_charge',-11800,'CHG-BEFORE-MOVE');
+        $this->post(route('erp.business.mutate',[$this->unit,'student-update']),['student_id'=>$this->student,'billing_state'=>'Tamil Nadu'])->assertRedirect();
+        $this->ledger('lesson_charge',-11800,'CHG-AFTER-MOVE');
+        (new Books())->sync($this->unit);
+        $this->assertSame([-900,-900,-1800],[$this->balance('cgst'),$this->balance('sgst'),$this->balance('igst')]);
+    }
+
+    public function test_page_loads_post_a_bounded_batch_and_say_what_is_left(): void
+    {
+        for ($i=0; $i<5; $i++) $this->ledger('payment',1000,'PAY-'.$i);
+        $books=new Books();
+        $this->assertSame(2,$books->sync($this->unit,2));
+        $this->assertSame(3,$books->pendingCount($this->unit));
+        $this->assertSame(3,$books->sync($this->unit));
+        $this->assertSame(0,$books->pendingCount($this->unit));
+        $this->ledger('payment',1000,'PAY-LATE');
+        $this->actingAs($this->admin)->get(route('erp.business',[$this->unit,'accounts']))->assertOk()->assertDontSee('still being added to the books');
+    }
+
     public function test_tax_settings_are_validated_and_existing_charges_keep_their_treatment(): void
     {
         $this->actingAs($this->admin);
@@ -180,6 +222,7 @@ class AccountingTest extends TestCase
         $entry=DB::table('erp_journal_entries')->where('reference','MJ-00001')->value('id');
         $this->post(route('erp.business.mutate',[$this->unit,'books-journal-reverse']),['entry_id'=>$entry,'reason'=>'Paid by the landlord directly'])->assertRedirect();
         $this->assertSame(0,$this->balance('bank'));
+        $this->post(route('erp.business.mutate',[$this->unit,'books-journal']),$journal)->assertSessionHas('status','Journal MJ-00002 posted.','Reversals do not use up journal numbers.');
         foreach (['overview','journals','ledger','reports','invoices','tax','chart'] as $view) $this->get(route('erp.business',[$this->unit,'accounts','view'=>$view]))->assertOk();
         $this->get(route('erp.business',[$this->unit,'insights']))->assertForbidden();
         $readonly=$this->createMember(); DB::table('erp_memberships')->insert(['unit_id'=>$this->unit,'user_id'=>$readonly->id,'role'=>'read_only']);

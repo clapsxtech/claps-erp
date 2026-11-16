@@ -66,6 +66,32 @@ class ParentPortalTest extends TestCase
         $this->assertSame(1,DB::table('erp_audit')->where('action','parent.signed_in')->count());
     }
 
+    public function test_one_source_cannot_spray_ids_and_an_attack_does_not_lock_out_everyone(): void
+    {
+        $ids=fn($n)=>'PP-'.(5000+$n);
+        $this->withServerVariables(['REMOTE_ADDR'=>'203.0.113.7']);
+        for ($i=0; $i<20; $i++) $this->signIn($ids($i),'2013-04-21');
+        $this->signIn()->assertSessionHasErrors(['student_code'=>'Too many attempts. Please wait 15 minutes, or contact the centre.']);
+
+        // A distributed attack trips the site breaker: IDs already guessed at are frozen, untouched ones still work.
+        \Illuminate\Support\Facades\RateLimiter::clear('parent-login-ip:'.hash('sha256','203.0.113.7'));
+        for ($i=0; $i<200; $i++) \Illuminate\Support\Facades\RateLimiter::hit('parent-login:site',60);
+        $this->withServerVariables(['REMOTE_ADDR'=>'198.51.100.9']);
+        $this->signIn('PP-1002','2000-01-01')->assertSessionHasErrors('student_code');
+        $this->signIn('PP-1002','2012-01-01')->assertSessionHasErrors(['student_code'=>'Too many attempts. Please wait 15 minutes, or contact the centre.']);
+        $this->signIn()->assertRedirect(route('parent.home'));
+    }
+
+    public function test_a_shared_internal_address_is_not_rate_limited_as_one_client(): void
+    {
+        $this->assertNull(\App\Modules\Erp\Services\ParentPortal::clientIp('10.0.0.5'));
+        $this->assertNull(\App\Modules\Erp\Services\ParentPortal::clientIp('127.0.0.1'));
+        $this->assertSame('203.0.113.7',\App\Modules\Erp\Services\ParentPortal::clientIp('203.0.113.7'));
+        $this->withServerVariables(['REMOTE_ADDR'=>'10.0.0.5']);
+        for ($i=0; $i<25; $i++) $this->signIn('PP-'.(6000+$i),'2013-04-21');
+        $this->signIn()->assertRedirect(route('parent.home'));
+    }
+
     public function test_children_without_a_date_of_birth_or_in_archived_teams_cannot_sign_in(): void
     {
         DB::table('erp_student_profiles')->where('student_id',$this->student)->update(['date_of_birth'=>null]);

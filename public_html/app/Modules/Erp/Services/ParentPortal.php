@@ -15,7 +15,17 @@ class ParentPortal
     public const IDLE_MINUTES = 30;
     private const CODE_ATTEMPTS = 5;        // failed attempts per student ID…
     private const CODE_DECAY = 900;         // …per 15 minutes
-    private const SITE_ATTEMPTS = 200;      // failed attempts across all IDs per minute (proxy IPs are not reliable)
+    private const IP_ATTEMPTS = 20;         // failed attempts per public client IP per 15 minutes (only when real client IPs are visible)
+    private const SITE_ATTEMPTS = 200;      // failed attempts across all IDs per minute: a distributed guessing attack
+
+    /**
+     * The client address, only when it is a real public one. Behind the Cloudflare container no proxy is trusted,
+     * so every request shows the same internal address; limiting on that would lock out every family at once.
+     */
+    public static function clientIp(?string $ip): ?string
+    {
+        return $ip && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) ? $ip : null;
+    }
 
     public static function normalizeCode(string $code): string
     {
@@ -23,11 +33,16 @@ class ParentPortal
     }
 
     /** Returns the student for a matching ID and date of birth. Failures share one message and count towards lockouts. */
-    public function authenticate(string $code, string $dob): object
+    public function authenticate(string $code, string $dob, ?string $ip = null): object
     {
         $code = self::normalizeCode($code);
         $codeKey = 'parent-login:'.hash('sha256', $code);
-        if (RateLimiter::tooManyAttempts($codeKey, self::CODE_ATTEMPTS) || RateLimiter::tooManyAttempts('parent-login:site', self::SITE_ATTEMPTS)) {
+        $ipKey = 'parent-login-ip:'.hash('sha256', (string) $ip);
+        // During a site-wide attack, IDs that have already had a wrong guess are frozen, while
+        // families whose ID has not been tried can still sign in (no lockout for everyone).
+        $underAttack = RateLimiter::tooManyAttempts('parent-login:site', self::SITE_ATTEMPTS);
+        if (RateLimiter::tooManyAttempts($codeKey, self::CODE_ATTEMPTS) || ($ip !== null && RateLimiter::tooManyAttempts($ipKey, self::IP_ATTEMPTS))
+            || ($underAttack && RateLimiter::attempts($codeKey) > 0)) {
             throw ValidationException::withMessages(['student_code' => 'Too many attempts. Please wait 15 minutes, or contact the centre.']);
         }
         $student = $code === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob) ? null : DB::table('erp_students as s')
@@ -37,6 +52,7 @@ class ParentPortal
             ->select('s.*')->first();
         if (!$student) {
             RateLimiter::hit($codeKey, self::CODE_DECAY);
+            if ($ip !== null) RateLimiter::hit($ipKey, self::CODE_DECAY);
             RateLimiter::hit('parent-login:site', 60);
             throw ValidationException::withMessages(['student_code' => 'The student ID and date of birth do not match our records.']);
         }

@@ -39,9 +39,11 @@ class Books
         }
     }
 
+    private array $accountIds = [];
+
     public function account(int $unit, string $key): int
     {
-        return (int) DB::table('erp_accounts')->where('unit_id', $unit)->where('system_key', $key)->value('id');
+        return $this->accountIds[$unit][$key] ??= (int) DB::table('erp_accounts')->where('unit_id', $unit)->where('system_key', $key)->value('id');
     }
 
     /** Tuition charge split for a GST team. Rates include GST; IGST applies when the student's billing state differs from the team's. */
@@ -51,8 +53,7 @@ class Books
         $sign = $grossPaise < 0 ? -1 : 1; $gross = abs($grossPaise);
         $taxable = intdiv($gross * 100 + intdiv(100 + self::GST_RATE_PERCENT, 2), 100 + self::GST_RATE_PERCENT);
         $tax = $gross - $taxable;
-        $norm = fn ($s) => mb_strtolower(trim((string) $s));
-        $interstate = $norm($studentState) !== '' && $norm($unit->state) !== '' && $norm($studentState) !== $norm($unit->state);
+        $interstate = trim((string) $studentState) !== '' && trim((string) $unit->state) !== '' && !IndianStates::same($studentState, $unit->state);
         $cgst = $interstate ? 0 : intdiv($tax, 2);
         return ['taxable' => $sign * $taxable, 'cgst' => $sign * $cgst, 'sgst' => $sign * ($interstate ? 0 : $tax - $cgst), 'igst' => $sign * ($interstate ? $tax : 0), 'interstate' => $interstate];
     }
@@ -82,15 +83,40 @@ class Books
             ->get(['e.source_id', 'a.system_key', 'l.debit_paise', 'l.credit_paise']);
     }
 
-    /** Post journals for any ledger rows not yet in the books. Safe to call repeatedly. */
-    public function sync(int $unit): int
+    private function pendingQuery(int $unit)
     {
+        return DB::table('erp_ledger as l')->where('l.unit_id', $unit)
+            ->whereNotExists(function ($q) { $q->selectRaw('1')->from('erp_journal_entries as j')->where('j.source_type', 'ledger')->whereColumn('j.source_id', 'l.id'); });
+    }
+
+    /** Ledger rows not yet posted to the books. */
+    public function pendingCount(int $unit): int
+    {
+        return (int) $this->pendingQuery($unit)->count();
+    }
+
+    /**
+     * Post journals for ledger rows not yet in the books. Safe to call repeatedly.
+     * With a limit (page loads) it posts at most that many; without one it posts everything, in batches,
+     * which invoicing and tax-setting changes rely on so every charge has its tax fixed first.
+     */
+    public function sync(int $unit, ?int $limit = null): int
+    {
+        $posted = 0;
+        do {
+            $batch = $this->syncBatch($unit, $limit === null ? 500 : min(500, $limit - $posted));
+            $posted += $batch;
+        } while ($batch > 0 && ($limit === null || $posted < $limit));
+        return $posted;
+    }
+
+    private function syncBatch(int $unit, int $size): int
+    {
+        if ($size <= 0) return 0;
         $this->ensureChart($unit);
         $team = DB::table('erp_units')->find($unit);
         $posted = 0;
-        $pending = DB::table('erp_ledger as l')->where('l.unit_id', $unit)
-            ->whereNotExists(function ($q) { $q->selectRaw('1')->from('erp_journal_entries as j')->where('j.source_type', 'ledger')->whereColumn('j.source_id', 'l.id'); })
-            ->orderBy('l.id')->limit(5000)->get();
+        $pending = $this->pendingQuery($unit)->orderBy('l.id')->limit($size)->get();
         foreach ($pending as $row) {
             DB::transaction(function () use ($unit, $team, $row, &$posted) {
                 if (DB::table('erp_journal_entries')->where('source_type', 'ledger')->where('source_id', $row->id)->lockForUpdate()->exists()) return;
@@ -109,7 +135,7 @@ class Books
         $line = fn ($key, $debit, $credit) => ['account_id' => $this->account($unit, $key), 'debit_paise' => $debit, 'credit_paise' => $credit, 'student_id' => $student, 'teacher_id' => $teacher];
         if ($row->reverses_id) {
             $original = $this->entryForLedger((int) $row->reverses_id);
-            if (!$original) { $this->sync($unit); $original = $this->entryForLedger((int) $row->reverses_id); }
+            if (!$original) { $this->syncBatch($unit, 500); $original = $this->entryForLedger((int) $row->reverses_id); }
             if ($original) return DB::table('erp_journal_lines')->where('entry_id', $original)->get()->map(fn ($l) => ['account_id' => $l->account_id, 'debit_paise' => $l->credit_paise, 'credit_paise' => $l->debit_paise, 'student_id' => $l->student_id, 'teacher_id' => $l->teacher_id])->all();
         }
         $studentSide = $student !== null;
@@ -187,11 +213,22 @@ class Books
         $debits = array_sum(array_column($lines, 'debit_paise')); $credits = array_sum(array_column($lines, 'credit_paise'));
         if ($debits !== $credits) throw ValidationException::withMessages(['lines' => 'Debits ('.MoneyDisplay::inr($debits).') and credits ('.MoneyDisplay::inr($credits).') must be equal.']);
         return DB::transaction(function () use ($unit, $actor, $v, $lines) {
-            $number = 'MJ-'.str_pad((string) (DB::table('erp_journal_entries')->where('unit_id', $unit)->where('source_type', 'manual')->lockForUpdate()->count() + 1), 5, '0', STR_PAD_LEFT);
+            $number = $this->nextManualNumber($unit);
             $id = $this->insertEntry($unit, $v['entry_date'], $number, $v['memo'], 'manual', null, $lines, $actor);
             Audit::record($unit, $actor, 'books.manual_journal', 'journal', $id, ['reference' => $number]);
             return DB::table('erp_journal_entries')->find($id);
         });
+    }
+
+    /** Next MJ-nnnnn for the team. The team row is locked so concurrent journals cannot take the same number; reversals (-REV) do not use up numbers. */
+    private function nextManualNumber(int $unit): string
+    {
+        DB::table('erp_units')->where('id', $unit)->lockForUpdate()->first();
+        $last = DB::table('erp_journal_entries')->where('unit_id', $unit)->where('source_type', 'manual')->where('reference', 'like', 'MJ-%')->where('reference', 'not like', '%-REV')
+            ->pluck('reference')->map(fn ($r) => preg_match('/^MJ-(\d+)$/', $r, $m) ? (int) $m[1] : 0)->max() ?? 0;
+        $number = 'MJ-'.str_pad((string) ($last + 1), 5, '0', STR_PAD_LEFT);
+        if (DB::table('erp_journal_entries')->where('unit_id', $unit)->where('reference', $number)->exists()) throw new \RuntimeException("Journal number {$number} is already used.");
+        return $number;
     }
 
     public function reverseManual(int $unit, int $actor, array $p): object

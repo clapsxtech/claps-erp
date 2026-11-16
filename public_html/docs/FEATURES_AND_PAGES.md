@@ -135,7 +135,7 @@ Create, update and archive teams; onboard staff; update accounts; grant/revoke t
 Families sign in at `/parent` with the student ID and date of birth (one sign-in per child). They see upcoming and past classes, results, the balance, fee requests, invoices, receipts and refunds, and monthly statements, and can flag a class record as wrong. A flagged class that isn't approved yet is held as disputed. Staff answer flags under **Class follow-up → Parent queries**.
 
 Security:
-- **Lockout:** 5 failed attempts lock that student ID for 15 minutes, and site-wide failures are capped. Lockouts aren't keyed on IP, because the deployment's proxy hides real addresses.
+- **Lockout:** 5 failed attempts lock that student ID for 15 minutes. If more than 200 sign-ins fail across the site in a minute, only IDs that have already had a wrong guess are frozen, so other families can still sign in. A per-address limit (20 failures in 15 minutes) applies only when real public client addresses are visible (a trusted proxy is configured); behind the default Cloudflare container every request shares one internal address, so it stays off.
 - **Messages:** every failure shows the same message, so it doesn't reveal which half was wrong.
 - **Sessions:** a session expires after 30 idle minutes, and changing the date of birth signs the family out.
 - **Archived teams and missing DOB:** families in archived teams, or without a date of birth on file, can't sign in.
@@ -144,12 +144,13 @@ Security:
 
 ### Accounts & tax
 Double-entry books per team, posted automatically from the operational ledger. Each charge, receipt, refund, teacher accrual, teacher payment, opening balance and reversal posts exactly one balanced journal, so the Student accounts control account always equals the students' balances. Also includes:
-- **Manual journals and reversals:** with custom accounts, for rent, bank charges, GST payments and capital.
+- **Manual journals and reversals:** with custom accounts, for rent, bank charges, GST payments and capital. Numbered MJ-00001, MJ-00002… per team; a reversal takes the original's number plus `-REV`.
+- **Posting:** opening Accounts & tax posts up to 500 new transactions per load and says how many are still waiting; running invoices or changing tax settings posts everything first.
 - **Reports:** trial balance, general ledger with running balances, profit and loss, and balance sheet.
 
 **GST teams** (enabled under Teams & accounts with GSTIN, legal name, address and state):
 - **Rates:** class rates include 18% GST.
-- **Split:** each charge splits into taxable value plus CGST and SGST, or IGST when the student's billing state differs from the team's state.
+- **Split:** each charge splits into taxable value plus CGST and SGST, or IGST when the student's billing state differs from the team's state. States are chosen from a list of states and union territories; abbreviations and GST codes (KL, 32) are recognised, and a team's GSTIN must start with its state's GST code. Changing a student's billing state posts their earlier charges under the old state first.
 - **Tax invoices:** issued monthly per student (SAC 999293, numbered `PREFIX/2026-27/0001` per financial year, dated the day they're issued). Cancelling one issues a credit note (`PREFIX-CN/…`). Reversing an invoiced class charge (for example a correction) cancels its invoice with a credit note automatically; the other charges are invoiced again on the next run.
 - **GST summary:** compares tax booked in a month with tax on the documents that bill that month (credit notes count against the month they cancel), by place of supply.
 

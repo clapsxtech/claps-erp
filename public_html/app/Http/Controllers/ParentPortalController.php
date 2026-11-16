@@ -19,7 +19,7 @@ class ParentPortalController extends Controller
     public function login(Request $request)
     {
         $v = $request->validate(['student_code' => 'required|string|max:100', 'date_of_birth' => 'required|date_format:Y-m-d']);
-        $student = (new ParentPortal())->authenticate($v['student_code'], $v['date_of_birth']);
+        $student = (new ParentPortal())->authenticate($v['student_code'], $v['date_of_birth'], ParentPortal::clientIp($request->ip()));
         $request->session()->regenerate();
         $request->session()->put('parent_portal', ['student_id' => (int) $student->id, 'unit_id' => (int) $student->unit_id, 'fingerprint' => ParentPortal::fingerprint((int) $student->id), 'seen' => now()->getTimestamp()]);
         return redirect()->route('parent.home');

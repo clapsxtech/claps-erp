@@ -7,6 +7,7 @@ $dc=fn($b)=>$b>=0?[$inr($b),'']:['',$inr(-$b)];
 $gst=$business->tax_mode==='gst';
 @endphp
 <div class="page-heading business-heading"><div><div class="eyebrow">{{ $business->name }}</div><h1>Accounts &amp; tax</h1><p>Double-entry books kept automatically from every charge, receipt, refund and teacher payment, plus your own journals. {{ $gst ? 'GST: '.$business->tax_id.' · '.$business->state.' · rates include '.\App\Modules\Erp\Services\Books::GST_RATE_PERCENT.'% GST.' : 'No tax is charged in this team.' }}</p></div></div>
+@if(!empty($pendingPosts))<p class="notice" role="status">{{ number_format($pendingPosts) }} more transaction(s) are still being added to the books, so these figures are not yet complete. Reload this page to continue; running invoices posts them all first.</p>@endif
 <nav class="tabs" aria-label="Accounts sections">@foreach(['overview'=>'Overview','journals'=>'Journals','ledger'=>'General ledger','reports'=>'P&L and balance sheet','invoices'=>'Invoices','tax'=>$gst?'GST summary':'Tax summary','chart'=>'Chart of accounts'] as $key=>$label)<a href="{{ route('erp.business',[$business->id,'accounts','view'=>$key]) }}" @if($view===$key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
 
 @if(in_array($view,['overview','ledger','reports']))

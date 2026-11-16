@@ -21,7 +21,10 @@ class People
         $fields=array_intersect_key($fields,self::PROFILE_RULES);
         if(!$fields)return [];
         foreach($fields as $k=>$v)$fields[$k]=is_string($v)&&trim($v)===''?null:(is_string($v)?trim($v):$v);
+        if(array_key_exists('billing_state',$fields))$fields['billing_state']=IndianStates::normalize($fields['billing_state'],'billing_state');
         $existing=DB::table('erp_student_profiles')->where('student_id',$studentId)->first();
+        // Post charges under the old place of supply before it changes, so their GST treatment is fixed.
+        if($existing && array_key_exists('billing_state',$fields) && $existing->billing_state!==$fields['billing_state'])(new Books())->sync($unitId);
         if($existing){$changes=array_filter($fields,fn($v,$k)=>$existing->$k!==$v,ARRAY_FILTER_USE_BOTH);if($changes)DB::table('erp_student_profiles')->where('id',$existing->id)->update($changes+['updated_at'=>now()]);return $changes;}
         DB::table('erp_student_profiles')->insert($fields+['unit_id'=>$unitId,'student_id'=>$studentId,'created_at'=>now(),'updated_at'=>now()]);
         return array_filter($fields,fn($v)=>$v!==null);

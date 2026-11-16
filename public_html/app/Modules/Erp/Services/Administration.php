@@ -20,6 +20,8 @@ class Administration
             'legal_name'=>'nullable|string|max:200','address'=>'nullable|string|max:1000','state'=>'nullable|string|max:60','tax_mode'=>'nullable|in:none,gst',
             'tax_id'=>['nullable','required_if:tax_mode,gst','regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/'],'invoice_prefix'=>['nullable','regex:/^[A-Z0-9-]{1,20}$/'],
         ],['tax_id.regex'=>'Enter a 15-character GSTIN in capitals, for example 32ABCDE1234F1Z5.','tax_id.required_if'=>'A GST-registered team needs its GSTIN.'])->validate();
+        if(array_key_exists('state',$v)) $v['state']=IndianStates::normalize($v['state'],'state');
+        if(!empty($v['tax_id']) && !empty($v['state']) && substr($v['tax_id'],0,2)!==IndianStates::code($v['state'])) throw ValidationException::withMessages(['tax_id'=>'The GSTIN starts with '.substr($v['tax_id'],0,2).', which is not the GST code for '.$v['state'].' ('.IndianStates::code($v['state']).').']);
         if(($v['tax_mode']??null)==='gst' && empty($v['state'])) throw ValidationException::withMessages(['state'=>'A GST-registered team needs its state, to decide CGST/SGST or IGST.']);
         if(array_key_exists('tax_mode',$v) && $v['tax_mode']===null) unset($v['tax_mode']);
         return DB::transaction(function()use($actor,$v,$id){

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 /** Accounts & tax: chart of accounts, journals, reports, invoices and GST summary for one team. */
 class AccountsController extends Controller
 {
+    private const PAGE_SYNC_LIMIT = 500;
     private const VIEWS = ['overview', 'journals', 'ledger', 'reports', 'invoices', 'tax', 'chart'];
 
     public function index(Request $request, int $unit)
@@ -17,7 +18,9 @@ class AccountsController extends Controller
         (new Access())->unit($request->user(), $unit, false);
         $business = DB::table('erp_units')->find($unit);
         $books = new Books();
-        $books->sync($unit);
+        // Page loads post a bounded batch so the page stays fast; anything left is shown and posted on the next load or invoice run.
+        $books->sync($unit, self::PAGE_SYNC_LIMIT);
+        $pendingPosts = $books->pendingCount($unit);
         $v = $request->validate(['view' => 'nullable|in:'.implode(',', self::VIEWS), 'from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d', 'month' => 'nullable|date_format:Y-m', 'account_id' => 'nullable|integer']);
         $view = $v['view'] ?? 'overview';
         $today = CarbonImmutable::now($business->timezone);
@@ -41,7 +44,7 @@ class AccountsController extends Controller
         }
         $permissions = new TeamPermissions();
         $page = 'accounts';
-        return view('erp.accounts', compact('business', 'view', 'data', 'accounts', 'from', 'to', 'month', 'permissions', 'page'));
+        return view('erp.accounts', compact('business', 'view', 'data', 'accounts', 'from', 'to', 'month', 'permissions', 'page', 'pendingPosts'));
     }
 
     public function mutate(Request $request, int $unit, string $action)
