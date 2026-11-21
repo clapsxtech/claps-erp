@@ -44,9 +44,21 @@ class AppShellController extends Controller
             'sheetsAuthority' => config('sheet_transition.authority') === 'sheets',
             'legacyBase' => '/erp',
         ];
-        $manifestPath = public_path('ui/manifest.json');
+        return self::page($session + ['kind' => 'staff']);
+    }
+
+    /**
+     * Render the React host page with the given session JSON. Portals (teacher,
+     * parent, guest, public forms) call this with their own session shape; it
+     * must only contain what that visitor may see. `kind` tells the client which
+     * area it is in.
+     */
+    public static function page(array $session, string $title = 'ClapsLearn Operations')
+    {
+        $dir = trim((string) env('APP_UI_DIR', 'ui'), '/');
+        $manifestPath = public_path($dir.'/manifest.json');
         $manifest = is_file($manifestPath) ? json_decode((string) file_get_contents($manifestPath), true) : [];
-        return response()->view('app.shell', ['session' => $session, 'manifest' => $manifest ?: []])
+        return response()->view('app.shell', ['session' => $session, 'manifest' => $manifest ?: [], 'title' => $title])
             ->header('Cache-Control', 'no-store');
     }
 }

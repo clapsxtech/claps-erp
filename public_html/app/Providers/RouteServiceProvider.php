@@ -47,6 +47,11 @@ class RouteServiceProvider extends ServiceProvider
                 ->namespace($this->namespace)
                 ->group(base_path('routes/web.php'));
             Route::middleware('web')->group(base_path('routes/erp.php'));
+            // Portals and public pages of the React app (login, teacher, parent,
+            // public forms, print documents). Each file sets its own auth middleware.
+            foreach (glob(base_path('routes/portals/*.php')) as $portalRoutes) {
+                Route::middleware('web')->group($portalRoutes);
+            }
         });
     }
 

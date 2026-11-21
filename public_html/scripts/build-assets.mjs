@@ -8,17 +8,20 @@ import path from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
 process.chdir(root);
 const production = process.argv.includes('--production');
+// UI_OUT lets parallel work build the React app into its own folder (served with APP_UI_DIR).
+const uiOut = process.env.UI_OUT || 'public/ui';
+const appOnly = process.argv.includes('--app-only');
 const options = { minify: production, legalComments: 'eof', target: ['es2020'], logLevel: 'warning' };
 // The React + Astryx application. Astryx ships prebuilt CSS; the StyleX plugin
 // compiles only our own stylex.create() calls (never node_modules/@astryxdesign).
 async function buildReactApp() {
     const { default: stylex } = await import('@stylexjs/unplugin/esbuild');
-    await rm('public/ui', { recursive: true, force: true });
+    await rm(uiOut, { recursive: true, force: true });
     const result = await build({
         ...options,
         entryPoints: { main: 'resources/app/main.tsx' },
         bundle: true, splitting: true, format: 'esm', platform: 'browser',
-        outdir: 'public/ui', entryNames: '[name]-[hash]', chunkNames: 'chunks/[name]-[hash]', assetNames: 'assets/[name]-[hash]',
+        outdir: uiOut, entryNames: '[name]-[hash]', chunkNames: 'chunks/[name]-[hash]', assetNames: 'assets/[name]-[hash]',
         jsx: 'automatic', metafile: true,
         loader: { '.woff': 'file', '.woff2': 'file', '.svg': 'file', '.png': 'file' },
         define: { 'process.env.NODE_ENV': JSON.stringify(production ? 'production' : 'development') },
@@ -32,9 +35,10 @@ async function buildReactApp() {
             if (meta.cssBundle) entry.css = '/' + path.relative('public', meta.cssBundle).split(path.sep).join('/');
         }
     }
-    await writeFile('public/ui/manifest.json', JSON.stringify(entry, null, 2) + '\n');
+    await writeFile(`${uiOut}/manifest.json`, JSON.stringify(entry, null, 2) + '\n');
 }
 async function buildAssets() {
+    if (appOnly) { await buildReactApp(); console.log(`React app built into ${uiOut}.`); return; }
     await mkdir('public/js', { recursive: true });
     await mkdir('public/css', { recursive: true });
     await build({ ...options, entryPoints: ['resources/js/app.js'], bundle: true, platform: 'browser', outfile: 'public/js/app.js' });

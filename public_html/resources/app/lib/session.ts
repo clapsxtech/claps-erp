@@ -57,3 +57,9 @@ export function preferredUnit(): UnitAccess | undefined {
   }
   return units.find(unit => unit.id === stored) ?? units.find(unit => !unit.isArchived) ?? units[0];
 }
+
+/** For portals (teacher, parent, guest, public): read the host page's JSON as your own shape. */
+export function readSession<T>(): T {
+  const node = document.getElementById('erp-session');
+  return JSON.parse(node?.textContent ?? '{}') as T;
+}

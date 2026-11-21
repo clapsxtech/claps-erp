@@ -8,12 +8,13 @@ import {PageLoading} from './components/PageState';
 import {NotFound, RouteError} from './pages/NotFound';
 import {preferredUnit} from './lib/session';
 import {moduleRoutes} from './modules';
+import {portalRoutes, SPA_PREFIXES} from './portals';
 
 // Astryx renders every link through this, so in-app links route without a reload
 // while external and download links (marked with reloadDocument) still navigate.
 const AppLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorElement> & {href?: string}>(
   function AppLink({href = '', ...rest}, ref) {
-    const internal = href.startsWith('/app') && !rest.download && rest.target !== '_blank';
+    const internal = SPA_PREFIXES.some(prefix => href === prefix || href.startsWith(`${prefix}/`) || href.startsWith(`${prefix}?`)) && !rest.download && rest.target !== '_blank';
     if (!internal) return <a ref={ref} href={href} {...rest} />;
     return <RouterLink ref={ref} to={href} {...rest} />;
   },
@@ -55,6 +56,7 @@ const router = createBrowserRouter([
       {path: '*', element: <NotFound />},
     ],
   },
+  ...portalRoutes.map(route => ({errorElement: <RouteError />, ...route})),
 ]);
 
 export function App() {

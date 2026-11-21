@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#117c66">
-    <title>ClapsLearn Operations</title>
+    <title>{{ $title ?? 'ClapsLearn Operations' }}</title>
     @if(!empty($manifest['css']))<link rel="stylesheet" href="{{ $manifest['css'] }}">@endif
     @if(!empty($manifest['js']))<script type="module" src="{{ $manifest['js'] }}"></script>@endif
 </head>
