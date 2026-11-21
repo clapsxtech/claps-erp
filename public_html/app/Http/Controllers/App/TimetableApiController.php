@@ -126,23 +126,42 @@ class TimetableApiController extends Controller
                 'meta' => ['page' => $agreements->currentPage(), 'perPage' => $agreements->perPage(), 'total' => $agreements->total()],
             ],
             'exceptions' => [
-                'data' => collect($exceptions->items())->map(function ($x) {
-                    $interval = 'Full day';
-                    if ($x->starts_at && $x->ends_at && $x->timezone) {
-                        $interval = CarbonImmutable::parse($x->starts_at, 'UTC')->setTimezone($x->timezone)->format('H:i').'–'.CarbonImmutable::parse($x->ends_at, 'UTC')->setTimezone($x->timezone)->format('H:i').' '.$x->timezone;
-                    }
-                    return [
-                        'id' => (int) $x->id,
-                        'date' => $x->date,
-                        'interval' => $interval,
-                        'who' => $x->student_name ?? $x->teacher_name,
-                        'party' => $x->student_name !== null ? 'student' : 'teacher',
-                        'reason' => $x->reason,
-                    ];
-                })->values(),
+                'data' => collect($exceptions->items())->map(fn ($x) => [
+                    'id' => (int) $x->id,
+                    'date' => $x->date,
+                    'interval' => $this->exceptionInterval($x),
+                    // The stored UTC snapshot the interval is derived from; null on legacy rows.
+                    'startsAtUtc' => $x->starts_at,
+                    'endsAtUtc' => $x->ends_at,
+                    'snapshotTimezone' => $x->timezone,
+                    'isLegacy' => $x->starts_at === null && $x->ends_at === null && $x->timezone === null,
+                    'who' => $x->student_name ?? $x->teacher_name,
+                    'party' => $x->student_name !== null ? 'student' : 'teacher',
+                    'reason' => $x->reason,
+                ])->values(),
                 'meta' => ['page' => $exceptions->currentPage(), 'perPage' => $exceptions->perPage(), 'total' => $exceptions->total()],
             ],
             'can' => ['openPlanning' => (new TeamPermissions())->allows($request->user(), $unit, 'detail', 'all')],
         ]);
+    }
+
+    /**
+     * The local interval in the row's snapshot timezone, with the same rules as the
+     * classic exception-interval view: legacy rows (no snapshot) are full days in the
+     * participant's timezone, 00:00 to 00:00 the next day is "Full day", and an end on
+     * the following local date is marked "(next day)".
+     */
+    private function exceptionInterval(object $x): string
+    {
+        if ($x->starts_at === null && $x->ends_at === null && $x->timezone === null) return 'Full day · participant timezone (legacy)';
+        if (!$x->starts_at || !$x->ends_at || !$x->timezone || $x->ends_at <= $x->starts_at) return 'Invalid interval · requires correction';
+        try {
+            $start = CarbonImmutable::parse($x->starts_at, 'UTC')->setTimezone($x->timezone);
+            $end = CarbonImmutable::parse($x->ends_at, 'UTC')->setTimezone($x->timezone);
+        } catch (\Exception $error) {
+            return 'Invalid interval · requires correction';
+        }
+        if ($start->format('H:i:s') === '00:00:00' && $end->format('H:i:s') === '00:00:00' && $end->toDateString() === $start->addDay()->toDateString()) return 'Full day '.$x->timezone;
+        return $start->format('H:i').'–'.$end->format('H:i').($start->toDateString() !== $end->toDateString() ? ' (next day)' : '').' '.$x->timezone;
     }
 }

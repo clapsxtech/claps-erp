@@ -1,4 +1,4 @@
-// Payments & dues. Four tabs share one URL so
+// Payments & dues. Five tabs share one URL so
 // links and the back button reopen the same view. Reads come from
 // /app-api/units/{unit}/money/*; every write goes to the /erp action routes.
 import {useEffect, useMemo, useState} from 'react';
@@ -27,8 +27,9 @@ import {getJson} from '../../lib/api';
 import {date, money, number, titleCase} from '../../lib/format';
 import {unitById, type UnitAccess} from '../../lib/session';
 import {actionUrl, canAct, ConfirmActionDialog, paiseToInput, StudentPicker, today, type StudentOption} from './shared';
+import {ChargeQueueTab} from './ChargeQueue';
 
-type TabKey = 'dues' | 'ledger' | 'requests' | 'teachers';
+type TabKey = 'dues' | 'ledger' | 'requests' | 'teachers' | 'charges';
 
 interface Summary {
   totals: {dueCount: number; duePaise: number; openRequestCount: number; outstandingRequestPaise: number; teachersOwedCount: number; teacherPayablePaise: number};
@@ -119,7 +120,7 @@ type Confirm =
 function useTab(): [TabKey, (tab: TabKey, extra?: Record<string, string>) => void] {
   const [params, setParams] = useSearchParams();
   const raw = params.get('tab');
-  const tab: TabKey = raw === 'ledger' || raw === 'requests' || raw === 'teachers' ? raw : 'dues';
+  const tab: TabKey = raw === 'ledger' || raw === 'requests' || raw === 'teachers' || raw === 'charges' ? raw : 'dues';
   const set = (next: TabKey, extra: Record<string, string> = {}) =>
     setParams(
       current => {
@@ -226,7 +227,7 @@ export default function Payments() {
   return (
     <Page
       title="Payments & dues"
-      description="Student balances, receipts, payment requests and teacher pay."
+      description="Student balances, receipts, payment requests, teacher pay and classes waiting to be charged."
       actions={
         <>
           {canRequest && <Button label="Request payment" variant="secondary" onClick={() => setPicking('request')} />}
@@ -251,6 +252,7 @@ export default function Payments() {
         <Tab value="ledger" label="Ledger" />
         <Tab value="requests" label="Payment requests" />
         <Tab value="teachers" label="Teacher pay" />
+        <Tab value="charges" label="Classes to charge" />
       </TabList>
       {tab === 'dues' && (
         <DuesTab
@@ -279,6 +281,7 @@ export default function Payments() {
           }}
         />
       )}
+      {tab === 'charges' && <ChargeQueueTab key={`charges-${nonce}`} unitId={unitId} unit={unit} onImported={refresh} />}
       {tab === 'teachers' && (
         <TeachersTab
           key={`teachers-${nonce}`}

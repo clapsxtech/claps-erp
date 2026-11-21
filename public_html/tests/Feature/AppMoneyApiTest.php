@@ -243,4 +243,27 @@ class AppMoneyApiTest extends TestCase
         $this->post($base.'parent-request-resolve', ['request_id' => $query, 'reply' => 'Synthetic reply'], ['Accept' => 'application/json'])->assertOk()->assertJsonStructure(['message']);
         $this->getJson($this->api('/tuition'))->assertOk()->assertJsonCount(0, 'parentRequests');
     }
+
+    public function test_charge_queue_lists_import_rows_for_money_roles_with_the_attendance_field_list(): void
+    {
+        $subject = DB::table('erp_subjects')->insertGetId(['name' => 'Synthetic Charge Subject']);
+        $enrollment = DB::table('erp_enrollments')->insertGetId(['unit_id' => $this->unit, 'student_id' => $this->student, 'teacher_id' => $this->teacher, 'subject_id' => $subject, 'starts_on' => '2026-01-01', 'status' => 'active', 'student_rate_paise' => 45000, 'teacher_rate_paise' => 30000, 'currency' => 'INR']);
+        $lesson = DB::table('erp_lessons')->insertGetId(['unit_id' => $this->unit, 'enrollment_id' => $enrollment, 'student_id' => $this->student, 'teacher_id' => $this->teacher, 'subject_id' => $subject, 'starts_at' => '2026-03-01 10:00:00', 'ends_at' => '2026-03-01 11:00:00', 'status' => 'completed', 'kind' => 'regular', 'student_rate_paise' => 45000, 'teacher_rate_paise' => 30000, 'currency' => 'INR']);
+        $attendance = DB::table('erp_attendance')->insertGetId(['unit_id' => $this->unit, 'lesson_id' => $lesson, 'actual_minutes' => 60, 'status' => 'submitted', 'submitted_by' => 1]);
+        $finance = $this->member('finance');
+        $json = $this->actingAs($finance)->getJson($this->api('/money/charge-queue'))->assertOk()->json();
+        $this->assertSame([$attendance], array_column($json['data'], 'id'));
+        $this->assertSame(['id', 'lessonId', 'localDate', 'startTime', 'kind', 'studentName', 'studentCode', 'teacherName', 'subjectName', 'actualMinutes', 'status', 'pendingReviews', 'studentFinanceState', 'teacherFinanceState'], array_keys($json['data'][0]));
+        $this->assertSame(['page' => 1, 'perPage' => 25, 'total' => 1, 'pageParam' => 'import_queue_page'], $json['meta']);
+        $this->assertStringNotContainsString('45000', json_encode($json));
+        // The same rows and fields as the Attendance import queue.
+        $this->actingAs($this->createAdmin())->getJson($this->api('/attendance/queues/import'))->assertOk()->assertJsonPath('data', $json['data']);
+        $this->actingAs($this->member('read_only'))->getJson($this->api('/money/charge-queue'))->assertOk();
+        foreach (['academics', 'sales_followups'] as $role) $this->actingAs($this->member($role))->getJson($this->api('/money/charge-queue'))->assertForbidden();
+        $this->actingAs($finance)->getJson('/app-api/units/'.$this->other.'/money/charge-queue')->assertForbidden();
+        $this->actingAs($finance)->getJson($this->api('/money/charge-queue?import_queue_page=0'))->assertStatus(422);
+        // Finance imports the listed rows through the existing action route.
+        $this->actingAs($finance)->postJson('/erp/units/'.$this->unit.'/import-batch', ['attendance_ids' => [$attendance], 'reference' => 'MNY-CHARGE-QUEUE'])->assertOk();
+        $this->getJson($this->api('/money/charge-queue'))->assertOk()->assertJsonCount(0, 'data');
+    }
 }

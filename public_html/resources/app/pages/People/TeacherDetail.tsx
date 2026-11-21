@@ -20,7 +20,7 @@ import {TeacherForms, type TeacherFormKind} from './TeacherForms';
 interface Profile {
   teacher: {id: number; code: string; name: string; status: string; timezone: string; levels: string[]; category: string | null; ttHours: string};
   eligibilities: {subject: string; grade: string; syllabus: string}[];
-  classes: {id: number; studentId: number; studentName: string; subjectName: string | null; startsOn: string; endsOn: string | null; status: string}[];
+  classes: {id: number; studentId: number; studentName: string; subjectName: string | null; startsOn: string; endsOn: string | null; status: string; studentRatePaise: number | null; teacherRatePaise: number | null}[];
   statement: {earnedPaise: number; paidPaise: number; otherAdjustmentsPaise: number; netPayablePaise: number} | null;
   can: {seeMoney: boolean; openStudent: boolean};
   options: {levels: {value: string; label: string}[]; categories: string[]};
@@ -109,6 +109,13 @@ export default function TeacherDetail() {
                 {key: 'subjectName', header: 'Subject', renderCell: r => <Text>{r.subjectName ?? '—'}</Text>},
                 {key: 'startsOn', header: 'From', renderCell: r => <Text hasTabularNumbers>{date(r.startsOn)}</Text>},
                 {key: 'endsOn', header: 'Until', renderCell: r => <Text hasTabularNumbers>{r.endsOn ? date(r.endsOn) : 'Ongoing'}</Text>},
+                // Hourly rates come only for roles with the money page.
+                ...(data.can.seeMoney
+                  ? [
+                      {key: 'studentRatePaise', header: 'Student rate / hr', align: 'end' as const, renderCell: (r: Profile['classes'][number]) => <Text hasTabularNumbers>{money(r.studentRatePaise)}</Text>},
+                      {key: 'teacherRatePaise', header: 'Teacher rate / hr', align: 'end' as const, renderCell: (r: Profile['classes'][number]) => <Text hasTabularNumbers>{money(r.teacherRatePaise)}</Text>},
+                    ]
+                  : []),
                 {key: 'status', header: 'Status', renderCell: r => <Status value={r.status} />},
               ]}
             />

@@ -38,6 +38,8 @@ export function FormDrawer({
   onSaved,
   extra,
   hidden,
+  sendChangedOnly,
+  clearable,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -53,6 +55,10 @@ export function FormDrawer({
   extra?: ReactNode;
   /** Values sent with every submit but not shown, e.g. the team's time zone. */
   hidden?: Record<string, string | number>;
+  /** Edit forms: post only fields whose value differs from `initial`, so unchanged values are not re-validated. */
+  sendChangedOnly?: boolean;
+  /** With sendChangedOnly: fields that may be emptied; emptying one sends it in clear_fields. */
+  clearable?: string[];
 }) {
   const showToast = useToast();
   const [values, setValues] = useState<Record<string, string>>(initial ?? {});
@@ -80,7 +86,9 @@ export function FormDrawer({
     const payload: Record<string, unknown> = {...(hidden ?? {})};
     for (const field of fields) {
       const raw = (values[field.name] ?? '').trim();
+      if (sendChangedOnly && raw === (initial?.[field.name] ?? '').trim()) continue;
       if (raw !== '') payload[field.name] = raw;
+      else if (sendChangedOnly && clearable?.includes(field.name)) payload.clear_fields = [...((payload.clear_fields as string[]) ?? []), field.name];
     }
     try {
       const result = await postJson<{result: unknown; message?: string}>(action, payload);

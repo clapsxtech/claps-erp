@@ -97,8 +97,15 @@ class AppClassesApiTest extends TestCase
         $json = $this->actingAs($this->member('read_only'))->getJson($this->api('/timetable/plans'))->assertOk()->json();
         $this->assertSame(['id', 'enrollmentId', 'weekday', 'startTime', 'durationMinutes', 'timezone', 'startsOn', 'endsOn', 'status', 'studentName', 'teacherName', 'subjectName'], array_keys($json['agreements']['data'][0]));
         $this->assertSame('Tuesday', $json['agreements']['data'][0]['weekday']);
-        $this->assertSame(['id', 'date', 'interval', 'who', 'party', 'reason'], array_keys($json['exceptions']['data'][0]));
+        $this->assertSame(['id', 'date', 'interval', 'startsAtUtc', 'endsAtUtc', 'snapshotTimezone', 'isLegacy', 'who', 'party', 'reason'], array_keys($json['exceptions']['data'][0]));
         $this->assertSame('teacher', $json['exceptions']['data'][0]['party']);
+        // A row without a UTC snapshot is a legacy full day in the participant's timezone.
+        $this->assertSame(['Full day · participant timezone (legacy)', null, null, true], [$json['exceptions']['data'][0]['interval'], $json['exceptions']['data'][0]['startsAtUtc'], $json['exceptions']['data'][0]['endsAtUtc'], $json['exceptions']['data'][0]['isLegacy']]);
+        // A snapshot row carries its stored UTC interval; an end on the next local date is marked.
+        DB::table('erp_exceptions')->insert(['unit_id' => $this->unit, 'teacher_id' => $this->teacher, 'date' => '2026-01-11', 'starts_at' => '2026-01-11 17:30:00', 'ends_at' => '2026-01-11 18:30:00', 'timezone' => 'Asia/Kolkata', 'reason' => 'Synthetic late slot']);
+        $row = $this->getJson($this->api('/timetable/plans'))->assertOk()->json('exceptions.data.0');
+        $this->assertSame(['23:00–00:00 (next day) Asia/Kolkata', '2026-01-11 17:30:00', '2026-01-11 18:30:00', 'Asia/Kolkata', false], [$row['interval'], $row['startsAtUtc'], $row['endsAtUtc'], $row['snapshotTimezone'], $row['isLegacy']]);
+        $this->getJson($this->api('/timetable/plans', $this->other))->assertForbidden();
         $this->assertTrue($json['can']['openPlanning']);
     }
 

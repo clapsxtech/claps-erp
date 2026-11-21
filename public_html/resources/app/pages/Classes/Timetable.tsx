@@ -455,10 +455,19 @@ function PlansView({
             <Table<Row>
               data={plans.exceptions.data}
               idKey={row => Number(row.id)}
-              textOverflow="truncate"
+              textOverflow="wrap"
               columns={[
                 {key: 'date', header: 'Date', renderCell: r => cell(r.date)},
-                {key: 'interval', header: 'Time', renderCell: r => cell(r.interval)},
+                {
+                  key: 'interval',
+                  header: 'Time',
+                  renderCell: r => (
+                    <VStack gap={0}>
+                      {cell(r.interval)}
+                      {r.startsAtUtc && r.endsAtUtc ? <Text size="sm" color="secondary" hasTabularNumbers>{`${r.startsAtUtc} → ${r.endsAtUtc} UTC`}</Text> : null}
+                    </VStack>
+                  ),
+                },
                 {key: 'who', header: 'Who', renderCell: r => cell(`${r.who ?? '—'} (${r.party})`)},
                 {key: 'reason', header: 'Reason', renderCell: r => cell(r.reason)},
               ]}

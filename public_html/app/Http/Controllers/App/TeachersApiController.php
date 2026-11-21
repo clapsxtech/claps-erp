@@ -109,12 +109,14 @@ class TeachersApiController extends Controller
             ->where('e.teacher_id', $t->id)->orderBy('s.name')->orderBy('e.grade')
             ->get(['s.name as subject', 'e.grade', 'e.syllabus'])
             ->map(fn ($r) => ['subject' => $r->subject, 'grade' => $r->grade, 'syllabus' => $r->syllabus])->values();
-        // Class rates are money; only the fields below leave the server.
+        // Class rates are money: hourly rates go to roles with the money page only
+        // (the classic workspace Enrollments register); only the fields below leave the server.
         $classes = DB::table('erp_enrollments as e')->join('erp_students as s', 's.id', '=', 'e.student_id')->leftJoin('erp_subjects as sub', 'sub.id', '=', 'e.subject_id')
             ->where('e.unit_id', $unit)->where('e.teacher_id', $t->id)
             ->orderByRaw("CASE WHEN e.status = 'active' THEN 0 ELSE 1 END")->orderByDesc('e.starts_on')->limit(50)
-            ->get(['e.id', 's.id as student_id', 's.name as student_name', 'sub.name as subject_name', 'e.starts_on', 'e.ends_on', 'e.status'])
-            ->map(fn ($r) => ['id' => (int) $r->id, 'studentId' => (int) $r->student_id, 'studentName' => $r->student_name, 'subjectName' => $r->subject_name, 'startsOn' => $r->starts_on, 'endsOn' => $r->ends_on, 'status' => $r->status])->values();
+            ->get(['e.id', 's.id as student_id', 's.name as student_name', 'sub.name as subject_name', 'e.starts_on', 'e.ends_on', 'e.status', 'e.student_rate_paise', 'e.teacher_rate_paise'])
+            ->map(fn ($r) => ['id' => (int) $r->id, 'studentId' => (int) $r->student_id, 'studentName' => $r->student_name, 'subjectName' => $r->subject_name, 'startsOn' => $r->starts_on, 'endsOn' => $r->ends_on, 'status' => $r->status,
+                'studentRatePaise' => $canSeeMoney ? (int) $r->student_rate_paise : null, 'teacherRatePaise' => $canSeeMoney ? (int) $r->teacher_rate_paise : null])->values();
         $statement = $canSeeMoney ? (new Reporting())->teacherStatements($unit, [(int) $t->id])[(int) $t->id] : null;
 
         return response()->json([

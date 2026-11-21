@@ -1,5 +1,5 @@
 <?php
-use App\Http\Controllers\App\{AccountsApiController, MoneyApiController, TuitionApiController};
+use App\Http\Controllers\App\{AccountsApiController, AttendanceApiController, MoneyApiController, TuitionApiController};
 use Illuminate\Support\Facades\Route;
 
 // Payments & dues (page "money").
@@ -9,6 +9,8 @@ Route::get('/money/students', [MoneyApiController::class, 'students'])->name('mo
 Route::get('/money/ledger', [MoneyApiController::class, 'ledger'])->name('money.ledger')->defaults('erp_permission', ['page', 'money']);
 Route::get('/money/requests', [MoneyApiController::class, 'requests'])->name('money.requests')->defaults('erp_permission', ['page', 'money']);
 Route::get('/money/teachers', [MoneyApiController::class, 'teachers'])->name('money.teachers')->defaults('erp_permission', ['page', 'money']);
+// Classes to charge: the attended classes waiting for a student-charge import (import-batch).
+Route::get('/money/charge-queue', [AttendanceApiController::class, 'importQueue'])->name('money.charge-queue')->defaults('erp_permission', ['page', 'money']);
 
 // Accounts & tax (page "accounts").
 Route::get('/accounts/overview', [AccountsApiController::class, 'overview'])->name('accounts.overview')->defaults('erp_permission', ['page', 'accounts']);

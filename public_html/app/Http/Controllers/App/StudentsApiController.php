@@ -2,7 +2,7 @@
 namespace App\Http\Controllers\App;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Erp\Services\{People, StudentProfile, TeamPermissions};
+use App\Modules\Erp\Services\{IndianStates, People, StudentProfile, TeamPermissions};
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -91,25 +91,68 @@ class StudentsApiController extends Controller
         ]);
     }
 
+    /** Paginated profile sections and their page sizes (StudentProfile::read). */
+    private const SECTIONS = ['assignments', 'agreements', 'lessons', 'attendance', 'ledger', 'requests', 'followups', 'tasks'];
+
     public function show(Request $request, int $unit, int $student)
     {
+        // Each section pages on its own; the classic profile refused malformed page numbers.
+        $request->validate(collect(self::SECTIONS)->mapWithKeys(fn ($section) => [$section.'_page' => 'nullable|integer|min:1|max:1000000'])->all());
         $p = (new StudentProfile())->read($unit, $student);
         $s = $p['student'];
+        $permissions = new TeamPermissions();
+        $user = $request->user();
+        // Rates are money: shown to roles with the money page only, as the classic workspace did.
+        $canSeeMoney = $permissions->allows($user, $unit, 'page', 'money');
+        $canUpdate = $permissions->allows($user, $unit, 'action', 'student-update');
         $page = fn ($paginator, array $fields) => collect($paginator->items())->map(fn ($row) => collect($fields)->mapWithKeys(fn ($f) => [$f => $row->$f ?? null])->all())->values();
+        $sheet = $p['sheetProfile'];
+        $sheetFields = ['section' => 'section', 'country' => 'country', 'whatsapp_number' => 'whatsappNumber', 'student_contact' => 'studentContact', 'email' => 'email', 'father_name' => 'fatherName', 'mother_name' => 'motherName', 'school' => 'school', 'preferred_medium' => 'preferredMedium', 'preferred_time' => 'preferredTime', 'network_connectivity' => 'networkConnectivity', 'source' => 'source', 'source_external_id' => 'sourceExternalId'];
+        $assignedTo = $p['labels']['assigned_to'];
         return response()->json([
             'student' => [
                 'id' => (int) $s->id, 'code' => $s->code, 'name' => $s->name, 'grade' => $s->grade, 'syllabus' => $s->syllabus,
                 'status' => $s->status, 'registeredOn' => $s->registered_on, 'timezone' => $s->timezone,
-                'guardianContact' => $s->guardian_contact, 'meetingUrl' => $s->meeting_url,
+                'guardianContact' => $s->guardian_contact, 'meetingUrl' => RecordsDatasets::safeLink($s->meeting_url),
+                // GST place of supply when it differs from the team's state.
+                'billingState' => $sheet->billing_state ?? null,
             ],
+            'sheetProfile' => $sheet ? collect($sheetFields)->mapWithKeys(fn ($key, $column) => [$key => $sheet->$column])->all()
+                + ['hourRatePaise' => $canSeeMoney && $sheet->hour_rate_paise !== null ? (int) $sheet->hour_rate_paise : null] : null,
+            'admissionHandoffs' => $p['admissionHandoffs']->map(fn ($h) => [
+                'id' => (int) $h->id, 'source' => $h->source, 'joinedOn' => $h->joined_on,
+                'learningRequirement' => $h->learning_requirement, 'concern' => $h->concern,
+                'aboutStudent' => $h->about_student, 'aboutParent' => $h->about_parent,
+            ])->values(),
             'balances' => $p['balances']->map(fn ($b) => ['currency' => $b->currency, 'balancePaise' => (int) $b->balance_paise])->values(),
-            'assignments' => $page($p['assignments'], ['id', 'subject_name', 'teacher_name', 'starts_on', 'ends_on', 'status']),
+            'assignments' => collect($p['assignments']->items())->map(fn ($a) => [
+                'id' => (int) $a->id, 'subject_name' => $a->subject_name, 'teacher_name' => $a->teacher_name,
+                'starts_on' => $a->starts_on, 'ends_on' => $a->ends_on, 'status' => $a->status,
+                'studentRatePaise' => $canSeeMoney ? (int) $a->student_rate_paise : null,
+            ])->values(),
             'agreements' => $page($p['agreements'], ['id', 'subject_name', 'teacher_name', 'weekday', 'start_time', 'duration_minutes', 'timezone', 'status']),
             'lessons' => $page($p['lessons'], ['id', 'starts_at', 'subject_name', 'teacher_name', 'kind', 'status']),
             'attendance' => $page($p['attendance'], ['id', 'starts_at', 'subject_name', 'teacher_name', 'actual_minutes', 'status']),
             'ledger' => $page($p['ledger'], ['id', 'occurred_at', 'kind', 'reference', 'amount_paise', 'currency', 'reverses_id']),
+            // A request is not a receipt: it never changes the balance.
+            'requests' => collect($p['requests']->items())->map(fn ($r) => [
+                'id' => (int) $r->id, 'reference' => $r->reference, 'requestedOn' => $r->requested_on, 'dueOn' => $r->due_on,
+                'requestedPaise' => (int) $p['requestSummaries'][$r->id]['requested_paise'],
+                'coveredPaise' => (int) $p['requestSummaries'][$r->id]['covered_paise'],
+                'outstandingPaise' => (int) $p['requestSummaries'][$r->id]['outstanding_paise'],
+                'status' => $p['requestSummaries'][$r->id]['status'],
+            ])->values(),
             'followups' => $page($p['followups'], ['id', 'created_at', 'contact_channel', 'note', 'outcome', 'next_due_on']),
-            'tasks' => $page($p['tasks'], ['id', 'title', 'status', 'due_on']),
+            // Assignee names only for current members of this unit.
+            'tasks' => collect($p['tasks']->items())->map(fn ($t) => [
+                'id' => (int) $t->id, 'title' => $t->title, 'status' => $t->status, 'due_on' => $t->due_on, 'notes' => $t->notes,
+                'assignedTo' => $t->assigned_to ? ($assignedTo[$t->assigned_to] ?? 'Unassigned or unavailable account') : null,
+            ])->values(),
+            'pages' => collect(self::SECTIONS)->mapWithKeys(fn ($section) => [$section => [
+                'page' => $p[$section]->currentPage(), 'perPage' => $p[$section]->perPage(), 'total' => $p[$section]->total(), 'param' => $section.'_page',
+            ]])->all(),
+            'states' => $canUpdate ? IndianStates::names() : null,
+            'can' => ['seeMoney' => $canSeeMoney, 'updateStudent' => $canUpdate],
         ]);
     }
 }

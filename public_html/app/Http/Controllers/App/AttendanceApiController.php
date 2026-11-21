@@ -97,6 +97,16 @@ class AttendanceApiController extends Controller
         ]);
     }
 
+    /**
+     * The student-import queue for Payments & dues (page "money"): finance may post
+     * import-batch but has no Attendance page. Same rows and the same field list as
+     * the attendance import queue; the teacher approval queue stays on Attendance.
+     */
+    public function importQueue(Request $request, int $unit)
+    {
+        return $this->queue($request, $unit, 'import');
+    }
+
     /** Pending Gallabox duplicate reviews, with both attendance records named. */
     public function reviews(Request $request, int $unit)
     {

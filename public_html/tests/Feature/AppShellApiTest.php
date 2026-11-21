@@ -97,4 +97,55 @@ class AppShellApiTest extends TestCase
         $from = strpos($haystack, $start) + strlen($start);
         return substr($haystack, $from, strpos($haystack, $end, $from) - $from);
     }
+
+    public function test_profile_sections_page_and_money_and_edit_fields_follow_the_role(): void
+    {
+        $teacher = DB::table('erp_teachers')->insertGetId(['code' => 'APP-T1', 'name' => 'Synthetic Teacher', 'timezone' => 'UTC', 'status' => 'active']);
+        DB::table('erp_teacher_units')->insert(['unit_id' => $this->unit, 'teacher_id' => $teacher]);
+        $subject = DB::table('erp_subjects')->insertGetId(['name' => 'Synthetic Subject']);
+        DB::table('erp_enrollments')->insert(['unit_id' => $this->unit, 'student_id' => $this->student, 'teacher_id' => $teacher, 'subject_id' => $subject, 'starts_on' => '2026-01-01', 'status' => 'active', 'student_rate_paise' => 12029, 'teacher_rate_paise' => 6025, 'currency' => 'INR']);
+        DB::table('erp_student_profiles')->insert(['unit_id' => $this->unit, 'student_id' => $this->student, 'section' => 'B', 'school' => 'Synthetic School', 'hour_rate_paise' => 50000, 'date_of_birth' => '2014-02-03', 'billing_state' => 'Tamil Nadu', 'feedback' => 'PRIVATE SHEET FEEDBACK']);
+        DB::table('erp_students')->where('id', $this->student)->update(['meeting_url' => 'javascript:alert(1)']);
+        $url = '/app-api/units/'.$this->unit.'/students/'.$this->student;
+
+        $manager = $this->actingAs($this->member('team_manager'))->getJson($url)->assertOk()->json();
+        $this->assertSame(['id', 'code', 'name', 'grade', 'syllabus', 'status', 'registeredOn', 'timezone', 'guardianContact', 'meetingUrl', 'billingState'], array_keys($manager['student']));
+        $this->assertNull($manager['student']['meetingUrl']);
+        $this->assertSame('Tamil Nadu', $manager['student']['billingState']);
+        $this->assertSame(['id', 'subject_name', 'teacher_name', 'starts_on', 'ends_on', 'status', 'studentRatePaise'], array_keys($manager['assignments'][0]));
+        $this->assertSame(12029, $manager['assignments'][0]['studentRatePaise']);
+        $this->assertSame(['section', 'country', 'whatsappNumber', 'studentContact', 'email', 'fatherName', 'motherName', 'school', 'preferredMedium', 'preferredTime', 'networkConnectivity', 'source', 'sourceExternalId', 'hourRatePaise'], array_keys($manager['sheetProfile']));
+        $this->assertSame(['B', 50000], [$manager['sheetProfile']['section'], $manager['sheetProfile']['hourRatePaise']]);
+        $this->assertSame(['assignments', 'agreements', 'lessons', 'attendance', 'ledger', 'requests', 'followups', 'tasks'], array_keys($manager['pages']));
+        $this->assertSame(['seeMoney' => true, 'updateStudent' => true], $manager['can']);
+        $this->assertContains('Kerala', $manager['states']);
+        // Teacher pay, the date of birth and unlisted sheet columns stay on the server.
+        foreach (['6025', 'teacherRatePaise', '2014-02-03', 'PRIVATE SHEET FEEDBACK', 'javascript:'] as $hidden) $this->assertStringNotContainsString($hidden, json_encode($manager));
+
+        // Read-only sees the profile but may not edit it: no state list.
+        $readOnly = $this->actingAs($this->member('read_only'))->getJson($url)->assertOk()->json();
+        $this->assertSame(['seeMoney' => true, 'updateStudent' => false], $readOnly['can']);
+        $this->assertNull($readOnly['states']);
+        $this->actingAs($this->member('finance'))->getJson($url)->assertForbidden();
+        $this->actingAs($this->member('academics'))->getJson($url)->assertForbidden();
+
+        $this->actingAs($this->member('team_manager'))->getJson($url.'?assignments_page=0')->assertStatus(422)->assertJsonValidationErrors('assignments_page');
+        // A manager saves the billing state and other details through student-update.
+        $this->actingAs($this->member('team_manager'))->postJson('/erp/units/'.$this->unit.'/business-actions/student-update', ['student_id' => $this->student, 'billing_state' => 'Kerala', 'guardian_contact' => '+919999999999', 'meeting_url' => 'https://meet.example.test/x'])->assertOk();
+        $this->getJson($url)->assertOk()->assertJsonPath('student.billingState', 'Kerala')->assertJsonPath('student.guardianContact', '+919999999999')->assertJsonPath('student.meetingUrl', 'https://meet.example.test/x');
+        $this->actingAs($this->member('read_only'))->postJson('/erp/units/'.$this->unit.'/business-actions/student-update', ['student_id' => $this->student, 'billing_state' => 'Goa'])->assertForbidden();
+    }
+
+    public function test_edit_student_can_clear_contact_and_class_link(): void
+    {
+        DB::table('erp_students')->where('id', $this->student)->update(['meeting_url' => 'https://meet.example.invalid/x']);
+        $this->actingAs($this->member('team_manager'))
+            ->postJson('/erp/units/'.$this->unit.'/business-actions/student-update', ['student_id' => $this->student, 'clear_fields' => ['guardian_contact', 'meeting_url']])
+            ->assertOk();
+        $row = DB::table('erp_students')->find($this->student);
+        $this->assertNull($row->guardian_contact);
+        $this->assertNull($row->meeting_url);
+        $this->getJson('/app-api/units/'.$this->unit.'/students/'.$this->student)->assertOk()
+            ->assertJsonPath('student.guardianContact', null)->assertJsonPath('student.meetingUrl', null);
+    }
 }
