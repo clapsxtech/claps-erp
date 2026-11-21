@@ -2,9 +2,10 @@
 
 Entry point: https://erp.clapslearn.in/teacher
 
-Linked teacher accounts are sent to their personal dashboard after sign-in. The
-root workspace and the six older teacher page links also redirect linked teachers
-to the appropriate dashboard section. Teachers never choose a teacher identity or
+Linked teacher accounts are sent to their portal after sign-in, and `/` takes
+them there too. The public form links (`/attendance`, `/resultform`, `/timetable`)
+send a signed-in linked teacher to the matching portal section. The portal is the
+React app (`resources/app/pages/Teacher`), with phone-first bottom tabs. Teachers never choose a teacher identity or
 enter a DOB credential in the new dashboard.
 
 ## Dashboard
@@ -30,9 +31,9 @@ or email addresses.
 
 ## Enable a teacher account
 
-1. Create an active login through User accounts if needed.
-2. Create the teacher record in the correct unit's Students & teachers screen.
-3. In Team access, grant the existing login the Teacher role in that unit only.
+1. Create an active login in Admin → Teams & accounts if needed.
+2. Add the teacher in the correct team's People → Teachers screen.
+3. In Admin → Team & access, grant the existing login the Teacher role in that unit only.
 4. Use Explicitly link teacher to login account to connect the teacher record.
 5. Assign students and subjects and publish dated lessons; share `/teacher`.
 

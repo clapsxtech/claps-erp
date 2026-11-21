@@ -122,7 +122,7 @@ The primary workspace now lives at `/`; `/erp` and `/home` redirect to it.
 Legacy tools are grouped at `/legacy`, with links to the corresponding new
 workflows. Academics adds a dedicated assessment form, searchable date-filtered
 results, safe named CSV exports and subject eligibility management.
-See [replacement status and remaining legacy features](ERP_REPLACEMENT_STATUS.md).
+The Blade screens described in this record have since been replaced by the React app; see [the guide](APP_GUIDE.md).
 
 Live verification for this release passed: administrator login, root workspace,
 Legacy tools and all nine business screens in each of AA and BB (18 screens).
@@ -135,8 +135,7 @@ The records catalogue, historical reports and site administration now share the
 ERP shell. `/tools` replaces the Legacy tools directory, with `/legacy` redirected
 for bookmarks. All six teacher routes now use the Teacher workspace, with mobile
 navigation, consistent forms and report controls. Existing route permissions,
-verification requirements and record storage are preserved. See
-[replacement status](ERP_REPLACEMENT_STATUS.md) for scope and tests.
+verification requirements and record storage are preserved.
 
 Final release verification: health, administrator login, workspace, tools directory,
 all six teacher routes, topics, users, roles, settings and historical assessment/
@@ -150,9 +149,8 @@ student-attendance report with no browser errors. Screenshots:
 Attendance verification, retry behavior, stale-report clearing, mobile calendar
 layout and direct local assessment history were verified with isolated fixtures.
 377 PHP tests / 3,218 assertions pass in normal and D1-compatible modes, alongside
-43 JavaScript tests, production asset build and TypeScript checks. See the
-[workflow verification record](MOBILE_WORKFLOW_VERIFICATION.md) for exact scope
-and screenshots.
+43 JavaScript tests, production asset build and TypeScript checks (figures from
+that release, before the switch to the React app).
 
 Production verification passed health, administrator sign-in, 31 page routes and
 four live report POST queries. The new attendance verification action is present,
