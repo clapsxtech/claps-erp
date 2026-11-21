@@ -54,7 +54,7 @@ export function TabBar({unit, onMore}: {unit: UnitAccess | undefined; onMore: ()
         return (
           <Link key={tab.key} href={href} aria-current={active ? 'page' : undefined} {...stylex.props(styles.tab, active && styles.active)}>
             <Icon icon={tab.icon} size="md" />
-            <Text size="sm" color="inherit">
+            <Text size="sm" color="inherit" maxLines={1}>
               {tab.short ?? tab.label}
             </Text>
           </Link>

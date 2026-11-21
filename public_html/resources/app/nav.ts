@@ -70,7 +70,7 @@ export const GROUPS: NavGroup[] = [
       {key: 'students', label: 'Students', keywords: 'learners children families dues balance', icon: UsersIcon, page: 'people', path: 'students'},
       {key: 'teachers', label: 'Teachers', keywords: 'tutors staff salary earnings', icon: AcademicCapIcon, page: 'people', path: 'teachers'},
       {key: 'admissions', label: 'Admissions', short: 'Leads', keywords: 'leads crm enquiries demo trial sales pipeline', icon: UserPlusIcon, page: 'admissions', path: 'admissions'},
-      {key: 'followups', label: 'Follow-ups', keywords: 'calls reminders retention priority', icon: PhoneArrowUpRightIcon, page: 'followups', path: 'followups'},
+      {key: 'followups', label: 'Follow-ups', short: 'Calls', keywords: 'calls reminders retention priority', icon: PhoneArrowUpRightIcon, page: 'followups', path: 'followups'},
       {key: 'recruitment', label: 'Teacher hiring', keywords: 'recruitment candidates onboarding', icon: BriefcaseIcon, page: 'teacher-recruitment', path: 'recruitment'},
     ],
   },
