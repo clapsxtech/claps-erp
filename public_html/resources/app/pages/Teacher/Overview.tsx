@@ -1,9 +1,11 @@
 // Today: lessons waiting for attendance first (one tap each), then today's
 // classes, then what is coming next.
+import {Avatar} from '@astryxdesign/core/Avatar';
+import {Card} from '@astryxdesign/core/Card';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Grid} from '@astryxdesign/core/Grid';
 import {ClickableCard} from '@astryxdesign/core/ClickableCard';
-import {Text} from '@astryxdesign/core/Text';
+import {Heading, Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
 import {Banner} from '@astryxdesign/core/Banner';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
@@ -26,7 +28,24 @@ export default function Overview() {
   const next = data.lessons.filter(lesson => lesson.isUpcoming && lesson.date > today).slice(0, 3);
 
   return (
-    <Section title={title} description={`${longDate(today)} · ${data.range.timezone}`}>
+    <Section
+      title={title}
+      header={
+        <Card padding={5} variant="green">
+          <HStack gap={4} vAlign="center">
+            <Avatar name={sess.teacher?.name ?? 'Teacher'} size="lg" tooltip={false} />
+            <VStack gap={1}>
+              <Heading level={1}>{title}</Heading>
+              <Text color="secondary">{`${longDate(today)} · ${data.range.timezone}`}</Text>
+              <Text weight="medium">
+                {todays.length === 0
+                  ? 'No lessons today. Enjoy your day!'
+                  : `You have ${todays.length} lesson${todays.length === 1 ? '' : 's'} today${earlier.length ? ` and ${earlier.length} earlier one${earlier.length === 1 ? '' : 's'} to record` : ''}.`}
+              </Text>
+            </VStack>
+          </HStack>
+        </Card>
+      }>
       <VStack gap={3}>
         <SubHeading title="Today's lessons" note={todays.some(lesson => lesson.needsAttendance) ? 'Tap once to submit the scheduled minutes, or choose a different time or a no-show.' : undefined} />
         <LessonList lessons={todays} today={today} onSaved={ws.reload} empty={<Text color="secondary">No lessons today.</Text>} />

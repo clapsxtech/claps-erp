@@ -158,6 +158,7 @@ export default function Recruitment() {
         emptyTitle="No teacher profiles yet"
         emptyDescription="Applications and registered teachers appear here."
         phoneCard={{
+          avatar: row => row.name,
           title: row => row.name,
           subtitle: row => `${titleCase(row.stage.toLowerCase())} · ${row.subjects ?? 'Subjects not recorded'}`,
           href: row => (list.data?.can.manage ? `/app/u/${unitId}/recruitment/${row.id}` : undefined),

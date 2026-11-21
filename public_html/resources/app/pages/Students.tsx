@@ -226,6 +226,7 @@ export default function Students() {
         emptyDescription="Students appear here once they are registered or converted from admissions."
         emptyAction={canCreate ? <Button label="Add student" variant="secondary" onClick={() => setCreating(true)} /> : undefined}
         phoneCard={{
+          avatar: row => row.name,
           title: row => row.name,
           subtitle: row => `${row.code} · Grade ${row.grade} · ${titleCase(row.status)}`,
           trailing: row =>

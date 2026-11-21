@@ -4,6 +4,8 @@ import {useState} from 'react';
 import {Outlet, useLocation, useNavigate} from 'react-router';
 import * as stylex from '@stylexjs/stylex';
 import {HStack, VStack, StackItem} from '@astryxdesign/core/Layout';
+import {Card} from '@astryxdesign/core/Card';
+import {Avatar} from '@astryxdesign/core/Avatar';
 import {Heading, Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
 import {Banner} from '@astryxdesign/core/Banner';
@@ -111,6 +113,9 @@ export default function ParentLayout() {
       <VStack hAlign="center">
             <VStack width="100%" maxWidth={820}>
             <VStack padding={4} gap={5} xstyle={styles.page}>
+              <Card padding={5} variant="green">
+              <HStack gap={4} vAlign="center">
+              <Avatar name={student?.name ?? 'Student'} size="lg" tooltip={false} />
               <VStack gap={1}>
                 <Heading level={1}>{student?.name ?? 'Parent portal'}</Heading>
                 <Text color="secondary">
@@ -122,6 +127,8 @@ export default function ParentLayout() {
                   {centre?.phone && <Link href={`tel:${centre.phone.replace(/\s+/g, '')}`}>{centre.phone}</Link>}
                 </Text>
               </VStack>
+              </HStack>
+              </Card>
               {!isPhone && (
                 <TabList value={section} onChange={value => navigate(value === 'overview' ? '/parent' : `/parent/${value}`)} hasDivider>
                   {SECTIONS.map(s => (

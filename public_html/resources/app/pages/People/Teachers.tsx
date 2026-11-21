@@ -153,6 +153,7 @@ export default function Teachers() {
         emptyDescription="Teachers appear here once they are added or approved from Teacher hiring."
         emptyAction={canAdd ? <Button label="Add teacher" variant="secondary" onClick={() => setAdding(true)} /> : undefined}
         phoneCard={{
+          avatar: row => row.name,
           title: row => row.name,
           subtitle: row => `${row.code} · ${row.ttHours} TT hrs · ${row.status}`,
           trailing: row => (row.netPayablePaise !== null ? <Balance paise={row.netPayablePaise} whole /> : undefined),

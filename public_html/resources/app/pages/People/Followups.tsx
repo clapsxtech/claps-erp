@@ -193,6 +193,7 @@ export default function Followups() {
         emptyTitle={view === 'due' ? 'Nobody to call right now' : view === 'history' ? 'No follow-ups logged yet' : 'No students yet'}
         emptyDescription={view === 'due' ? 'Students appear here when the next call date of their latest follow-up arrives.' : undefined}
         phoneCard={{
+          avatar: row => row.name,
           title: row => row.name,
           subtitle: row => `${row.nextDueOn ? `Call ${date(row.nextDueOn)}` : row.priority}${row.lastOutcome ? ` · ${row.lastOutcome}` : ''}`,
           trailing: row => (canLog ? <Button label="Log" size="sm" variant="secondary" onClick={() => openLog({id: row.studentId, label: `${row.name} · ${row.code}`})} /> : undefined),

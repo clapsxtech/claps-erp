@@ -141,10 +141,11 @@ export function shortDate(iso: string): string {
 }
 
 /** Section frame: title, a line of context and the content. Narrow on desktop, edge to edge on phones. */
-export function Section({title, description, actions, children}: {title: string; description?: ReactNode; actions?: ReactNode; children: ReactNode}) {
+export function Section({title, description, actions, children, header}: {title: string; description?: ReactNode; actions?: ReactNode; children: ReactNode; /** Replaces the title row; must contain the h1. */ header?: ReactNode}) {
   return (
     <VStack hAlign="center">
     <VStack padding={4} gap={5} width="100%" maxWidth={960}>
+      {header ?? (
       <HStack gap={3} vAlign="center" wrap="wrap">
         <StackItem size="fill">
           <VStack gap={1}>
@@ -154,6 +155,7 @@ export function Section({title, description, actions, children}: {title: string;
         </StackItem>
         {actions}
       </HStack>
+      )}
       {children}
     </VStack>
     </VStack>

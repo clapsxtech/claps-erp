@@ -3,10 +3,12 @@
 // theme ships no shade it does not use.
 // prettier-ignore
 export const clapsPaletteRefs = {
-  accent: {
-    light: {35: '#08604f', 45: '#117c66', 85: '#a7e3d1'},
-    dark: {30: '#005443', 70: '#6dbda7', 80: '#99d5c3'},
+  neutral: {
+    light: {0: '#000000', 5: '#091310', 10: '#111f1b', 30: '#354c45', 45: '#506d65', 60: '#78958c', 85: '#ced7d4', 95: '#eef2f0', 100: '#ffffff'},
+    dark: {5: '#0a1310', 10: '#131e1b', 15: '#1b2925', 35: '#3f564f', 65: '#8aa39a', 75: '#aebdb8', 80: '#bfc9c6', 95: '#eff1f0', 100: '#ffffff'},
   },
-  white: '#ffffff',
-  black: '#000000',
+  accent: {
+    light: {35: '#08604f', 45: '#117c66', 85: '#a2e5d1'},
+    dark: {30: '#005443', 70: '#65bfa7', 80: '#94d7c3'},
+  },
 };

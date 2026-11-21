@@ -35,8 +35,11 @@ export function Page({
   crumbs,
   children,
   width = 1280,
+  header,
 }: {
   title: string;
+  /** Replaces the title row with a custom welcome block (it must contain the page's h1). */
+  header?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   crumbs?: {label: string; href?: string}[];
@@ -60,6 +63,7 @@ export function Page({
                   ))}
                 </Breadcrumbs>
               )}
+              {header ?? (
               <HStack gap={3} vAlign="center" wrap="wrap">
                 <StackItem size="fill">
                   <VStack gap={1}>
@@ -73,6 +77,7 @@ export function Page({
                   </HStack>
                 )}
               </HStack>
+              )}
             </VStack>
             {children}
           </VStack>

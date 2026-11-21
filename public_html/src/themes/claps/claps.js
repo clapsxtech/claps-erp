@@ -114,24 +114,24 @@ export const clapsTheme = {
     "--color-syntax-diff-header": "transparent",
     "--color-syntax-added-marker": "var(--color-syntax-punctuation)",
     "--color-syntax-removed-marker": "var(--color-syntax-punctuation)",
-    "--color-background-surface": "light-dark(#ffffff, #262626)",
-    "--color-background-body": "light-dark(#f1f1f1, #1b1b1b)",
-    "--color-background-card": "light-dark(#ffffff, #1b1b1b)",
-    "--color-background-popover": "light-dark(#ffffff, #1b1b1b)",
-    "--color-background-muted": "light-dark(#f1f1f1, #1b1b1b)",
-    "--color-accent": "light-dark(#117c66, #6dbda7)",
-    "--color-accent-muted": "light-dark(#a7e3d1, #005443)",
+    "--color-background-surface": "light-dark(#ffffff, #1b2925)",
+    "--color-background-body": "light-dark(#f2f7f4, #111815)",
+    "--color-background-card": "light-dark(#ffffff, #131e1b)",
+    "--color-background-popover": "light-dark(#ffffff, #131e1b)",
+    "--color-background-muted": "light-dark(#eef2f0, #131e1b)",
+    "--color-accent": "light-dark(#117c66, #65bfa7)",
+    "--color-accent-muted": "light-dark(#a2e5d1, #005443)",
     "--color-neutral": "light-dark(#0000000F, #ffffff1A)",
     "--color-overlay": "light-dark(#00000080, #000000CC)",
-    "--color-overlay-hover": "light-dark(#0000000D, #ffffff0D)",
-    "--color-overlay-pressed": "light-dark(#0000001A, #ffffff1A)",
+    "--color-overlay-hover": "light-dark(#0000000d, #ffffff0d)",
+    "--color-overlay-pressed": "light-dark(#0000001a, #ffffff1a)",
     "--color-text-primary": "light-dark(#000000, #ffffff)",
-    "--color-text-secondary": "light-dark(#474747, #9e9e9e)",
-    "--color-text-disabled": "light-dark(#919191, #525252)",
-    "--color-text-accent": "light-dark(#08604f, #99d5c3)",
-    "--color-on-dark": "#ffffff",
-    "--color-on-light": "#111111",
-    "--color-on-accent": "light-dark(#ffffff, #000000)",
+    "--color-text-secondary": "light-dark(#354c45, #8aa39a)",
+    "--color-text-disabled": "light-dark(#78958c, #3f564f)",
+    "--color-text-accent": "light-dark(#08604f, #94d7c3)",
+    "--color-on-dark": "light-dark(#ffffff, #ffffff)",
+    "--color-on-light": "light-dark(#091310, #0a1310)",
+    "--color-on-accent": "light-dark(#ffffff, #0a1310)",
     "--color-on-success": "light-dark(#ffffff, #111111)",
     "--color-on-error": "light-dark(#ffffff, #111111)",
     "--color-on-warning": "#111111",
@@ -146,19 +146,19 @@ export const clapsTheme = {
     "--color-on-success-muted": "light-dark(#00490b, #90ca90)",
     "--color-on-warning-muted": "light-dark(#4b3900, #eec448)",
     "--color-on-error-muted": "light-dark(#76000c, #ffaea7)",
-    "--color-icon-accent": "light-dark(#08604f, #99d5c3)",
+    "--color-icon-accent": "light-dark(#08604f, #94d7c3)",
     "--color-icon-primary": "light-dark(#000000, #ffffff)",
-    "--color-icon-secondary": "light-dark(#6a6a6a, #9e9e9e)",
-    "--color-icon-disabled": "light-dark(#919191, #525252)",
+    "--color-icon-secondary": "light-dark(#506d65, #8aa39a)",
+    "--color-icon-disabled": "light-dark(#78958c, #3f564f)",
     "--color-success": "light-dark(#198100, #64af4c)",
     "--color-warning": "#ffce2f",
     "--color-error": "light-dark(#c9303a, #ff705d)",
     "--color-success-muted": "light-dark(#bce0bb, #90ca903D)",
     "--color-error-muted": "light-dark(#ffc4be, #ff98903D)",
     "--color-warning-muted": "light-dark(#fae19e, #e2b6233D)",
-    "--color-border": "light-dark(#00000014, #ffffff1A)",
-    "--color-border-emphasized": "light-dark(#d4d4d4, #525252)",
-    "--color-skeleton": "light-dark(#d4d4d4, #525252)",
+    "--color-border": "light-dark(#00000014, #ffffff1a)",
+    "--color-border-emphasized": "light-dark(#ced7d4, #3f564f)",
+    "--color-skeleton": "light-dark(#ced7d4, #3f564f)",
     "--color-shadow": "light-dark(#0000001A, #0000004D)",
     "--color-tint-hover": "light-dark(#000000, #ffffff)",
     "--color-background-red": "light-dark(#ffc4be, #5b2b28)",
@@ -216,7 +216,8 @@ export const clapsTheme = {
     "--shadow-inset-success": "inset 0px 0px 0px 2px #2f7d334D",
     "--shadow-inset-warning": "inset 0px 0px 0px 2px #f8d36a4D",
     "--shadow-inset-error": "inset 0px 0px 0px 2px #de47454D",
-    "--focus-outline-color": "light-dark(#117c66, #6dbda7)",
+    "--color-background-inverted": "light-dark(#111f1b, #eff1f0)",
+    "--focus-outline-color": "light-dark(#117c66, #65bfa7)",
     "--spacing-0": "0rem",
     "--spacing-0-5": "0.109rem",
     "--spacing-1": "0.219rem",
@@ -341,22 +342,22 @@ export const clapsTheme = {
     },
     "item": {
       "selected": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#354c45, #bfc9c6)"
       }
     },
     "tree-list-item": {
       "selected": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#354c45, #bfc9c6)"
       }
     },
     "file-input": {
       "mode:dropzone": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#354c45, #bfc9c6)"
       }
     },
     "citation": {
       "variant:number": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#354c45, #bfc9c6)"
       }
     },
     "button": {
@@ -418,7 +419,7 @@ export const clapsTheme = {
     },
     "segmented-control-item": {
       "base": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#354c45, #bfc9c6)"
       },
       "size:sm": {
         "height": "calc(var(--size-element-sm) - 8px)"
@@ -456,31 +457,31 @@ export const clapsTheme = {
         "padding": "var(--spacing-3)"
       },
       "variant:blue": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#354c45, #aebdb8)"
       },
       "variant:cyan": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#354c45, #aebdb8)"
       },
       "variant:green": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#354c45, #aebdb8)"
       },
       "variant:orange": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#354c45, #aebdb8)"
       },
       "variant:pink": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#354c45, #aebdb8)"
       },
       "variant:purple": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#354c45, #aebdb8)"
       },
       "variant:red": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#354c45, #aebdb8)"
       },
       "variant:teal": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#354c45, #aebdb8)"
       },
       "variant:yellow": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#354c45, #aebdb8)"
       }
     },
     "section": {

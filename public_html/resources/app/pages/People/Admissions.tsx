@@ -389,6 +389,7 @@ function Pipeline({unitId, query, setQuery, searchText, setSearchText, can, open
         emptyTitle="No leads yet"
         emptyDescription="New enquiries appear here. Add one with New lead."
         phoneCard={{
+          avatar: row => row.name,
           title: row => (row.isHot ? `Hot · ${row.name}` : row.name),
           subtitle: row => `${row.stageLabel} · ${row.followUpState === 'closed' ? row.stageLabel : row.nextFollowUpOn ? `Next ${date(row.nextFollowUpOn)}` : 'No next date'}`,
           trailing: row => (can?.followup && row.status === 'LEAD' ? <Button label="Log" size="sm" variant="secondary" onClick={() => openForm({kind: 'followup', lead: {id: row.id, name: row.name, nextFollowUpOn: row.nextFollowUpOn}})} /> : undefined),

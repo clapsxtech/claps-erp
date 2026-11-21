@@ -17,6 +17,7 @@ import {Selector} from '@astryxdesign/core/Selector';
 import {Icon} from '@astryxdesign/core/Icon';
 import {Skeleton} from '@astryxdesign/core/Skeleton';
 import {Card} from '@astryxdesign/core/Card';
+import {Avatar} from '@astryxdesign/core/Avatar';
 import {ProgressBar} from '@astryxdesign/core/ProgressBar';
 import {ArrowDownTrayIcon, ArrowsUpDownIcon, MagnifyingGlassIcon} from '@heroicons/react/24/outline';
 import {useIsCompact, useIsPhone} from '../lib/hooks';
@@ -34,6 +35,8 @@ export interface PhoneCard<T extends Record<string, unknown>> {
   subtitle?: (row: T) => ReactNode;
   trailing?: (row: T) => ReactNode;
   href?: (row: T) => string | undefined;
+  /** A person's name: the card shows their initials in a circle, so lists of people read as people. */
+  avatar?: (row: T) => string | undefined;
   /** Open the card's link in a new tab (printable documents). */
   newTab?: boolean;
 }
@@ -199,6 +202,7 @@ export function DataTable<T extends Record<string, unknown>>({
         {rows.map(row => (
           <ListItem
             key={String(row[idKey])}
+            startContent={phoneCard.avatar?.(row) ? <Avatar name={phoneCard.avatar(row) ?? ''} size="md" tooltip={false} /> : undefined}
             label={phoneCard.title(row)}
             description={phoneCard.subtitle?.(row)}
             endContent={phoneCard.trailing?.(row)}

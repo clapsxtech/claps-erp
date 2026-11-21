@@ -95,7 +95,7 @@ export function ChargeQueueTab({unitId, unit, onImported}: {unitId: number; unit
 
   let body;
   if (queue.isLoading) body = <VStack gap={2}>{Array.from({length: 4}, (_, i) => <Skeleton key={i} height={36} width="100%" />)}</VStack>;
-  else if (rows.length === 0) body = <EmptyState title="No classes waiting to be charged" description="Attended classes appear here until they are imported for the student charge." />;
+  else if (rows.length === 0) body = <EmptyState title="No classes waiting to be billed" description="Classes that happened show up here until they are billed to the family." />;
   else if (isCompact)
     body = (
       <List hasDividers edge="flush">

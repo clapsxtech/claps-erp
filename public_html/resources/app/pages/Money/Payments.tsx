@@ -227,7 +227,7 @@ export default function Payments() {
   return (
     <Page
       title="Payments & dues"
-      description="Student balances, receipts, payment requests, teacher pay and classes waiting to be charged."
+      description="Student balances, receipts, payment requests, teacher pay and classes waiting to be billed."
       actions={
         <>
           {canRequest && <Button label="Request payment" variant="secondary" onClick={() => setPicking('request')} />}
@@ -566,6 +566,7 @@ function DuesTab({
       emptyTitle="Nobody owes anything"
       emptyDescription="Students with a negative balance appear here, largest dues first."
       phoneCard={{
+        avatar: row => row.name,
         title: row => row.name,
         subtitle: row => `${row.code} · owes ${money(-row.balancePaise, {whole: true})}`,
         trailing: row => (canPay ? <Button label="Pay" size="sm" variant="secondary" onClick={() => onPay(row)} /> : <Balance paise={row.balancePaise} whole />),

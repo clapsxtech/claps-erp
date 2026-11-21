@@ -10,6 +10,7 @@ import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
 import {List, ListItem} from '@astryxdesign/core/List';
 import {Banner} from '@astryxdesign/core/Banner';
+import {Avatar} from '@astryxdesign/core/Avatar';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Grid} from '@astryxdesign/core/Grid';
 import {
@@ -101,6 +102,8 @@ function greeting(timezone: string): string {
 const plural = (count: number, one: string, many: string) => `${number(count)} ${count === 1 ? one : many}`;
 
 interface Todo {
+  /** Warning items are overdue or blocking; they get an amber chip. */
+  tone?: 'warning';
   key: string;
   label: string;
   description: string;
@@ -190,18 +193,38 @@ export default function Home() {
   const todo = (count: number | null | undefined, item: Omit<Todo, 'label'> & {label: (n: number) => string}) => {
     if (count) todos.push({...item, label: item.label(count)});
   };
-  todo(data.myTasks.overdue, {key: 'overdue', label: n => plural(n, 'of your tasks is overdue', 'of your tasks are overdue'), description: 'Finish them or move the due date.', href: `${base}/tasks`, icon: ExclamationTriangleIcon});
+  todo(data.myTasks.overdue, {tone: 'warning', key: 'overdue', label: n => plural(n, 'of your tasks is overdue', 'of your tasks are overdue'), description: 'Finish them or move the due date.', href: `${base}/tasks`, icon: ExclamationTriangleIcon});
   todo(data.followupsDue, {key: 'calls', label: n => plural(n, 'family to call today', 'families to call today'), description: 'See who to call and what was said last time.', href: `${base}/followups`, icon: PhoneArrowUpRightIcon});
   todo(queues?.teacherApproval, {key: 'approve', label: n => plural(n, 'class is waiting for your approval', 'classes are waiting for your approval'), description: 'Teachers have sent their attendance. Check and approve it.', href: `${base}/attendance?queue=approval`, icon: CheckCircleIcon});
-  todo(queues?.missingSubmission, {key: 'missing', label: n => plural(n, 'class has no attendance yet', 'classes have no attendance yet'), description: 'The class has ended but the teacher has not recorded it.', href: `${base}/attendance?queue=missing`, icon: CalendarDaysIcon});
-  todo(metrics.duplicateReviews, {key: 'dupes', label: n => plural(n, 'class may be recorded twice', 'classes may be recorded twice'), description: 'Check with the teacher which record is right.', href: `${base}/attendance?queue=duplicates`, icon: DocumentDuplicateIcon});
+  todo(queues?.missingSubmission, {tone: 'warning', key: 'missing', label: n => plural(n, 'class has no attendance yet', 'classes have no attendance yet'), description: 'The class has ended but the teacher has not recorded it.', href: `${base}/attendance?queue=missing`, icon: CalendarDaysIcon});
+  todo(metrics.duplicateReviews, {tone: 'warning', key: 'dupes', label: n => plural(n, 'class may be recorded twice', 'classes may be recorded twice'), description: 'Check with the teacher which record is right.', href: `${base}/attendance?queue=duplicates`, icon: DocumentDuplicateIcon});
   todo(queues?.studentImport, {key: 'bill', label: n => plural(n, 'class is ready to bill', 'classes are ready to bill'), description: 'Add them to the family\'s account.', href: `${base}/attendance?queue=import`, icon: ReceiptPercentIcon});
   todo(data.myTasks.count - data.myTasks.overdue, {key: 'tasks', label: n => plural(n, 'task assigned to you', 'tasks assigned to you'), description: 'Open your task list.', href: `${base}/tasks`, icon: ClipboardDocumentListIcon});
 
-  const firstName = session().user.name.split(/\s+/)[0];
+  const me = session().user;
+  const firstName = me.name.split(/\s+/)[0];
+  const today = new Intl.DateTimeFormat('en-GB', {weekday: 'long', day: 'numeric', month: 'long', timeZone: data.timezone}).format(new Date());
+  const urgent = todos.filter(item => item.tone === 'warning').length;
+  const summary =
+    todos.length === 0
+      ? 'Nothing is waiting for you. Have a good day!'
+      : `${plural(todos.length, 'thing needs', 'things need')} you today${urgent ? `, ${number(urgent)} of them urgent` : ''}.`;
+
+  const welcome = (
+    <Card padding={5} variant="green">
+      <HStack gap={4} vAlign="center">
+        <Avatar name={me.name} size="lg" tooltip={false} />
+        <VStack gap={1}>
+          <Heading level={1}>{`${greeting(data.timezone)}, ${firstName}`}</Heading>
+          <Text color="secondary">{`${today} · ${unit.name} · ${unit.roleLabel}`}</Text>
+          <Text weight="medium">{summary}</Text>
+        </VStack>
+      </HStack>
+    </Card>
+  );
 
   return (
-    <Page title={`${greeting(data.timezone)}, ${firstName}`} description={`${new Intl.DateTimeFormat('en-GB', {weekday: 'long', day: 'numeric', month: 'long', timeZone: data.timezone}).format(new Date())} · ${unit.name}`}>
+    <Page title={`${greeting(data.timezone)}, ${firstName}`} header={welcome}>
       <Card padding={4}>
         <VStack gap={2}>
           <Heading level={2}>Needs you today</Heading>
@@ -213,7 +236,11 @@ export default function Home() {
                 <ListItem
                   key={item.key}
                   align="first-line"
-                  startContent={<Icon icon={item.icon} size="md" color="accent" />}
+                  startContent={
+                    <Card padding={2} variant={item.tone === 'warning' ? 'yellow' : 'teal'}>
+                      <Icon icon={item.icon} size="md" color={item.tone === 'warning' ? 'warning' : 'accent'} />
+                    </Card>
+                  }
                   label={<Text weight="semibold">{item.label}</Text>}
                   description={<Text type="supporting">{item.description}</Text>}
                   href={item.href}
