@@ -7,6 +7,7 @@ export const routes: AppRoute[] = [
   {path: 'teachers', component: lazy(() => import('../pages/People/Teachers'))},
   {path: 'teachers/:teacher', component: lazy(() => import('../pages/People/TeacherDetail'))},
   {path: 'admissions', component: lazy(() => import('../pages/People/Admissions'))},
+  {path: 'admissions/teachers', component: lazy(() => import('../pages/People/Directory'))},
   {path: 'admissions/:lead', component: lazy(() => import('../pages/People/LeadDetail'))},
   {path: 'followups', component: lazy(() => import('../pages/People/Followups'))},
   {path: 'recruitment', component: lazy(() => import('../pages/People/Recruitment'))},

@@ -594,7 +594,7 @@ function LedgerTab({unitId, unit, onConfirm}: {unitId: number; unit: UnitAccess 
 
   const rowActions = (row: LedgerRow): DropdownMenuOption[] => {
     const items: DropdownMenuOption[] = [];
-    if (row.kind === 'payment' || row.kind === 'refund') items.push({label: row.kind === 'refund' ? 'Open refund note' : 'Open receipt', href: `/erp/units/${unitId}/receipts/${row.id}`, target: '_blank', rel: 'noopener'});
+    if (row.kind === 'payment' || row.kind === 'refund') items.push({label: row.kind === 'refund' ? 'Open refund note' : 'Open receipt', href: `/print/u/${unitId}/receipt/${row.id}`, target: '_blank', rel: 'noopener'});
     const active = row.reversedById === null;
     if (active && row.kind === 'payment' && can.correct) items.push({label: 'Correct amount…', onClick: () => onConfirm({kind: 'receipt-correct', row})});
     if (active && row.kind === 'payment' && can.reverse) items.push({label: 'Reverse receipt…', variant: 'destructive', onClick: () => onConfirm({kind: 'receipt-reverse', row})});
@@ -701,7 +701,7 @@ function LedgerTab({unitId, unit, onConfirm}: {unitId: number; unit: UnitAccess 
         title: row => `${KIND_LABELS[row.kind] ?? titleCase(row.kind)} · ${row.reference}`,
         subtitle: row => `${date(row.occurredAt.slice(0, 10))}${row.studentName ? ` · ${row.studentName}` : row.teacherName ? ` · ${row.teacherName}` : ''}${row.reversedById !== null ? ' · reversed' : ''}`,
         trailing: row => <Toned tone={row.amountPaise < 0 ? 'error' : undefined}>{money(row.amountPaise)}</Toned>,
-        href: row => (row.kind === 'payment' || row.kind === 'refund' ? `/erp/units/${unitId}/receipts/${row.id}` : undefined),
+        href: row => (row.kind === 'payment' || row.kind === 'refund' ? `/print/u/${unitId}/receipt/${row.id}` : undefined),
       }}
     />
   );
@@ -717,7 +717,7 @@ function RequestsTab({unitId, unit, onConfirm, onAllocate}: {unitId: number; uni
   const canAllocate = canAct(unit, 'request-allocate');
   const canCancel = canAct(unit, 'request-cancel');
   const columns: DataColumn<RequestRow>[] = [
-    {key: 'reference', header: 'Reference', sortKey: 'reference', renderCell: row => <Link href={`/erp/units/${unitId}/payment-requests/${row.id}`} target="_blank">{row.reference}</Link>},
+    {key: 'reference', header: 'Reference', sortKey: 'reference', renderCell: row => <Link href={`/print/u/${unitId}/request/${row.id}`} target="_blank">{row.reference}</Link>},
     {key: 'studentName', header: 'Student', sortKey: 'student', renderCell: row => <Text>{`${row.studentName} · ${row.studentCode}`}</Text>},
     {key: 'requestedOn', header: 'Requested', sortKey: 'requested_on', renderCell: row => <Text hasTabularNumbers>{date(row.requestedOn)}</Text>},
     {key: 'dueOn', header: 'Due', sortKey: 'due_on', renderCell: row => <Text hasTabularNumbers>{date(row.dueOn)}</Text>},
@@ -730,7 +730,7 @@ function RequestsTab({unitId, unit, onConfirm, onAllocate}: {unitId: number; uni
       header: '',
       align: 'end',
       renderCell: row => {
-        const items: DropdownMenuOption[] = [{label: 'Print request', href: `/erp/units/${unitId}/payment-requests/${row.id}`, target: '_blank', rel: 'noopener'}];
+        const items: DropdownMenuOption[] = [{label: 'Print request', href: `/print/u/${unitId}/request/${row.id}`, target: '_blank', rel: 'noopener'}];
         if (row.status === 'pending' && canAllocate) items.push({label: 'Link a received payment…', onClick: () => onAllocate(row)});
         if (row.status === 'pending' && canCancel) items.push({label: 'Cancel remaining…', variant: 'destructive', onClick: () => onConfirm({kind: 'request-cancel', row})});
         return <MoreMenu size="sm" label={`Actions for ${row.reference}`} alignment="end" items={items} />;
@@ -779,7 +779,7 @@ function RequestsTab({unitId, unit, onConfirm, onAllocate}: {unitId: number; uni
         title: row => `${row.reference} · ${row.studentName}`,
         subtitle: row => `${titleCase(row.status)} · due ${date(row.dueOn)}`,
         trailing: row => <Toned>{money(row.outstandingPaise, {whole: true})}</Toned>,
-        href: row => `/erp/units/${unitId}/payment-requests/${row.id}`,
+        href: row => `/print/u/${unitId}/request/${row.id}`,
       }}
     />
   );

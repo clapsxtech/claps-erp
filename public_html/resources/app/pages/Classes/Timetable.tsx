@@ -30,6 +30,7 @@ import {unitById} from '../../lib/session';
 import {ActionDrawer} from './ActionDrawer';
 import {lessonAction, ACTION_PERMISSION, type ActionConfig, type LessonActionKey, type LessonContext} from './lessonActions';
 import {canAct, dayLabel} from './shared';
+import {planningAction, PLANNING_LABELS, type AgreementContext, type PlanningActionKey} from './planningActions';
 
 type DateValue = ComponentProps<typeof DateInput>['value'];
 
@@ -54,6 +55,11 @@ interface Plans {
   agreements: {data: Record<string, string | number | null>[]; meta: {page: number; total: number}};
   exceptions: {data: Record<string, string | number | null>[]; meta: {page: number; total: number}};
   can: {openPlanning: boolean};
+}
+
+interface Availability {
+  data: {id: number; party: string; who: string | null; weekday: string; startTime: string; endTime: string; timezone: string; startsOn: string; endsOn: string | null}[];
+  meta: {page: number; perPage: number; total: number};
 }
 
 const DEFAULTS = {date: '', student: '', teacher: '', status: ''};
@@ -112,10 +118,13 @@ export default function Timetable() {
   const week = useResource<Week>(`/app-api/units/${unitId}/timetable`, query);
   const [tab, setTab] = useState('week');
   const plans = useResource<Plans>(tab === 'plans' ? `/app-api/units/${unitId}/timetable/plans` : null);
+  const availability = useResource<Availability>(tab === 'plans' ? `/app-api/units/${unitId}/timetable/availability` : null);
   const [selected, setSelected] = useState<Lesson | null>(null);
   const [drawer, setDrawer] = useState<{config: ActionConfig; isOpen: boolean} | null>(null);
   const timezone = week.data?.week.timezone ?? unit?.timezone ?? 'Asia/Kolkata';
   const allowed = (action: string) => canAct(unit, action);
+
+  const openPlanning = (key: PlanningActionKey, agreement?: AgreementContext) => setDrawer({config: planningAction(key, unitId, timezone, agreement), isOpen: true});
 
   const open = (key: LessonActionKey, lesson?: Lesson) => {
     setSelected(null);
@@ -254,7 +263,17 @@ export default function Timetable() {
           </VStack>
         </Card>
       )}
-      {tab === 'plans' && <PlansView plans={plans.data} error={plans.error} isLoading={plans.isLoading} unitId={unitId} />}
+      {tab === 'plans' && (
+        <PlansView
+          plans={plans.data}
+          availability={availability.data}
+          error={plans.error ?? availability.error}
+          isLoading={plans.isLoading || availability.isLoading}
+          allowed={allowed}
+          isPhone={isPhone}
+          onAction={openPlanning}
+        />
+      )}
 
       <Drawer isOpen={selected !== null} onOpenChange={isOpen => !isOpen && setSelected(null)} label="Lesson" width={440} padding={5} experimental={{isFullWidthOnMobile: true}}>
         {selected && (
@@ -299,36 +318,129 @@ export default function Timetable() {
           successMessage={drawer.config.successMessage}
           confirmText={drawer.config.confirmText}
           isDestructive={drawer.config.isDestructive}
-          onSaved={() => week.reload()}
+          onSaved={() => {
+            week.reload();
+            if (tab === 'plans') {
+              plans.reload();
+              availability.reload();
+            }
+          }}
         />
       )}
     </Page>
   );
 }
 
-function PlansView({plans, error, isLoading, unitId}: {plans: Plans | undefined; error: Error | undefined; isLoading: boolean; unitId: number}) {
+function PlansView({
+  plans,
+  availability,
+  error,
+  isLoading,
+  allowed,
+  isPhone,
+  onAction,
+}: {
+  plans: Plans | undefined;
+  availability: Availability | undefined;
+  error: Error | undefined;
+  isLoading: boolean;
+  allowed: (action: string) => boolean;
+  isPhone: boolean;
+  onAction: (key: PlanningActionKey, agreement?: AgreementContext) => void;
+}) {
   if (error && !plans) return <PageError error={error} />;
   if (isLoading || !plans) return <Skeleton height={120} width="100%" />;
   type Row = Record<string, string | number | null>;
   const cell = (value: unknown) => <Text>{value === null || value === undefined || value === '' ? '—' : String(value)}</Text>;
+  const context = (r: Row): AgreementContext => ({
+    id: Number(r.id),
+    label: `${r.studentName} · ${r.subjectName} with ${r.teacherName} · ${r.weekday} ${r.startTime}`,
+    startsOn: String(r.startsOn),
+    endsOn: r.endsOn ? String(r.endsOn) : null,
+  });
+  /** Which planning steps apply to a slot: confirm a proposal; generate or end a confirmed slot. */
+  const rowActions = (r: Row): PlanningActionKey[] => {
+    const keys: PlanningActionKey[] = r.status === 'proposed' ? ['confirm'] : r.status === 'confirmed' ? ['materialize', 'end-agreement'] : [];
+    return keys.filter(key => allowed(key));
+  };
+  const headerKeys = (['availability', 'propose'] as PlanningActionKey[]).filter(key => allowed(key));
+  // The same steps for any slot (the table shows the newest 25): pick the slot in the form.
+  const slotKeys = (['confirm', 'materialize', 'end-agreement'] as PlanningActionKey[]).filter(key => allowed(key));
+  const rowMenu = (r: Row) => {
+    const keys = rowActions(r);
+    if (keys.length === 0) return <Text> </Text>;
+    if (keys.length === 1) return <Button label={PLANNING_LABELS[keys[0]]} size="sm" variant="secondary" onClick={() => onAction(keys[0], context(r))} />;
+    return <DropdownMenu button={{label: 'Actions', variant: 'secondary', size: 'sm'}} items={keys.map(key => ({id: key, label: PLANNING_LABELS[key], onClick: () => onAction(key, context(r))}))} />;
+  };
   return (
     <VStack gap={4}>
+      {headerKeys.length + slotKeys.length > 0 && (
+        <HStack gap={2} wrap="wrap">
+          {headerKeys.map((key, index) => (
+            <Button key={key} label={PLANNING_LABELS[key]} variant={index === headerKeys.length - 1 ? 'primary' : 'secondary'} icon={<Icon icon={PlusIcon} size="sm" />} onClick={() => onAction(key)} />
+          ))}
+          {slotKeys.length > 0 && (
+            <DropdownMenu button={{label: 'Any slot', variant: 'secondary'}} items={slotKeys.map(key => ({id: key, label: `${PLANNING_LABELS[key]}…`, onClick: () => onAction(key)}))} />
+          )}
+        </HStack>
+      )}
       <Card padding={4}>
         <VStack gap={3}>
           <Heading level={2}>{`Weekly slots (${number(plans.agreements.meta.total)})`}</Heading>
+          <Text color="secondary" size="sm">Propose a slot from both sides’ availability, confirm it once the teacher and family agree, then generate its dated lessons.</Text>
           {plans.agreements.data.length === 0 ? (
             <EmptyState title="No weekly slots yet" isCompact />
+          ) : isPhone ? (
+            <VStack gap={3}>
+              {plans.agreements.data.map(r => (
+                <VStack key={String(r.id)} gap={1}>
+                  <Text weight="semibold">{`${r.studentName} · ${r.weekday} ${r.startTime} · ${r.durationMinutes} min`}</Text>
+                  <Text size="sm" color="secondary">{`${r.subjectName} with ${r.teacherName} · ${r.startsOn} – ${r.endsOn ?? 'ongoing'} · ${r.timezone}`}</Text>
+                  <HStack gap={2} vAlign="center" hAlign="between">
+                    <Status value={String(r.status)} />
+                    {rowMenu(r)}
+                  </HStack>
+                </VStack>
+              ))}
+            </VStack>
           ) : (
             <Table<Row>
               data={plans.agreements.data}
               idKey={row => Number(row.id)}
-              textOverflow="truncate"
+              textOverflow="wrap"
               columns={[
                 {key: 'studentName', header: 'Student', renderCell: r => cell(r.studentName)},
                 {key: 'subjectName', header: 'Subject · teacher', renderCell: r => cell(`${r.subjectName} · ${r.teacherName}`)},
                 {key: 'weekday', header: 'Slot', renderCell: r => cell(`${r.weekday} ${r.startTime} · ${r.durationMinutes} min · ${r.timezone}`)},
                 {key: 'startsOn', header: 'From – until', renderCell: r => cell(`${r.startsOn} – ${r.endsOn ?? 'ongoing'}`)},
                 {key: 'status', header: 'Status', renderCell: r => <Status value={String(r.status)} />},
+                {key: 'id', header: '', align: 'end', renderCell: rowMenu},
+              ]}
+            />
+          )}
+        </VStack>
+      </Card>
+      <Card padding={4}>
+        <VStack gap={3}>
+          <Heading level={2}>{`Weekly availability (${number(availability?.meta.total ?? 0)})`}</Heading>
+          {!availability || availability.data.length === 0 ? (
+            <EmptyState title="No availability recorded" isCompact />
+          ) : isPhone ? (
+            <List hasDividers edge="flush">
+              {availability.data.map(r => (
+                <ListItem key={r.id} label={`${r.who ?? '—'} (${r.party})`} description={`${r.weekday} ${r.startTime}–${r.endTime} ${r.timezone} · ${r.startsOn} – ${r.endsOn ?? 'ongoing'}`} />
+              ))}
+            </List>
+          ) : (
+            <Table<Row>
+              data={availability.data as unknown as Row[]}
+              idKey={row => Number(row.id)}
+              textOverflow="truncate"
+              columns={[
+                {key: 'who', header: 'Who', renderCell: r => cell(`${r.who ?? '—'} (${r.party})`)},
+                {key: 'weekday', header: 'Weekday', renderCell: r => cell(r.weekday)},
+                {key: 'startTime', header: 'Time', renderCell: r => cell(`${r.startTime}–${r.endTime} ${r.timezone}`)},
+                {key: 'startsOn', header: 'From – until', renderCell: r => cell(`${r.startsOn} – ${r.endsOn ?? 'ongoing'}`)},
               ]}
             />
           )}
@@ -354,12 +466,6 @@ function PlansView({plans, error, isLoading, unitId}: {plans: Plans | undefined;
           )}
         </VStack>
       </Card>
-      {plans.can.openPlanning && (
-        <Text color="secondary">
-          Adding weekly slots, confirming agreements and generating lessons are still in the{' '}
-          <Button label="classic planning workspace" variant="ghost" size="sm" href={`/erp/units/${unitId}`} />
-        </Text>
-      )}
     </VStack>
   );
 }

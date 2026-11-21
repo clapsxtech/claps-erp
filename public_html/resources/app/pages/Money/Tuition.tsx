@@ -23,6 +23,8 @@ import {useResource} from '../../lib/hooks';
 import {dateTime, number, titleCase} from '../../lib/format';
 import {session, unitById} from '../../lib/session';
 import {actionUrl, ConfirmActionDialog, monthOptions, today} from './shared';
+import {RecordSharingDialog} from '../Print/RecordSharing';
+import type {StatementData} from '../Print/Statement';
 
 type Row = Record<string, unknown>;
 
@@ -104,6 +106,9 @@ export default function Tuition() {
   const timezone = unit?.timezone ?? 'Asia/Kolkata';
   const [statementStudent, setStatementStudent] = useState<string>();
   const [statementMonth, setStatementMonth] = useState(today(timezone).slice(0, 7));
+  const [sharing, setSharing] = useState(false);
+  // The statement read supplies the submitted entries and their review snapshots.
+  const statement = useResource<StatementData>(statementStudent ? `/app-api/units/${unitId}/print/statement` : null, {student_id: statementStudent, month: statementMonth});
 
   if (tuition.isLoading) return <PageLoading />;
   if (tuition.error || !tuition.data) {
@@ -188,12 +193,25 @@ export default function Tuition() {
                   label="Prepare parent statement"
                   variant="secondary"
                   isDisabled={!statementStudent}
-                  href={statementStudent ? `/erp/units/${unitId}/tuition/statement?student_id=${statementStudent}&month=${statementMonth}` : undefined}
+                  href={statementStudent ? `/print/u/${unitId}/statement?student_id=${statementStudent}&month=${statementMonth}` : undefined}
                   {...{target: '_blank', rel: 'noopener'}}
                 />
+                {canWrite && (
+                  <Button
+                    label="Record statement sharing"
+                    variant="primary"
+                    isDisabled={!statementStudent || statement.isLoading}
+                    isLoading={sharing && !statement.data && !statement.error}
+                    onClick={() => setSharing(true)}
+                  />
+                )}
               </HStack>
+              {sharing && statement.error && <Text color="secondary" size="sm">{statement.error.message}</Text>}
+              {sharing && statement.data && statement.data.review.entries.length === 0 && (
+                <Text color="secondary" size="sm">No submitted entries are waiting for parent review for this student and month. Nothing to record.</Text>
+              )}
               <Text color="secondary" size="sm">
-                Opens the printable statement in a new tab, where sharing can be recorded for the whole month.
+                Opens the printable statement in a new tab. After you send it to the parent, record the sharing evidence and objection deadline for every submitted entry of that month.
               </Text>
             </VStack>
           </Card>
@@ -482,6 +500,17 @@ export default function Tuition() {
         submitLabel="Save interview"
         successMessage="Interview saved."
         onSaved={tuition.reload}
+      />
+      <RecordSharingDialog
+        isOpen={sharing && Boolean(statement.data?.review.entries.length)}
+        onOpenChange={open => !open && setSharing(false)}
+        unitId={unitId}
+        statement={statement.data}
+        onDone={() => {
+          setSharing(false);
+          statement.reload();
+          tuition.reload();
+        }}
       />
     </Page>
   );

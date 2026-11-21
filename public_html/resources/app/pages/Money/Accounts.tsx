@@ -591,7 +591,7 @@ function InvoicesTab({unitId, gst, canCancel, onChanged}: {unitId: number; gst: 
                 header: 'Number',
                 renderCell: r => (
                   <VStack gap={0.5}>
-                    <Link href={`/erp/units/${unitId}/invoices/${r.id}`} target="_blank">
+                    <Link href={`/print/u/${unitId}/invoice/${r.id}`} target="_blank">
                       {String(r.number)}
                     </Link>
                     <Text size="sm" color="secondary">

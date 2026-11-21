@@ -166,7 +166,7 @@ export default function StudentDetail() {
                   header: '',
                   align: 'end',
                   renderCell: r =>
-                    ['payment', 'refund'].includes(String(r.kind)) ? <Link href={`/erp/units/${unitId}/receipts/${r.id}`} target="_blank">Receipt</Link> : <Text> </Text>,
+                    ['payment', 'refund'].includes(String(r.kind)) ? <Link href={`/print/u/${unitId}/receipt/${r.id}`} target="_blank">Receipt</Link> : <Text> </Text>,
                 },
               ]}
             />
