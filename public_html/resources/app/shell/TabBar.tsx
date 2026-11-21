@@ -13,7 +13,8 @@ import {hrefFor, tabDestinations} from '../nav';
 const styles = stylex.create({
   bar: {
     display: {default: 'none', '@media (max-width: 767px)': 'grid'},
-    gridTemplateColumns: 'repeat(5, 1fr)',
+    gridAutoFlow: 'column',
+    gridAutoColumns: '1fr',
     position: 'fixed',
     insetInline: 0,
     bottom: 0,

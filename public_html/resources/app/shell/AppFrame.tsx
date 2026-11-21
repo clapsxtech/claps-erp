@@ -22,7 +22,7 @@ import {
   PlusIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
-import {session, unitById, rememberUnit} from '../lib/session';
+import {session, unitById, rememberUnit, preferredUnit} from '../lib/session';
 import {hrefFor, visibleGroups} from '../nav';
 import {Palette} from './Palette';
 import {useIsPhone} from '../lib/hooks';
@@ -56,7 +56,9 @@ export function AppFrame() {
   const location = useLocation();
   const navigate = useNavigate();
   const unitId = params.unit ? Number(params.unit) : undefined;
-  const unit = unitId ? unitById(unitId) : undefined;
+  // Screens outside a team (admin, account) keep the last team as context, so
+  // the sidebar and tab bar stay complete.
+  const unit = unitId ? unitById(unitId) : preferredUnit();
   const groups = useMemo(() => visibleGroups(unit, sess), [unit, sess]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const isPhone = useIsPhone();
