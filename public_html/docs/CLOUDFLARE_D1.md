@@ -3,7 +3,7 @@
 The app runs as PHP/Laravel in Cloudflare Containers, behind a Worker at
 `erp.clapslearn.in`. D1 (`clapslearn-erp`) owns the database, including sessions.
 R2 (`clapslearn-erp-uploads`) owns uploaded profile photos. No external database
-or external hosting account is used. Optional Google/Microsoft integrations still
+or external hosting account is used. Optional Google integrations still
 require their own credentials when enabled; migration does not replace those services.
 
 ## Transaction compatibility

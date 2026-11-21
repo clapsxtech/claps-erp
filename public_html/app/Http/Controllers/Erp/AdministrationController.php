@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
-use App\Modules\Erp\Services\{Administration,OperationalHealth,TeamPermissions};
+use App\Modules\Erp\Services\{Administration,TeamPermissions};
 use App\Modules\People\Services\StaffProvisioner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
