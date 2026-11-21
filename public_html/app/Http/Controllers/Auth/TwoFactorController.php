@@ -12,11 +12,6 @@ use OTPHP\TOTP;
 use ParagonIE\ConstantTime\Base32;
 class TwoFactorController extends Controller
 {
-    public function challenge(Request $request)
-    {
-        abort_unless($request->session()->has('two_factor_pending'),403);
-        return response()->view('auth.two-factor')->header('Cache-Control','no-store');
-    }
     public function verify(Request $request)
     {
         $v=$request->validate(['code'=>'required|string|max:100']);$pending=$request->session()->get('two_factor_pending');
@@ -24,17 +19,9 @@ class TwoFactorController extends Controller
         if(!$user || $pending['expires']<time() || !hash_equals($pending['password_hash'],$user->password) || !(new TwoFactor())->consume($user->id,$v['code']))throw ValidationException::withMessages(['code'=>'Invalid or expired code. Try a new code or a recovery code.']);
         $request->session()->forget('two_factor_pending');Auth::login($user);$request->session()->regenerate();
         $teacher=!(new SiteAccessPolicy())->isAdministrator($user) && (DB::table('erp_memberships')->where('user_id',$user->id)->where('role','teacher')->exists() || DB::table('erp_teachers')->where('user_id',$user->id)->exists());
-        $route=$teacher?'erp.teacher.index':'erp.index';
-        if($request->expectsJson())return response()->json(['redirect'=>route($route)]);
-        return redirect()->route($route);
-    }
-    public function settings(Request $request)
-    {
-        $pending=$request->session()->get('two_factor_setup');
-        $secret=$pending && $pending['expires']>time()?Crypt::decryptString($pending['secret']):null;
-        $encrypted=$request->session()->pull('two_factor_recovery_display');
-        $codes=$encrypted?json_decode(Crypt::decryptString($encrypted),true):[];
-        return response()->view('erp.security',compact('secret','codes'))->header('Cache-Control','no-store')->header('Referrer-Policy','no-referrer');
+        $target=url($teacher?'/teacher':'/app');
+        if($request->expectsJson())return response()->json(['redirect'=>$target]);
+        return redirect($target);
     }
     public function setup(Request $request)
     {

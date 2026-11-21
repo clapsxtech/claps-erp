@@ -2,9 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Http\Controllers\admin\MasterController;
-use App\Http\Controllers\MarklistReportController;
-use App\Http\Controllers\TimeTableController;
+use App\Modules\Integrations\Services\LegacySnapshotSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -48,9 +46,7 @@ class DailyQuote extends Command
         Log::info('Google Sheets synchronization started.', ['started_at' => now()]);
 
         try {
-            app(MasterController::class)->MastersSynkdata();
-            app(TimeTableController::class)->syncTimeTableData();
-            app(MarklistReportController::class)->syncMarklistReportData();
+            app(LegacySnapshotSync::class)->syncAll();
 
             Log::info('Google Sheets synchronization completed.', ['completed_at' => now()]);
             return self::SUCCESS;

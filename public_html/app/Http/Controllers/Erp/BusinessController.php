@@ -7,54 +7,6 @@ use Illuminate\Support\Facades\DB;
 class BusinessController extends Controller
 {
     public function __construct() {}
-    private function pages(){return ['dashboard'=>'Overview','admissions'=>'Admissions & CRM','allocation'=>'Teacher matching','teacher-recruitment'=>'Teacher recruitment','people'=>'Students & teachers','academics'=>'Academics','timetable'=>'Timetable','attendance'=>'Attendance','money'=>'Money & receipts','followups'=>'Follow-ups','staff'=>'Team access','migration'=>'Migration & exports','accounts'=>'Accounts & tax','insights'=>'Trends'];}
-    public function page(Request $request,int $unit,string $page='dashboard')
-    {
-        (new Access())->unit($request->user(),$unit,false);abort_unless(isset($this->pages()[$page]),404);
-        if ($page === 'allocation') return app(TeacherAllocationController::class)->index($request, $unit);
-        if ($page === 'teacher-recruitment') return app(TeacherRecruitmentController::class)->index($request, $unit);
-        if ($page === 'admissions') return app(AdmissionsController::class)->index($request, $unit);
-        if ($page === 'staff') (new \App\Modules\IdentityAccess\Services\SiteAccessPolicy())->assertAdministrator($request->user());
-        if ($page === 'academics') return app(AcademicsController::class)->index($request, $unit);
-        if ($page === 'accounts') return app(AccountsController::class)->index($request, $unit);
-        if ($page === 'insights') return app(InsightsController::class)->index($request, $unit);
-        $business=DB::table('erp_units')->find($unit);$pages=$this->pages();$data=[];$money=new MoneyOperations();
-        $request->validate(['q'=>'nullable|string|max:100']);$search=trim((string)$request->query('q',''));
-        if(in_array($page,['dashboard','people','money','followups'])){
-            $balances=DB::table('erp_ledger')->where('unit_id',$unit)->whereNotNull('student_id')->select('student_id',DB::raw('SUM(amount_paise) AS balance'))->groupBy('student_id');
-            $students=DB::table('erp_students as s')->leftJoinSub($balances,'b',function($j){$j->on('s.id','=','b.student_id');})->where('s.unit_id',$unit)->select('s.*',DB::raw('COALESCE(b.balance,0) AS balance_paise'));
-            if($search!=='')$students->where(function($q)use($search){$q->where('s.name','like','%'.$search.'%')->orWhere('s.code','like','%'.$search.'%');});
-            if($page==='money'||$request->query('filter')==='due')$students->whereRaw('COALESCE(b.balance,0)<0');
-            if($page==='followups'){ $month=now($business->timezone)->startOfMonth(); $priority=$request->query('priority'); if($priority==='super')$students->where('s.registered_on','>=',$month->toDateString()); elseif($priority==='high')$students->whereBetween('s.registered_on',[$month->copy()->subMonth()->toDateString(),$month->copy()->subDay()->toDateString()]); elseif($priority==='medium')$students->where('s.registered_on','<',$month->copy()->subMonth()->toDateString()); }
-            $data['students']=$students->orderBy('s.name')->paginate(25,['*'],'students_page')->withQueryString();
-            foreach($data['students'] as $student)$student->priority=(new People())->priority($student->registered_on,$business->timezone);
-        }
-        if(in_array($page,['people','money'])){
-            $data['teachers']=DB::table('erp_teachers as t')->join('erp_teacher_units as u','u.teacher_id','=','t.id')->where('u.unit_id',$unit)->select('t.*')->orderBy('t.name')->paginate(25,['*'],'teachers_page')->withQueryString();
-            $statements=(new \App\Modules\Erp\Services\Reporting())->teacherStatements($unit,$data['teachers']->pluck('id')->all());foreach($data['teachers'] as $teacher){foreach($statements[$teacher->id] as $key=>$value)$teacher->$key=$value;}
-        }
-        $tables=['dashboard'=>['tasks','duplicate_reviews'],'money'=>['payment_requests','ledger'],'followups'=>['tasks','task_items','followups'],'staff'=>['memberships'],'migration'=>['migration_history'],'attendance'=>['attendance','duplicate_reviews'],'timetable'=>['agreements','exceptions']];
-        foreach($tables[$page]??[] as $table){$query=DB::table('erp_'.$table)->where('unit_id',$unit);if($page==='dashboard'&&$table==='tasks')$query->where('status','!=','completed');if($page==='dashboard'&&$table==='duplicate_reviews')$query->where('status','pending');$data[$table]=$query->orderByDesc('id')->paginate(25,['*'],$table.'_page')->withQueryString();}
-        if(isset($data['tasks'])){
-            $remaining=DB::table('erp_task_items')->where('unit_id',$unit)->whereIn('task_id',$data['tasks']->pluck('id'))->whereNull('completed_at')->select('task_id')->selectRaw('COUNT(*) AS remaining')->groupBy('task_id')->pluck('remaining','task_id');
-            foreach($data['tasks'] as $task)$task->remaining_items=(int)($remaining[$task->id]??0);
-        }
-        if(isset($data['payment_requests'])){$summaries=(new \App\Modules\Erp\Services\Reporting())->requestSummaries($unit,$data['payment_requests']->pluck('id')->all());foreach($data['payment_requests'] as $row)foreach($summaries[$row->id] as $key=>$value)$row->$key=$value;}
-        if($page==='followups'){ $latest=DB::table('erp_followups')->where('unit_id',$unit)->select(DB::raw('MAX(id) AS id'))->groupBy('student_id');$data['followup_due']=DB::table('erp_followups')->where('unit_id',$unit)->whereIn('id',$latest)->whereNotNull('next_due_on')->where('next_due_on','<=',now($business->timezone)->toDateString())->orderBy('next_due_on')->paginate(25,['*'],'followup_due_page')->withQueryString(); }
-        if($page==='migration')$reconciliation=(new \App\Modules\Erp\Services\Reporting())->reconciliation($unit);else $reconciliation=null;
-        $metrics=['Active students'=>DB::table('erp_students')->where('unit_id',$unit)->where('status','active')->count(),'Scheduled lessons'=>DB::table('erp_lessons')->where('unit_id',$unit)->where('status','scheduled')->count(),'Pending teacher approval'=>DB::table('erp_attendance')->where('unit_id',$unit)->where('status','submitted')->count(),'Duplicate reviews'=>DB::table('erp_duplicate_reviews')->where('unit_id',$unit)->where('status','pending')->count()];
-        $timetable=null;
-        if($page==='timetable'){
-            $filters=$request->validate(['date'=>'nullable|date_format:Y-m-d|after_or_equal:2000-01-03|before_or_equal:2099-12-27','student'=>'nullable|string|max:100','teacher'=>'nullable|string|max:100','status'=>'nullable|in:scheduled,completed,cancelled,rescheduled,no_show']);
-            $timetable=(new \App\Modules\Erp\Services\Timetable())->week($unit,$business->timezone,$filters);
-        }
-        $queues=in_array($page,['dashboard','attendance','money'])?(new \App\Modules\Erp\Services\WorkQueues())->attendance($unit):null;
-        $labels=(new \App\Modules\Erp\Services\RecordLabels())->forPages($unit,$data);
-        $permissions=new \App\Modules\Erp\Services\TeamPermissions();
-        $forms=array_filter($business->archived_at?[]:config('erp_forms.'.$page,[]),fn($form)=>$permissions->allows($request->user(),$unit,'action',$form['action']));
-        $pages=array_filter($pages,fn($label,$key)=>$permissions->allows($request->user(),$unit,'page',$key),ARRAY_FILTER_USE_BOTH);
-        return view('erp.business',compact('business','page','pages','data','metrics','forms','reconciliation','timetable','queues','labels'));
-    }
     public function mutate(Request $request,int $unit,string $action)
     {
         (new Access())->unit($request->user(),$unit);
@@ -64,8 +16,7 @@ class BusinessController extends Controller
         if (str_starts_with($action, 'books-')) return app(AccountsController::class)->mutate($request, $unit, $action);
         if ($action === 'teacher-classify') {
             $teacher = (new \App\Modules\Erp\Services\TeacherDirectory())->classify($unit, (int) $request->user()->id, $request->only('teacher_id','levels','category'));
-            if ($request->expectsJson()) return response()->json(['result' => $teacher]);
-            return redirect()->back()->with('status', 'Teacher level and category saved.');
+            return response()->json(['result' => $teacher, 'message' => 'Teacher level and category saved.']);
         }
         $map=[
             'student-update'=>[Operations::class,'updateStudent'],'task-update'=>[Operations::class,'updateTask'],'task-item'=>[Operations::class,'addTaskItem'],'task-item-complete'=>[Operations::class,'completeTaskItem'],'followup'=>[Operations::class,'recordFollowup'],'membership-grant'=>[Operations::class,'grantMembership'],'membership-revoke'=>[Operations::class,'revokeMembership'],'teacher-link'=>[Operations::class,'linkTeacherUser'],'teacher-unlink'=>[Operations::class,'unlinkTeacherUser'],
@@ -76,7 +27,7 @@ class BusinessController extends Controller
             $payload=array_filter($payload,function($v){return $v!==null&&$v!=='';});unset($payload['clear_fields']);
             foreach($clear as $field)$payload[$field]=null;
         }$result=(new $class())->$method($unit,(int)$request->user()->id,$payload);
-        if($request->expectsJson())return response()->json(['result'=>$result,'message'=>'Recorded and audited. No message or money transfer was sent.']);$page=$request->input('return_page','dashboard');if(!isset($this->pages()[$page]))$page='dashboard';return redirect()->route('erp.business',[$unit,$page])->with('status','Recorded and audited. No message or money transfer was sent.');
+        return response()->json(['result'=>$result,'message'=>'Recorded and audited. No message or money transfer was sent.']);
     }
     public function lookup(Request $request,int $unit)
     {
@@ -109,10 +60,6 @@ class BusinessController extends Controller
         else{ $map=['tasks'=>['erp_tasks','title'],'items'=>['erp_task_items','title'],'requests'=>['erp_payment_requests','reference'],'payments'=>['erp_ledger','reference'],'salary'=>['erp_ledger','reference'],'refunds'=>['erp_ledger','reference']];abort_unless(isset($map[$type]),422);[$table,$column]=$map[$type];$query=DB::table($table)->where('unit_id',$unit)->select('id',$column.' AS name');if($type==='payments')$query->where('kind','payment');if($type==='salary')$query->where('kind','teacher_payment');if($type==='refunds')$query->where('kind','refund');if($q!=='')$query->where($column,'like','%'.$q.'%');return response()->json($query->orderByDesc('id')->limit(30)->get()->map(function($r){return ['id'=>$r->id,'label'=>$r->name.' (#'.$r->id.')'];})); }
         if($q!=='')$query->where(function($w)use($q,$type){$w->where('name','like','%'.$q.'%');if(in_array($type,['students','teachers']))$w->orWhere('code','like','%'.$q.'%');});
         return response()->json($query->orderBy('name')->limit(30)->get()->map(function($r){return ['id'=>$r->id,'label'=>$r->name.' · '.$r->code.' (#'.$r->id.')'];}));
-    }
-    public function requestPrint(Request $request,int $unit,int $id)
-    {
-        (new Access())->unit($request->user(),$unit,false);$paymentRequest=DB::table('erp_payment_requests')->where('unit_id',$unit)->where('id',$id)->first();abort_unless($paymentRequest,404);$student=DB::table('erp_students')->where('unit_id',$unit)->where('id',$paymentRequest->student_id)->first();$business=DB::table('erp_units')->find($unit);$summary=(new \App\Modules\Erp\Services\Reporting())->requestSummaries($unit,[$id])[$id];return view('erp.payment-request',compact('paymentRequest','student','business','summary'));
     }
     public function export(Request $request,int $unit,string $dataset)
     {

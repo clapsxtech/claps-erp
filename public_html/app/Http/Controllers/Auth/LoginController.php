@@ -28,14 +28,6 @@ class LoginController extends Controller
      */
     protected $redirectTo = RouteServiceProvider::HOME;
 
-    /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
-    public function showSuperadminLogin() { return view('auth.login', ['portal' => 'superadmin']); }
-    public function showStaffLogin() { return view('auth.login', ['portal' => 'staff']); }
-
     protected function validateLogin(\Illuminate\Http\Request $request)
     {
         $request->validate(['email' => 'required|string', 'password' => 'required|string', 'portal' => 'nullable|in:superadmin,staff']);
@@ -75,12 +67,12 @@ class LoginController extends Controller
         }
         if ($superadmin) {
             $request->session()->forget('url.intended');
-            return redirect()->route('erp.index');
+            return redirect('/app');
         }
         if (\Illuminate\Support\Facades\DB::table('erp_memberships')->where('user_id',$user->id)->where('role','teacher')->exists()
             || \Illuminate\Support\Facades\DB::table('erp_teachers')->where('user_id',$user->id)->exists()) {
             $request->session()->forget('url.intended');
-            return redirect()->route('erp.teacher.index');
+            return redirect('/teacher');
         }
     }
 

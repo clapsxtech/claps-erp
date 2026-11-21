@@ -1,0 +1,5 @@
+@extends('errors.layout')
+@section('code', 'Maintenance')
+@section('title', 'ClapsLearn is being updated')
+@section('message', 'This usually takes a few minutes. Please try again shortly.')
+@section('action', '')
