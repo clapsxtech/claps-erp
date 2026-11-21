@@ -22,6 +22,7 @@ class ParentPortalController extends Controller
         $student = (new ParentPortal())->authenticate($v['student_code'], $v['date_of_birth'], ParentPortal::clientIp($request->ip()));
         $request->session()->regenerate();
         $request->session()->put('parent_portal', ['student_id' => (int) $student->id, 'unit_id' => (int) $student->unit_id, 'fingerprint' => ParentPortal::fingerprint((int) $student->id), 'seen' => now()->getTimestamp()]);
+        if ($request->expectsJson()) return response()->json(['redirect' => route('parent.home', [], false)]);
         return redirect()->route('parent.home');
     }
 
@@ -29,6 +30,10 @@ class ParentPortalController extends Controller
     {
         $request->session()->forget('parent_portal');
         $request->session()->regenerate();
+        if ($request->expectsJson()) {
+            $request->session()->flash('status', 'You have signed out.');
+            return response()->json(['redirect' => route('parent.login', [], false)]);
+        }
         return redirect()->route('parent.login')->with('status', 'You have signed out.');
     }
 
@@ -49,12 +54,13 @@ class ParentPortalController extends Controller
 
     public function dispute(Request $request)
     {
-        if (!$student = $this->student($request)) return redirect()->route('parent.login');
+        if (!$student = $this->student($request)) return $request->expectsJson() ? response()->json(['message' => 'Your session has ended. Sign in again.'], 401) : redirect()->route('parent.login');
         $v = $request->validate(['attendance_id' => 'required|integer|min:1', 'note' => 'required|string|max:1000']);
         $query = (new ParentPortal())->dispute($student, (int) $v['attendance_id'], $v['note']);
         $message = $query->held
             ? 'Thank you. The centre will check this class and get back to you. It will not be billed until it is resolved.'
             : 'Thank you. The centre will check this class and get back to you. It has already been billed; if the centre agrees it was wrong, they will correct your account.';
+        if ($request->expectsJson()) return response()->json(['message' => $message, 'held' => (bool) $query->held, 'attendanceId' => (int) $query->attendance_id]);
         return redirect()->route('parent.home', ['section' => 'classes'])->with('status', $message);
     }
 
@@ -96,7 +102,7 @@ class ParentPortalController extends Controller
     }
 
     /** The signed-in student, or null when the session is missing, idle too long, or the date of birth changed. */
-    private function student(Request $request): ?object
+    protected function student(Request $request): ?object
     {
         $session = $request->session()->get('parent_portal');
         if (!$session) return null;
