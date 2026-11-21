@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Providers\RouteServiceProvider;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Foundation\Auth\ResetsPasswords;
+use Illuminate\Support\Str;
 
 class ResetPasswordController extends Controller
 {
@@ -26,5 +27,18 @@ class ResetPasswordController extends Controller
      *
      * @var string
      */
-    protected $redirectTo = RouteServiceProvider::HOME;
+    protected $redirectTo = '/login';
+
+    /**
+     * Set the new password without signing the user in. Signing in here would
+     * skip the two-factor challenge and the portal checks in LoginController,
+     * so the user signs in normally afterwards.
+     */
+    protected function resetPassword($user, $password)
+    {
+        $this->setUserPassword($user, $password);
+        $user->setRememberToken(Str::random(60));
+        $user->save();
+        event(new PasswordReset($user));
+    }
 }
