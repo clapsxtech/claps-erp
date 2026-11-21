@@ -18,7 +18,7 @@ class TeamPermissions
         'read_only'=>['dashboard','admissions','teacher-recruitment','allocation','people','academics','timetable','attendance','money','followups','migration','accounts','insights'],
     ];
     private const ACTIONS = [
-        'academics'=>['student','student-update','teacher','eligibility','mark','assign','end-assignment','availability','propose','confirm','materialize','reschedule','cancel','pause-classes','stop-classes','switch-teacher','extra','exception','end-agreement','attendance','no-show','approve','correct','duplicate'],
+        'academics'=>['student','student-update','teacher','teacher-classify','eligibility','mark','assign','end-assignment','availability','propose','confirm','materialize','reschedule','cancel','pause-classes','stop-classes','switch-teacher','extra','exception','end-agreement','attendance','no-show','approve','correct','duplicate'],
         'finance'=>['payment','import-batch','salary-paid','salary-reverse','receipt-reverse','receipt-correct','request-create','request-cancel','request-allocate','refund-paid','refund-reverse','books-account','books-journal','books-journal-reverse','books-invoice-run','books-invoice-cancel'],
         'sales_followups'=>['task','complete-task','task-update','task-item','task-item-complete','followup','admission-create-lead','admission-update-lead','admission-schedule-demo','admission-update-demo','admission-followup','admission-reminder','admission-complete-reminder','admission-transfer','admission-resolve-transfer','admission-convert'],
     ];
