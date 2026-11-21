@@ -34,6 +34,8 @@ class TeamPermissions
         if ($role==='superadmin') return true;
         if (in_array($role,['admin','staff'],true)) $role='team_manager';
         if (!isset(self::PAGES[$role ?? ''])) return false;
+        // Any staff role in this unit, for screens every member has (Home, My tasks).
+        if ($kind==='member') return true;
         if ($kind==='detail') return in_array($role,['team_manager','read_only'],true);
         if ($kind==='page') return in_array($value,self::PAGES[$role],true);
         if ($kind==='action') {

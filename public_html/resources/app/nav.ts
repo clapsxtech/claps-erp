@@ -24,6 +24,7 @@ import {
   Cog6ToothIcon,
   BuildingOffice2Icon,
   ArrowUpTrayIcon,
+  PresentationChartLineIcon,
 } from '@heroicons/react/24/outline';
 import type {Session, UnitAccess} from './lib/session';
 
@@ -87,6 +88,7 @@ export const GROUPS: NavGroup[] = [
   {
     title: 'Reports',
     items: [
+      {key: 'sales-report', label: 'Sales report', keywords: 'counsellor conversions campaigns collections activity', icon: PresentationChartLineIcon, page: 'admissions', path: 'sales-report'},
       {key: 'insights', label: 'Trends', keywords: 'insights analytics charts growth', icon: ChartBarIcon, page: 'insights', path: 'insights'},
       {key: 'exports', label: 'Exports & checks', keywords: 'migration csv download reconciliation', icon: CloudArrowDownIcon, page: 'migration', path: 'exports'},
     ],
