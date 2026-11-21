@@ -10,7 +10,7 @@ import {Toned, type Tone} from './Amount';
 
 export function MetricRow({children}: {children: ReactNode}) {
   return (
-    <Grid columns={{minWidth: 160, repeat: 'fill'}} gap={3}>
+    <Grid columns={{minWidth: 140, repeat: 'fill'}} gap={3}>
       {children}
     </Grid>
   );

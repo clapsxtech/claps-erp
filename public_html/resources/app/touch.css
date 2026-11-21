@@ -1,0 +1,45 @@
+/*
+ * Touch sizing. The ClapsLearn theme is compact so desktop tables stay dense, but
+ * fingers need bigger targets. The Astryx theme editor has no device conditions
+ * ("a media query needs your own CSS"), so this file applies only to touch
+ * screens: every control is at least 44px tall (Apple HIG / WCAG 2.5.5), and
+ * text fields use 16px text so iPhones do not zoom the page when one is tapped.
+ * Unlayered rules win over Astryx's layered component styles.
+ */
+@media (pointer: coarse) {
+  .astryx-button,
+  .astryx-tab,
+  .astryx-pagination-item,
+  .astryx-toggle-button,
+  .astryx-selector button,
+  .astryx-date-input button,
+  .astryx-input-clear-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .astryx-text-input input,
+  .astryx-text-area textarea,
+  .astryx-selector button,
+  .astryx-date-input input,
+  .astryx-number-input input,
+  input[type='text'],
+  input[type='email'],
+  input[type='tel'],
+  input[type='url'],
+  input[type='password'],
+  input[type='search'],
+  input[type='number'],
+  input[type='date'],
+  input[type='time'],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .astryx-text-input input,
+  .astryx-date-input input,
+  .astryx-number-input input {
+    min-height: 44px;
+  }
+}
