@@ -28,11 +28,11 @@ class OwnTasksController extends Controller
     public function complete(Request $request,int $task) {
         (new SiteAccessPolicy())->assertSiteMember($request->user());
         (new Operations())->completeOwnTask((int)$request->user()->id,$task);
-        return redirect()->route('erp.tasks.mine')->with('status','Your assigned task is complete.');
+        return $request->expectsJson() ? response()->json(['message'=>'Your assigned task is complete.']) : redirect()->route('erp.tasks.mine')->with('status','Your assigned task is complete.');
     }
     public function completeItem(Request $request,int $task,int $item) {
         (new SiteAccessPolicy())->assertSiteMember($request->user());
         (new Operations())->completeOwnTaskItem((int)$request->user()->id,$task,$item);
-        return redirect()->route('erp.tasks.mine')->with('status','Checklist item completed.');
+        return $request->expectsJson() ? response()->json(['message'=>'Checklist item completed.']) : redirect()->route('erp.tasks.mine')->with('status','Checklist item completed.');
     }
 }

@@ -44,7 +44,7 @@ class AppShellController extends Controller
             'sheetsAuthority' => config('sheet_transition.authority') === 'sheets',
             'legacyBase' => '/erp',
         ];
-        $manifestPath = public_path('app/manifest.json');
+        $manifestPath = public_path('ui/manifest.json');
         $manifest = is_file($manifestPath) ? json_decode((string) file_get_contents($manifestPath), true) : [];
         return response()->view('app.shell', ['session' => $session, 'manifest' => $manifest ?: []])
             ->header('Cache-Control', 'no-store');

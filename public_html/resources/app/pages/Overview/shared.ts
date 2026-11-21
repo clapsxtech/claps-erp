@@ -48,7 +48,8 @@ export async function postOwnTask(url: string): Promise<void> {
     redirect: 'manual',
     headers: {Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrfToken()},
   });
-  if (response.type === 'opaqueredirect' || response.ok) return;
+  if (response.ok) return;
+  if (response.type === 'opaqueredirect') throw new ApiError(0, 'The server did not confirm this change. Reload to check whether it was saved before trying again.');
   let body: {message?: string; errors?: Record<string, string[]>} = {};
   try {
     body = await response.json();

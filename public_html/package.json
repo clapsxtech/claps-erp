@@ -14,8 +14,9 @@
     "test:deployment": "node --test tests/Deployment/*.test.cjs",
     "build": "npm run production",
     "test:assets": "node --test tests/Assets/*.test.cjs",
-    "test": "node --test tests/Assets/*.test.cjs tests/Deployment/*.test.cjs",
-    "cf:assets": "npm run production && node scripts/stage-cloudflare-assets.mjs"
+    "test": "npm run typecheck && node --test tests/Assets/*.test.cjs tests/Deployment/*.test.cjs",
+    "cf:assets": "npm run production && node scripts/stage-cloudflare-assets.mjs",
+    "typecheck": "tsc -p resources/app/tsconfig.json"
   },
   "engines": {
     "node": ">=22 <23"

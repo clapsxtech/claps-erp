@@ -22,7 +22,7 @@ yarn-error.log
 !/storage/logs/.gitignore
 
 # React app bundles are built by npm run production (CI and the container build).
-/public/app/
+/public/ui/
 # Astryx theme editor previews are regenerated on every change.
 /themes/*/*.png
 /themes/*/preview.html

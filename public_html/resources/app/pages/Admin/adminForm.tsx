@@ -42,7 +42,7 @@ export async function adminPost(url: string, body: Record<string, unknown>): Pro
   } catch {
     throw new ApiError(0, 'Could not reach the server. Check the result before trying again.');
   }
-  if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) return {};
+  if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) throw new ApiError(0, 'The server did not confirm this change. Reload to check whether it was saved before trying again.');
   let payload: {message?: string; errors?: Record<string, string[]>} = {};
   try {
     payload = await response.json();

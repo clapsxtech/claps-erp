@@ -76,7 +76,15 @@ export function Palette({
           ...students.slice(0, 6).map(row => ({
             id: `student:${row.id}`,
             label: `Student · ${row.label.replace(/ \(#\d+\)$/, '')}`,
-            auxiliaryData: {href: `/app/u/${unit.id}/students/${row.id}`, keywords: ''},
+            // Full profiles are for managers and read-only; others land on the filtered list.
+            auxiliaryData: {
+              href: ['superadmin', 'team_manager', 'read_only'].includes(unit.role)
+                ? `/app/u/${unit.id}/students/${row.id}`
+                : unit.pages.includes('people')
+                  ? `/app/u/${unit.id}/students?q=${encodeURIComponent(row.label.replace(/ \(#\d+\)$/, '').split(' · ')[0])}`
+                  : `/app/u/${unit.id}/followups?new=followup&student=${row.id}`,
+              keywords: '',
+            },
           })),
           ...teachers.slice(0, 4).map(row => ({
             id: `teacher:${row.id}`,

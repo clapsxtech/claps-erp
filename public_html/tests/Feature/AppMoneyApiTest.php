@@ -239,8 +239,8 @@ class AppMoneyApiTest extends TestCase
         $this->assertSame(['id', 'score', 'decision', 'strengths', 'concerns', 'recordingUrl', 'createdAt'], array_keys($json['candidates'][0]['interviews'][0]));
         $this->assertSame(['approve' => true, 'write' => true], $json['can']);
 
-        // The classic resolve operation answers with a redirect; the query then leaves the open list.
-        $this->post($base.'parent-request-resolve', ['request_id' => $query, 'reply' => 'Synthetic reply'], ['Accept' => 'application/json'])->assertRedirect();
+        // The classic resolve operation confirms in JSON when asked; the query then leaves the open list.
+        $this->post($base.'parent-request-resolve', ['request_id' => $query, 'reply' => 'Synthetic reply'], ['Accept' => 'application/json'])->assertOk()->assertJsonStructure(['message']);
         $this->getJson($this->api('/tuition'))->assertOk()->assertJsonCount(0, 'parentRequests');
     }
 }

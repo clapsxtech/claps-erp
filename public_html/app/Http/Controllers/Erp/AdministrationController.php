@@ -24,13 +24,13 @@ class AdministrationController extends Controller
     public function team(Request $request,?int $id=null)
     {
         (new Administration())->team($request->user(),$request->all(),$id);
-        return back()->with('status','Team saved.');
+        return $request->expectsJson() ? response()->json(['message'=>'Team saved.']) : back()->with('status','Team saved.');
     }
     public function archive(Request $request,int $id)
     {
         $v=$request->validate(['archived'=>'required|boolean']);
         (new Administration())->archive($request->user(),$id,(bool)$v['archived']);
-        return back()->with('status',$v['archived']?'Team archived. Records are preserved.':'Team restored.');
+        return $request->expectsJson() ? response()->json(['message'=>$v['archived']?'Team archived. Records are preserved.':'Team restored.']) : back()->with('status',$v['archived']?'Team archived. Records are preserved.':'Team restored.');
     }
     public function onboard(Request $request)
     {
@@ -38,12 +38,12 @@ class AdministrationController extends Controller
         $payload=$request->except('team_ids','initial_role');
         $payload['assignments']=array_map(fn($id)=>['unit_id'=>$id,'role'=>$request->initial_role],$request->team_ids);
         $user=(new Administration())->onboard($request->user(),$payload);
-        return redirect()->route('erp.administration')->with('status','Account created and assigned for '.$user->name.'. Share the staff login URL and password privately.');
+        return $request->expectsJson() ? response()->json(['message'=>'Account created and assigned for '.$user->name.'. Share the staff login URL and password privately.']) : redirect()->route('erp.administration')->with('status','Account created and assigned for '.$user->name.'. Share the staff login URL and password privately.');
     }
     public function account(Request $request,int $id)
     {
         (new Administration())->account($request->user(),$id,$request->all());
-        return redirect()->route('erp.administration')->with('status','Account updated. Existing database sessions and remembered logins were revoked.');
+        return $request->expectsJson() ? response()->json(['message'=>'Account updated. Existing database sessions and remembered logins were revoked.']) : redirect()->route('erp.administration')->with('status','Account updated. Existing database sessions and remembered logins were revoked.');
     }
     public function operations(Request $request)
     {

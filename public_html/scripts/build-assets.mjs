@@ -13,12 +13,12 @@ const options = { minify: production, legalComments: 'eof', target: ['es2020'], 
 // compiles only our own stylex.create() calls (never node_modules/@astryxdesign).
 async function buildReactApp() {
     const { default: stylex } = await import('@stylexjs/unplugin/esbuild');
-    await rm('public/app', { recursive: true, force: true });
+    await rm('public/ui', { recursive: true, force: true });
     const result = await build({
         ...options,
         entryPoints: { main: 'resources/app/main.tsx' },
         bundle: true, splitting: true, format: 'esm', platform: 'browser',
-        outdir: 'public/app', entryNames: '[name]-[hash]', chunkNames: 'chunks/[name]-[hash]', assetNames: 'assets/[name]-[hash]',
+        outdir: 'public/ui', entryNames: '[name]-[hash]', chunkNames: 'chunks/[name]-[hash]', assetNames: 'assets/[name]-[hash]',
         jsx: 'automatic', metafile: true,
         loader: { '.woff': 'file', '.woff2': 'file', '.svg': 'file', '.png': 'file' },
         define: { 'process.env.NODE_ENV': JSON.stringify(production ? 'production' : 'development') },
@@ -32,7 +32,7 @@ async function buildReactApp() {
             if (meta.cssBundle) entry.css = '/' + path.relative('public', meta.cssBundle).split(path.sep).join('/');
         }
     }
-    await writeFile('public/app/manifest.json', JSON.stringify(entry, null, 2) + '\n');
+    await writeFile('public/ui/manifest.json', JSON.stringify(entry, null, 2) + '\n');
 }
 async function buildAssets() {
     await mkdir('public/js', { recursive: true });

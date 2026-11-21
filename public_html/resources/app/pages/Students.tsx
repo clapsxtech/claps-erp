@@ -106,7 +106,7 @@ export default function Students() {
         {kind: 'text', name: 'name', label: 'Full name', required: true},
         {kind: 'text', name: 'code', label: 'Student code', required: true, description: 'Unique across all teams, e.g. CL-1042'},
         {kind: 'text', name: 'grade', label: 'Grade', required: true, placeholder: 'e.g. 7'},
-        {kind: 'select', name: 'syllabus', label: 'Syllabus', required: true, options: ['CBSE', 'ICSE', 'IGCSE', 'IB', 'State board', 'Other'].map(v => ({value: v, label: v}))},
+        {kind: 'text', name: 'syllabus', label: 'Syllabus', required: true, placeholder: 'e.g. CBSE', description: 'Use the same spelling as teacher eligibility, e.g. CBSE, ICSE, IGCSE'},
         {kind: 'date', name: 'registered_on', label: 'Joined on', required: true, max: today(unit.timezone)},
         {kind: 'tel', name: 'guardian_contact', label: 'Parent phone or email'},
         {kind: 'url', name: 'meeting_url', label: 'Class meeting link'},
@@ -202,12 +202,25 @@ export default function Students() {
           title="Add a student"
           description="Use this for direct registrations. Leads from enquiries are converted from Admissions."
           fields={fields}
-          initial={{registered_on: today(unit.timezone), syllabus: 'CBSE'}}
+          initial={{registered_on: today(unit.timezone)}}
+          hidden={{timezone: unit.timezone}}
           action={`/erp/units/${unitId}/student`}
           submitLabel="Add student"
           successMessage="Student added."
           onSaved={() => {
-            setQuery({sort: 'registered_on', dir: 'desc'});
+            // One URL update: close the drawer and show newest first. Two separate
+            // updates in the same tick would restore ?new=student.
+            setParams(
+              current => {
+                const next = new URLSearchParams(current);
+                next.delete('new');
+                next.delete('page');
+                next.set('sort', 'registered_on');
+                next.set('dir', 'desc');
+                return next;
+              },
+              {replace: true},
+            );
             list.reload();
           }}
         />

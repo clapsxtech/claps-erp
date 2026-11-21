@@ -103,10 +103,10 @@ class AppAdminApiTest extends TestCase
         $this->getJson('/app-api/admin/migration')->assertForbidden();
     }
 
-    /** The React admin forms post JSON to the classic routes: success is a redirect, failure is JSON. */
+    /** The React admin forms post JSON to the classic routes: success and failure both answer JSON. */
     public function test_classic_admin_writes_answer_json_posts_as_the_app_expects(): void
     {
-        $this->actingAs($this->admin)->postJson('/erp/administration/teams', ['code' => 'ADM_C', 'name' => 'Admin Unit C', 'timezone' => 'UTC', 'phone' => null])->assertRedirect();
+        $this->actingAs($this->admin)->postJson('/erp/administration/teams', ['code' => 'ADM_C', 'name' => 'Admin Unit C', 'timezone' => 'UTC', 'phone' => null])->assertOk()->assertJson(['message' => 'Team saved.']);
         $this->assertDatabaseHas('erp_units', ['code' => 'ADM_C', 'phone' => null]);
         $this->postJson('/erp/administration/teams', ['code' => 'bad code', 'name' => 'X', 'timezone' => 'UTC'])->assertStatus(422)->assertJsonValidationErrors('code');
         $this->postJson('/erp/administration/accounts/'.$this->manager->id, ['action' => 'revoke_sessions', 'current_password' => 'wrong'])->assertStatus(422)->assertJsonValidationErrors('current_password');

@@ -37,6 +37,7 @@ export function FormDrawer({
   successMessage,
   onSaved,
   extra,
+  hidden,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,6 +51,8 @@ export function FormDrawer({
   successMessage: string;
   onSaved?: (result: unknown) => void;
   extra?: ReactNode;
+  /** Values sent with every submit but not shown, e.g. the team's time zone. */
+  hidden?: Record<string, string | number>;
 }) {
   const showToast = useToast();
   const [values, setValues] = useState<Record<string, string>>(initial ?? {});
@@ -74,7 +77,7 @@ export function FormDrawer({
     setSaving(true);
     setErrors({});
     setFormError(undefined);
-    const payload: Record<string, unknown> = {};
+    const payload: Record<string, unknown> = {...(hidden ?? {})};
     for (const field of fields) {
       const raw = (values[field.name] ?? '').trim();
       if (raw !== '') payload[field.name] = raw;

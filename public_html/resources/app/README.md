@@ -44,8 +44,9 @@ a component's props before you use it; most prop names differ from other librari
   primary button top-right, and the "New" menu and ⌘K reach it from anywhere. Row names link to the
   detail page.
 - **Tables** keep numbers and money right-aligned with tabular figures, sort on the value rather
-  than the label, put state in the URL, count rows in the footer, export CSV of the filtered set,
-  and show cards on phones.
+  than the label, put state in the URL, count rows in the footer, link the CSV export where the
+  role has one (the classic exports cover the whole register, not the filtered view), and show
+  cards on phones.
 - **One status word, one colour** (`components/Status.tsx`).
 - **Writes are explicit.** A drawer has one primary button, and errors appear inline next to the
   field. Destructive or money-reversing actions confirm first.

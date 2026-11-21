@@ -179,9 +179,9 @@ export function AppFrame() {
   return (
     <>
       <AppShell topNav={topNav} sideNav={sideNav} banner={banner} variant="elevated">
-        <main {...stylex.props(styles.main)}>
+        <section {...stylex.props(styles.main)}>
           <Outlet />
-        </main>
+        </section>
       </AppShell>
       <TabBar unit={unit} onMore={openPalette} />
       <Palette isOpen={paletteOpen} onOpenChange={setPaletteOpen} unit={unit} groups={groups} quickCreate={quickCreate} />

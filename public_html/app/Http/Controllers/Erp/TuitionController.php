@@ -54,19 +54,19 @@ class TuitionController extends Controller
                     (new TuitionWorkflows())->parentReview($unit,(int)$request->user()->id,['attendance_id'=>$id,'decision'=>'share','deadline_at'=>$v['deadline_at'],'note'=>$v['note'],'snapshot'=>$v['snapshots'][$id]]);
                 }
             });
-            return redirect()->route('erp.tuition',$unit)->with('status','Statement sharing recorded for the selected attendance entries.');
+            return $request->expectsJson() ? response()->json(['message'=>'Statement sharing recorded for the selected attendance entries.']) : redirect()->route('erp.tuition',$unit)->with('status','Statement sharing recorded for the selected attendance entries.');
         }
         if ($operation==='parent-request-resolve') {
             $v=$request->validate(['request_id'=>'required|integer|min:1','reply'=>'required|string|max:2000']);
             $updated=DB::table('erp_parent_requests')->where('unit_id',$unit)->where('id',$v['request_id'])->where('status','open')->update(['status'=>'resolved','resolved_by'=>$request->user()->id,'resolved_at'=>now(),'updated_at'=>now()]);
             abort_unless($updated,404);
             \App\Modules\Erp\Services\Audit::record($unit,(int)$request->user()->id,'parent_request.resolved','parent_request',(int)$v['request_id'],['reply'=>$v['reply']]);
-            return redirect()->route('erp.tuition',$unit)->with('status','Parent query marked as answered. Correct or accept the class record separately if needed.');
+            return $request->expectsJson() ? response()->json(['message'=>'Parent query marked as answered. Correct or accept the class record separately if needed.']) : redirect()->route('erp.tuition',$unit)->with('status','Parent query marked as answered. Correct or accept the class record separately if needed.');
         }
         $method=['note'=>'note','parent-review'=>'parentReview','candidate'=>'candidate','interview'=>'interview'][$operation]??null;
         abort_unless($method,404);
         $row=(new TuitionWorkflows())->$method($unit,(int)$request->user()->id,$request->except('_token'));
         if ($request->expectsJson()) return response()->json(['result'=>$row]);
-        return redirect()->route('erp.tuition',$unit)->with('status','Saved with your name and time in the audit history.');
+        return $request->expectsJson() ? response()->json(['message'=>'Saved with your name and time in the audit history.']) : redirect()->route('erp.tuition',$unit)->with('status','Saved with your name and time in the audit history.');
     }
 }

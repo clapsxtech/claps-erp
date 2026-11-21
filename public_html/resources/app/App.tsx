@@ -5,7 +5,7 @@ import {LinkProvider} from '@astryxdesign/core/Link';
 import {clapsTheme} from '../../src/themes/claps/claps.js';
 import {AppFrame} from './shell/AppFrame';
 import {PageLoading} from './components/PageState';
-import {NotFound} from './pages/NotFound';
+import {NotFound, RouteError} from './pages/NotFound';
 import {preferredUnit} from './lib/session';
 import {moduleRoutes} from './modules';
 
@@ -41,6 +41,7 @@ const router = createBrowserRouter([
   {
     path: '/app',
     element: <AppFrame />,
+    errorElement: <RouteError />,
     children: [
       {index: true, element: <DefaultUnit />},
       {path: 'u/:unit', element: <UnitIndex />},

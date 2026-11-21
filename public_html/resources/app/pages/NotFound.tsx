@@ -15,3 +15,16 @@ export function NotFound({
     </VStack>
   );
 }
+
+/** Shown when a screen crashes or its code fails to load, usually after a deploy. */
+export function RouteError() {
+  return (
+    <VStack padding={10}>
+      <EmptyState
+        title="This screen did not load"
+        description="The app may have just been updated. Reload to get the latest version; nothing you saved is lost."
+        actions={<Button label="Reload" variant="primary" onClick={() => window.location.reload()} />}
+      />
+    </VStack>
+  );
+}

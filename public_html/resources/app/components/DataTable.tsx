@@ -1,10 +1,9 @@
 // The one table every list screen uses. It follows the usual data-grid
 // conventions: search and filters above, sortable headers, numbers right-aligned
-// with tabular figures, sticky header, page size and count below, CSV export of
-// the full filtered set, and a card list on phones instead of a sideways scroll.
+// with tabular figures, page size and count below, a CSV export link (the classic
+// export of the whole register), and a card list on phones instead of a sideways scroll.
 // Rows come pre-sorted and pre-paged from the server; the table only renders.
 import {useMemo, type ReactNode} from 'react';
-import * as stylex from '@stylexjs/stylex';
 import {Table, useTableSortable, type TableColumn} from '@astryxdesign/core/Table';
 import {VStack, HStack, StackItem} from '@astryxdesign/core/Layout';
 import {Text} from '@astryxdesign/core/Text';
@@ -44,11 +43,6 @@ export interface ListMeta {
   sort: string;
   dir: 'asc' | 'desc' | string;
 }
-
-const styles = stylex.create({
-  // Header stays visible while long lists scroll.
-  sticky: {position: 'relative'},
-});
 
 export function DataTable<T extends Record<string, unknown>>({
   label,
@@ -185,7 +179,6 @@ export function DataTable<T extends Record<string, unknown>>({
         rowCount={meta.total}
         rowIndexStart={(meta.page - 1) * meta.perPage + 1}
         plugins={{sort: sortPlugin}}
-        xstyle={styles.sticky}
       />
     );
   }

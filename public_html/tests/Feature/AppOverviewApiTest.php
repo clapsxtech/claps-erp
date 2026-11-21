@@ -128,17 +128,17 @@ class AppOverviewApiTest extends TestCase
         $this->getJson('/app-api/units/'.$this->unit.'/overview/tasks?scope=all&sort=title&dir=desc')->assertOk()->assertJsonPath('data.0.title', 'Beta reminder');
     }
 
-    public function test_read_only_cannot_complete_and_own_task_route_still_redirects(): void
+    public function test_read_only_cannot_complete_and_own_task_route_confirms_in_json(): void
     {
         $readOnly = $this->member('read_only');
         $json = $this->actingAs($readOnly)->getJson('/app-api/units/'.$this->unit.'/overview/tasks')->assertOk()->json();
         $this->assertFalse($json['can']['completeOwn']);
         $this->assertFalse($json['can']['complete']);
 
-        // The React page relies on this: the own-task route answers a redirect, not JSON.
+        // The React page relies on this: the own-task route confirms in JSON; HTML forms still redirect.
         $academics = $this->member('academics');
         $task = $this->task(['title' => 'Mine to close', 'assigned_to' => $academics->id]);
-        $this->actingAs($academics)->postJson('/erp/my-tasks/'.$task.'/complete')->assertRedirect();
+        $this->actingAs($academics)->postJson('/erp/my-tasks/'.$task.'/complete')->assertOk()->assertJson(['message' => 'Your assigned task is complete.']);
         $this->assertSame('completed', DB::table('erp_tasks')->where('id', $task)->value('status'));
     }
 

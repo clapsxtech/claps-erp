@@ -79,11 +79,13 @@ export async function postJson<T>(url: string, body: Record<string, unknown>): P
       'X-CSRF-TOKEN': csrfToken(),
     },
     body: JSON.stringify(body),
-    // Some classic routes answer a successful save with a redirect instead of
-    // JSON. Not following it lets us treat it as saved; errors still come back
-    // as JSON (422/403) because the request asks for JSON.
+    // Every write route answers JSON when asked. A redirect means something
+    // else answered (sign-in, two-factor, a read-only guard), so it is never
+    // reported as saved.
     redirect: 'manual',
   });
-  if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) return {} as T;
+  if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) {
+    throw new ApiError(0, 'The server did not confirm this change. Reload to check whether it was saved before trying again.');
+  }
   return handle<T>(response);
 }
