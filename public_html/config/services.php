@@ -30,4 +30,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Shared by the Worker's SalesGateway and the container; see SalesGatewayOnly.
+    'sales_gateway' => [
+        'token' => env('CLOUDFLARE_INTERNAL_TOKEN', ''),
+    ],
+
 ];
