@@ -28,20 +28,18 @@ class ErpSalesCrmTest extends TestCase
     {
         return DB::table('erp_demos')->insertGetId(array_merge(['unit_id'=>$this->unit,'lead_id'=>$lead,'scheduled_on'=>'2026-10-28','scheduled_time'=>'17:30','created_by'=>$this->sales->id,'status'=>'SCHEDULED'],$values));
     }
-    private function page(array $query = [])
+    /** The CRM views now load from the Admissions JSON reads. */
+    private function api(string $path = '', array $query = [])
     {
-        return $this->get(route('erp.business',array_merge([$this->unit,'admissions'],$query)));
+        return $this->getJson('/app-api/units/'.$this->unit.'/admissions'.($path !== '' ? '/'.$path : '').($query ? '?'.http_build_query($query) : ''));
     }
     private function action(string $action, array $data)
     {
-        return $this->post(route('erp.business.mutate',[$this->unit,'admission-'.$action]),$data);
+        return $this->postJson(route('erp.business.mutate',[$this->unit,'admission-'.$action]),$data);
     }
-    private function preview(string $name, $response): void
+    private function body($response): string
     {
-        if ($dir=getenv('ERP_MOBILE_PREVIEW_DIR')) {
-            if (!is_dir($dir)) mkdir($dir,0700,true);
-            file_put_contents($dir.'/'.$name.'.html',$response->getContent());
-        }
+        return json_encode($response->json(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
     public function test_pipeline_counts_filters_and_detail_use_the_same_scoped_stage_definition(): void
     {
@@ -52,23 +50,24 @@ class ErpSalesCrmTest extends TestCase
         $joined=$this->lead('Sara Joseph',['status'=>'JOINED','joined_on'=>'2026-10-26']);
         $lost=$this->lead('Aditya Rao',['status'=>'LOST','lost_reason'=>'Timing did not work']);
         $hidden=$this->lead('Private other counsellor',['assigned_to'=>$this->colleague->id]);
-        $this->action('followup',['lead_id'=>$contacted,'channel'=>'call','outcome'=>'Interested','note'=>'Parent would like a demo after school.','next_due_on'=>'2026-10-27'])->assertSessionHasNoErrors();
+        $this->action('followup',['lead_id'=>$contacted,'channel'=>'call','outcome'=>'Interested','note'=>'Parent would like a demo after school.','next_due_on'=>'2026-10-27'])->assertOk();
         $this->demo($scheduled); $this->demo($attended,['status'=>'ATTENDED']);
         $this->demo($joined); $this->demo($lost); $this->demo($hidden);
         $expected=['new'=>1,'contacted'=>1,'demo_scheduled'=>1,'demo_attended'=>1,'joined'=>1,'lost'=>1];
-        $page=$this->page(); $page->assertOk()->assertViewHas('stageCounts',$expected)->assertDontSee('Private other counsellor');
-        $this->preview('crm-pipeline',$page);
+        $page=$this->api()->assertOk()->assertJsonPath('meta.total',6);
+        $this->assertSame($expected,array_column($page->json('stages'),'count','value'));
+        $this->assertStringNotContainsString('Private other counsellor',$this->body($page));
         foreach (['new'=>$new,'contacted'=>$contacted,'demo_scheduled'=>$scheduled,'demo_attended'=>$attended,'joined'=>$joined,'lost'=>$lost] as $stage=>$id) {
-            $this->page(['stage'=>$stage])->assertOk()->assertViewHas('leads',fn($rows)=>$rows->total()===1 && (int)$rows->first()->id===$id);
+            $this->api('',['stage'=>$stage])->assertOk()->assertJsonPath('meta.total',1)->assertJsonPath('data.0.id',$id)->assertJsonPath('data.0.stage',$stage);
         }
-        $this->page(['hot'=>1])->assertOk()->assertViewHas('leads',fn($rows)=>$rows->total()===1 && (int)$rows->first()->id===$new);
-        $detail=$this->page(['lead_id'=>$contacted,'stage'=>'lost','q'=>'not matching']);
-        $detail->assertOk()->assertViewHas('leads',null)->assertSee('Parent would like a demo after school.')->assertDontSee('Ananya Sharma')->assertSee('tel:+919876543210',false)->assertSee('https://wa.me/919876543210',false);
-        $this->preview('crm-detail',$detail);
-        $this->page(['lead_id'=>$hidden])->assertNotFound();
-        $this->preview('crm-new',$this->page(['view'=>'new'])->assertOk());
-        $this->preview('crm-reports',$this->page(['view'=>'reports'])->assertOk());
-        $this->preview('crm-demos',$this->page(['view'=>'demos'])->assertOk());
+        $this->api('',['hot'=>1])->assertOk()->assertJsonPath('meta.total',1)->assertJsonPath('data.0.id',$new);
+        // The detail is the lead itself, whatever list filters were active.
+        $detail=$this->api((string)$contacted)->assertOk()->assertJsonPath('lead.id',$contacted)->assertJsonPath('lead.dial','+919876543210')->assertJsonPath('lead.whatsapp','https://wa.me/919876543210');
+        $this->assertContains('Parent would like a demo after school.',array_column($detail->json('activities'),'summary'));
+        $this->assertStringNotContainsString('Ananya Sharma',$this->body($detail));
+        $this->api((string)$hidden)->assertNotFound();
+        $this->api('demos')->assertOk();
+        $this->getJson('/app-api/units/'.$this->unit.'/overview/sales-report')->assertOk();
     }
     public function test_today_uses_unit_date_and_reminders_are_scoped_and_paginated(): void
     {
@@ -78,14 +77,17 @@ class ErpSalesCrmTest extends TestCase
         $hidden=$this->lead('Hidden reminders',['assigned_to'=>$this->colleague->id]);
         foreach ([$lead,$hidden] as $id) foreach (range(1,21) as $i) DB::table('erp_lead_reminders')->insert(['unit_id'=>$this->unit,'lead_id'=>$id,'due_on'=>'2026-10-27','due_time'=>'10:00','text'=>'Check parent feedback '.$i,'created_by'=>$this->sales->id]);
         $future=DB::table('erp_lead_reminders')->insertGetId(['unit_id'=>$this->unit,'lead_id'=>$lead,'due_on'=>'2026-10-30','text'=>'Future reminder','created_by'=>$this->sales->id]);
-        $page=$this->page(['view'=>'today']);
-        $page->assertOk()->assertViewHas('leads',fn($r)=>$r->total()===1 && (int)$r->first()->id===$lead)->assertViewHas('reminders',fn($r)=>$r->total()===21 && $r->count()===20)->assertDontSee('Hidden reminders')->assertDontSee('Future reminder');
-        $this->preview('crm-today',$page);
-        $page=$this->page(['view'=>'reminders','reminders_page'=>2]);
-        $page->assertOk()->assertViewHas('reminders',fn($r)=>$r->total()===22 && $r->count()===2)->assertSee('Future reminder');
-        $this->preview('crm-reminders',$page);
-        $this->action('complete-reminder',['reminder_id'=>$future,'return_view'=>'reminders'])->assertRedirect(route('erp.business',[$this->unit,'admissions','view'=>'reminders']));
+        $this->api('',['followup'=>'today'])->assertOk()->assertJsonPath('meta.total',1)->assertJsonPath('data.0.id',$lead)->assertJsonPath('today','2026-10-27');
+        $due=$this->api('reminders',['per_page'=>25])->assertOk()->assertJsonPath('meta.total',21)->assertJsonCount(21,'data');
+        $this->assertStringNotContainsString('Hidden reminders',$this->body($due));
+        $this->assertStringNotContainsString('Future reminder',$this->body($due));
+        $this->api('reminders',['scope'=>'due','page'=>2])->assertOk()->assertJsonPath('meta.total',21)->assertJsonCount(0,'data');
+        $all=$this->api('reminders',['scope'=>'all','page'=>1])->assertOk()->assertJsonPath('meta.total',22)->assertJsonCount(22,'data');
+        $this->assertSame('Future reminder',$all->json('data.21.text'));
+        $this->assertStringNotContainsString('Hidden reminders',$this->body($all));
+        $this->action('complete-reminder',['reminder_id'=>$future])->assertOk();
         $this->assertDatabaseHas('erp_lead_reminders',['id'=>$future,'is_completed'=>1]);
+        $this->api('reminders',['scope'=>'all'])->assertOk()->assertJsonPath('meta.total',21);
     }
     public function test_demos_include_leads_beyond_the_first_pipeline_page_without_leaking_other_owners(): void
     {
@@ -93,32 +95,37 @@ class ErpSalesCrmTest extends TestCase
         foreach(range(1,25) as $i) $this->lead('Newer lead '.$i);
         $this->demo($old);
         $hidden=$this->lead('Private demo',['assigned_to'=>$this->colleague->id]); $this->demo($hidden);
-        $this->page()->assertOk()->assertViewHas('leads',fn($r)=>!$r->contains('id',$old));
-        $this->page(['view'=>'demos'])->assertOk()->assertSee('Old lead with upcoming demo')->assertDontSee('Private demo')->assertViewHas('demos',fn($r)=>$r->total()===1);
+        $first=$this->api()->assertOk()->assertJsonPath('meta.total',26)->assertJsonCount(25,'data');
+        $this->assertNotContains($old,array_column($first->json('data'),'id'));
+        $demos=$this->api('demos')->assertOk()->assertJsonPath('meta.total',1)->assertJsonPath('data.0.leadName','Old lead with upcoming demo');
+        $this->assertStringNotContainsString('Private demo',$this->body($demos));
     }
     public function test_recipient_can_accept_transfer_before_accessing_the_lead_and_sender_loses_access(): void
     {
         $lead=$this->lead('Incoming enquiry');
-        $this->action('transfer',['lead_id'=>$lead,'to_user_id'=>$this->colleague->id])->assertSessionHasNoErrors();
+        $this->api((string)$lead)->assertOk();
+        $this->action('transfer',['lead_id'=>$lead,'to_user_id'=>$this->colleague->id])->assertOk();
         $transfer=DB::table('erp_lead_transfers')->value('id');
         $this->action('resolve-transfer',['transfer_id'=>$transfer,'status'=>'accepted'])->assertForbidden();
         $this->actingAs($this->colleague);
-        $this->page(['lead_id'=>$lead])->assertNotFound();
-        $page=$this->page(['view'=>'transfers']);
-        $page->assertOk()->assertSee('Incoming enquiry')->assertSee('Accept')->assertDontSee('919876543210');
-        $this->preview('crm-transfers',$page);
-        $this->action('resolve-transfer',['transfer_id'=>$transfer,'status'=>'accepted','return_view'=>'transfers'])->assertRedirect(route('erp.business',[$this->unit,'admissions','view'=>'transfers']));
-        $this->page(['lead_id'=>$lead])->assertOk();
-        $this->actingAs($this->sales); $this->page(['lead_id'=>$lead])->assertNotFound();
+        $this->api((string)$lead)->assertNotFound();
+        $page=$this->api('transfers')->assertOk()->assertJsonPath('meta.total',1)->assertJsonPath('data.0.leadName','Incoming enquiry')->assertJsonPath('data.0.canAccept',true);
+        $this->assertStringNotContainsString('919876543210',$this->body($page));
+        $this->action('resolve-transfer',['transfer_id'=>$transfer,'status'=>'accepted'])->assertOk();
+        $this->api((string)$lead)->assertOk();
+        $this->actingAs($this->sales); $this->api((string)$lead)->assertNotFound();
     }
     public function test_mobile_save_returns_to_the_record_and_contact_numbers_are_not_guessed(): void
     {
-        $this->action('create-lead',['name'=>'New mobile enquiry','phone'=>'9000012345','country'=>'IN','return_view'=>'detail'])->assertSessionHasNoErrors()->assertRedirect(route('erp.business',[$this->unit,'admissions','view'=>'pipeline','lead_id'=>DB::table('erp_leads')->value('id')]));
+        $created=$this->action('create-lead',['name'=>'New mobile enquiry','phone'=>'9000012345','country'=>'IN'])->assertOk();
         $lead=DB::table('erp_leads')->first();
+        // The client opens the saved record from the returned id.
+        $this->assertSame((int)$lead->id,(int)$created->json('result.id'));
         $this->assertSame('https://wa.me/919000012345',SalesPipeline::contact($lead)['whatsapp']);
         $this->assertNull(SalesPipeline::contact((object)['phone'=>'9000012345','country'=>null])['whatsapp']);
         $this->assertSame('https://wa.me/447700900123',SalesPipeline::contact((object)['phone'=>'+44 7700 900123','country'=>'GB'])['whatsapp']);
-        $this->action('followup',['lead_id'=>$lead->id,'channel'=>'whatsapp','outcome'=>'Interested','note'=>'Discussed course','next_due_on'=>'2026-10-28','return_view'=>'detail'])->assertRedirect(route('erp.business',[$this->unit,'admissions','view'=>'pipeline','lead_id'=>$lead->id]));
-        $this->page(['view'=>'unsupported'])->assertSessionHasErrors('view');
+        $this->action('followup',['lead_id'=>$lead->id,'channel'=>'whatsapp','outcome'=>'Interested','note'=>'Discussed course','next_due_on'=>'2026-10-28'])->assertOk();
+        $this->api((string)$lead->id)->assertOk()->assertJsonPath('lead.whatsapp','https://wa.me/919000012345')->assertJsonPath('lead.nextFollowUpOn','2026-10-28');
+        $this->api('',['stage'=>'unsupported'])->assertStatus(422)->assertJsonValidationErrors('stage');
     }
 }
