@@ -9,7 +9,7 @@ class ErpTuitionHttpTest extends TestCase
         $admin=$this->createAdmin();
         $unit=DB::table('erp_units')->insertGetId(['code'=>'TUITION','name'=>'Tuition team','timezone'=>'UTC']);
         $other=DB::table('erp_units')->insertGetId(['code'=>'TUITION-OTHER','name'=>'Other team','timezone'=>'UTC']);
-        $this->actingAs($admin)->get(route('erp.tuition',$unit))->assertOk()->assertSee('Teacher recruitment');
+        $this->actingAs($admin)->getJson(route('app.api.money.tuition',$unit))->assertOk()->assertJsonStructure(['candidates','pending','notes','lessons']);
         $student=DB::table('erp_students')->insertGetId(['unit_id'=>$unit,'code'=>'PARENT-TEST','name'=>'Statement Student','registered_on'=>'2026-01-01','timezone'=>'Asia/Kolkata','status'=>'active','grade'=>'8','syllabus'=>'State']);
         $teacher=DB::table('erp_teachers')->insertGetId(['code'=>'PARENT-TEACHER','name'=>'Statement Teacher','timezone'=>'UTC','status'=>'active']);
         $subject=DB::table('erp_subjects')->insertGetId(['name'=>'Maths']);
@@ -17,25 +17,25 @@ class ErpTuitionHttpTest extends TestCase
         $lesson=DB::table('erp_lessons')->insertGetId(['unit_id'=>$unit,'enrollment_id'=>$enrollment,'student_id'=>$student,'teacher_id'=>$teacher,'subject_id'=>$subject,'starts_at'=>'2026-10-20 10:00:00','ends_at'=>'2026-10-20 11:00:00','kind'=>'regular','status'=>'completed','student_rate_paise'=>12000,'teacher_rate_paise'=>6000,'currency'=>'INR']);
         $attendance=DB::table('erp_attendance')->insertGetId(['unit_id'=>$unit,'lesson_id'=>$lesson,'actual_minutes'=>45,'actual_starts_at'=>'2026-10-20 10:00:00','status'=>'submitted','submitted_by'=>$admin->id,'created_at'=>now(),'updated_at'=>now()]);
         DB::table('erp_internal_notes')->insert(['unit_id'=>$unit,'lesson_id'=>$lesson,'created_by'=>$admin->id,'kind'=>'internal','note'=>'Private staff observation','created_at'=>now(),'updated_at'=>now()]);
-        $this->get(route('erp.tuition',$unit))->assertOk()->assertSee('Statement Student')->assertSee('Private staff observation');
-        $this->get(route('erp.tuition.statement',[$unit,'student_id'=>$student,'month'=>'2026-10']))->assertOk()->assertSee('Statement Teacher')->assertSee('90.00')->assertDontSee('Private staff observation');
-        $this->get(route('erp.tuition.statement',[$other,'student_id'=>$student,'month'=>'2026-10']))->assertNotFound();
+        $this->get(route('app.api.money.tuition',$unit))->assertOk()->assertSee('Statement Student')->assertSee('Private staff observation');
+        $this->get(route('app.api.print.statement',[$unit,'student_id'=>$student,'month'=>'2026-10']))->assertOk()->assertSee('Statement Teacher')->assertSee('90.00')->assertDontSee('Private staff observation');
+        $this->get(route('app.api.print.statement',[$other,'student_id'=>$student,'month'=>'2026-10']))->assertNotFound();
         $snapshot=\App\Modules\Erp\Services\TuitionWorkflows::reviewSnapshot(DB::table('erp_attendance')->find($attendance));
         DB::table('erp_attendance')->where('id',$attendance)->update(['actual_minutes'=>30]);
         $this->postJson(route('erp.tuition.mutate',[$unit,'monthly-review']),['attendance_ids'=>[$attendance],'snapshots'=>[$attendance=>$snapshot],'deadline_at'=>now('UTC')->addDays(2)->format('Y-m-d H:i:s'),'note'=>'Shared statement'])->assertUnprocessable();
         $this->assertSame('unshared',DB::table('erp_attendance')->find($attendance)->parent_review_status);
         $candidate=['name'=>'Private Applicant','contact'=>'applicant@example.invalid','qualification'=>'MSc','subjects'=>'Maths','levels'=>'High school'];
         $this->postJson(route('erp.tuition.mutate',[$unit,'candidate']),$candidate)->assertOk();
-        $this->get(route('erp.tuition',$unit))->assertOk()->assertSee('Private Applicant');
-        $this->get(route('erp.tuition',$other))->assertOk()->assertDontSee('Private Applicant');
+        $this->get(route('app.api.money.tuition',$unit))->assertOk()->assertSee('Private Applicant');
+        $this->get(route('app.api.money.tuition',$other))->assertOk()->assertDontSee('Private Applicant');
         foreach(['teacher','read_only','finance','academics','sales_followups'] as $role) {
             $user=$this->createMember(); DB::table('erp_memberships')->insert(['unit_id'=>$unit,'user_id'=>$user->id,'role'=>$role]);
-            $this->actingAs($user)->get(route('erp.tuition',$unit))->assertForbidden();
+            $this->actingAs($user)->get(route('app.api.money.tuition',$unit))->assertForbidden();
             $this->postJson(route('erp.tuition.mutate',[$unit,'candidate']),$candidate)->assertForbidden();
         }
         $manager=$this->createMember(); DB::table('erp_memberships')->insert(['unit_id'=>$unit,'user_id'=>$manager->id,'role'=>'team_manager']);
-        $this->actingAs($manager)->get(route('erp.tuition',$unit))->assertOk();
-        $this->get(route('erp.tuition',$other))->assertForbidden();
+        $this->actingAs($manager)->get(route('app.api.money.tuition',$unit))->assertOk();
+        $this->get(route('app.api.money.tuition',$other))->assertForbidden();
         $this->assertSame(1,DB::table('erp_candidates')->count());
     }
 
@@ -50,8 +50,10 @@ class ErpTuitionHttpTest extends TestCase
         $lesson=DB::table('erp_lessons')->insertGetId(['unit_id'=>$unit,'enrollment_id'=>$enrollment,'student_id'=>$student,'teacher_id'=>$teacher,'subject_id'=>$subject,'starts_at'=>'2026-10-20 10:00:00','ends_at'=>'2026-10-20 11:00:00','kind'=>'regular','status'=>'completed','student_rate_paise'=>12000,'teacher_rate_paise'=>6000,'currency'=>'INR']);
         $attendance=DB::table('erp_attendance')->insertGetId(['unit_id'=>$unit,'lesson_id'=>$lesson,'actual_minutes'=>60,'status'=>'submitted','submitted_by'=>$admin->id,'created_at'=>now(),'updated_at'=>now()]);
         $local=now('Asia/Kolkata')->addDays(3)->setTime(18,30);
-        $this->actingAs($admin)->get(route('erp.tuition',$unit))->assertOk()->assertSee('type="datetime-local" name="deadline_at"',false);
-        $this->post(route('erp.tuition.mutate',[$unit,'parent-review']),['attendance_id'=>$attendance,'decision'=>'share','deadline_at'=>$local->format('Y-m-d\\TH:i'),'note'=>'Shared on WhatsApp'])->assertRedirect(route('erp.tuition',$unit));
+        // The picker sends the unit-local 'Y-m-d\TH:i' value; the JSON read lists the pending entry and the write answers JSON.
+        $this->actingAs($admin)->getJson(route('app.api.money.tuition',$unit))->assertOk()->assertJsonPath('timezone','Asia/Kolkata')->assertJsonPath('pending.0.id',$attendance);
+        $this->postJson(route('erp.tuition.mutate',[$unit,'parent-review']),['attendance_id'=>$attendance,'decision'=>'share','deadline_at'=>$local->format('Y-m-d\\TH:i'),'note'=>'Shared on WhatsApp'])->assertOk();
+        $this->getJson(route('app.api.money.tuition',$unit))->assertOk()->assertJsonPath('pending.0.parentDeadlineAt',$local->copy()->utc()->format('Y-m-d H:i:s'));
         $this->assertSame($local->utc()->format('Y-m-d H:i:s'),DB::table('erp_attendance')->find($attendance)->parent_deadline_at);
     }
 }

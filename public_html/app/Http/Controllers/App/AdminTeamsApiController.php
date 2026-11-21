@@ -84,4 +84,30 @@ class AdminTeamsApiController extends Controller
             'meta' => ['page' => $page->currentPage(), 'perPage' => $page->perPage(), 'total' => $page->total(), 'sort' => 'name', 'dir' => 'asc'],
         ])->header('Cache-Control', 'no-store');
     }
+
+    /** Editable details of one staff account, for the Edit details form. Never returns password or 2FA fields. */
+    public function profile(Request $request, int $id)
+    {
+        (new SiteAccessPolicy())->assertAdministrator($request->user());
+        $user = app(\App\Modules\People\Services\StaffProvisioner::class)->staffQuery($request->user())->findOrFail($id);
+        $bank = is_array($user->bank_details) ? $user->bank_details : (json_decode((string) $user->bank_details, true) ?: []);
+        $date = fn ($value) => $value ? substr((string) $value, 0, 10) : null;
+        return response()->json([
+            'id' => (int) $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'gender' => $user->gender,
+            'dob' => $date($user->dob),
+            'position' => $user->position,
+            'language' => $user->language,
+            'bloodGroup' => $user->blood_group,
+            'alternateNumber' => $user->alternate_number,
+            'emergencyContactNumber' => $user->emergency_contact_number,
+            'permanentAddress' => $user->permanent_address,
+            'currentAddress' => $user->current_address,
+            'serviceExpiry' => $date($user->service_expiry),
+            'bank' => collect(\App\Modules\People\Services\StaffProvisioner::BANK_FIELDS)->mapWithKeys(fn ($f) => [$f => isset($bank[$f]) ? (string) $bank[$f] : null])->all(),
+        ])->header('Cache-Control', 'no-store');
+    }
 }

@@ -67,6 +67,7 @@ type Dialog =
   | {kind: 'archive'; team: Team}
   | {kind: 'onboard'}
   | {kind: 'account'; account: Account}
+  | {kind: 'profile'; account: Account}
   | null;
 
 export default function Teams() {
@@ -145,7 +146,12 @@ export default function Teams() {
         key: 'id',
         header: '',
         align: 'end',
-        renderCell: a => <Button label="Manage" size="sm" variant="ghost" onClick={() => setDialog({kind: 'account', account: a})} />,
+        renderCell: a => (
+          <HStack gap={1} hAlign="end">
+            <Button label="Edit details" size="sm" variant="ghost" onClick={() => setDialog({kind: 'profile', account: a})} />
+            <Button label="Manage" size="sm" variant="ghost" onClick={() => setDialog({kind: 'account', account: a})} />
+          </HStack>
+        ),
       },
     ],
     [],
@@ -374,6 +380,10 @@ export default function Teams() {
         />
       )}
 
+      {dialog?.kind === 'profile' && (
+        <ProfileDrawer account={dialog.account} onOpenChange={close} onSaved={accounts.reload} />
+      )}
+
       <AdminFormDrawer
         isOpen={dialog?.kind === 'account'}
         onOpenChange={close}
@@ -393,5 +403,89 @@ export default function Teams() {
         onSaved={accounts.reload}
       />
     </Page>
+  );
+}
+
+interface Profile {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  gender: string | null;
+  dob: string | null;
+  position: string | null;
+  language: string | null;
+  bloodGroup: string | null;
+  alternateNumber: string | null;
+  emergencyContactNumber: string | null;
+  permanentAddress: string | null;
+  currentAddress: string | null;
+  serviceExpiry: string | null;
+  bank: Record<string, string | null>;
+}
+
+const BANK_LABELS: Record<string, string> = {
+  account_holder_name: 'Account holder name',
+  account_number: 'Account number',
+  bank_name: 'Bank name',
+  bank_code: 'IFSC / bank code',
+  branch: 'Branch',
+  tax_payer_id: 'PAN / tax ID',
+};
+
+/** Edit a staff member's personal, contact and bank details; the password is changed only when both fields are filled. */
+function ProfileDrawer({account, onOpenChange, onSaved}: {account: Account; onOpenChange: (open: boolean) => void; onSaved: () => void}) {
+  const profile = useResource<Profile>(`/app-api/admin/accounts/${account.id}/profile`);
+  const data = profile.data;
+  const fields: AdminField[] = [
+    {kind: 'text', name: 'name', label: 'Full name', required: true},
+    {kind: 'email', name: 'email', label: 'Email', required: true},
+    {kind: 'tel', name: 'phone', label: 'Phone', required: true, description: '10 digits'},
+    {kind: 'select', name: 'gender', label: 'Gender', required: true, options: [{value: 'MALE', label: 'Male'}, {value: 'FEMALE', label: 'Female'}, {value: 'OTHER', label: 'Other'}]},
+    {kind: 'text', name: 'dob', label: 'Date of birth', placeholder: 'YYYY-MM-DD'},
+    {kind: 'text', name: 'position', label: 'Position'},
+    {kind: 'text', name: 'language', label: 'Language'},
+    {kind: 'select', name: 'blood_group', label: 'Blood group', options: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(v => ({value: v, label: v}))},
+    {kind: 'tel', name: 'alternate_number', label: 'Alternate number'},
+    {kind: 'tel', name: 'emergency_contact_number', label: 'Emergency contact'},
+    {kind: 'textarea', name: 'current_address', label: 'Current address'},
+    {kind: 'textarea', name: 'permanent_address', label: 'Permanent address'},
+    {kind: 'text', name: 'service_expiry', label: 'Service end date', placeholder: 'YYYY-MM-DD'},
+    ...Object.entries(BANK_LABELS).map(([key, label]): AdminField => ({kind: 'text', name: `bank_${key}`, label})),
+    {kind: 'password', name: 'password', label: 'New password', autoComplete: 'new-password', description: 'Leave empty to keep the current password. At least 8 characters.'},
+    {kind: 'password', name: 'confirm_password', label: 'Confirm new password', autoComplete: 'new-password'},
+  ];
+  const initial = data
+    ? {
+        name: data.name ?? '',
+        email: data.email ?? '',
+        phone: data.phone ?? '',
+        gender: data.gender ?? '',
+        dob: data.dob ?? '',
+        position: data.position ?? '',
+        language: data.language ?? '',
+        blood_group: data.bloodGroup ?? '',
+        alternate_number: data.alternateNumber ?? '',
+        emergency_contact_number: data.emergencyContactNumber ?? '',
+        current_address: data.currentAddress ?? '',
+        permanent_address: data.permanentAddress ?? '',
+        service_expiry: data.serviceExpiry ?? '',
+        ...Object.fromEntries(Object.keys(BANK_LABELS).map(key => [`bank_${key}`, data.bank[key] ?? ''])),
+      }
+    : undefined;
+  return (
+    <AdminFormDrawer
+      isOpen={Boolean(data)}
+      onOpenChange={onOpenChange}
+      title={`Edit ${account.name}`}
+      description="Personal, contact and bank details. Roles and team access are changed under Manage and Team & access."
+      fields={fields}
+      initial={initial}
+      action={`${BASE}/accounts/${account.id}/profile`}
+      submitLabel="Save details"
+      successMessage="Details saved."
+      nullable={['dob', 'position', 'language', 'blood_group', 'alternate_number', 'emergency_contact_number', 'current_address', 'permanent_address', 'service_expiry', ...Object.keys(BANK_LABELS).map(key => `bank_${key}`)]}
+      onSaved={onSaved}
+    />
   );
 }

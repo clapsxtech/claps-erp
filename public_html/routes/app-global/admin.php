@@ -6,5 +6,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/teams', [AdminTeamsApiController::class, 'teams'])->name('teams');
 Route::get('/accounts', [AdminTeamsApiController::class, 'accounts'])->name('accounts');
+Route::get('/accounts/{id}/profile', [AdminTeamsApiController::class, 'profile'])->whereNumber('id')->name('accounts.profile');
 Route::get('/operations', [AdminOperationsApiController::class, 'operations'])->name('operations');
 Route::get('/migration', [AdminOperationsApiController::class, 'migration'])->name('migration');

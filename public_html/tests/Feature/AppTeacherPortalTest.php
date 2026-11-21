@@ -106,7 +106,7 @@ class AppTeacherPortalTest extends TestCase
         $this->actingAs($staff)->getJson('/teacher-api/workspace')->assertForbidden();
     }
 
-    /** Every refusal of TeacherController::identity() is also a refusal here (parity with the classic guard). */
+    /** Every refusal of the write guard (TeacherController::identity()) is also a refusal of the read guard and the page. */
     public function test_portal_guard_refuses_exactly_what_the_classic_guard_refuses(): void
     {
         $cases = [
@@ -127,10 +127,9 @@ class AppTeacherPortalTest extends TestCase
                 $break();
                 $this->teacherUser->refresh();
                 $this->actingAs($this->teacherUser);
-                $classic = $this->get('/erp/teacher')->status();
-                $this->assertSame(403, $classic, "classic guard: $name");
-                $this->getJson('/teacher-api/workspace')->assertForbidden();
-                $this->postJson('/erp/teacher/attendance', ['lesson_id' => $this->ownLesson, 'actual_minutes' => 60])->assertForbidden();
+                $this->assertSame(403, $this->postJson('/erp/teacher/results', $this->resultPayload())->status(), "write guard (results): $name");
+                $this->assertSame(403, $this->postJson('/erp/teacher/attendance', ['lesson_id' => $this->ownLesson, 'actual_minutes' => 60])->status(), "write guard (attendance): $name");
+                $this->assertSame(403, $this->getJson('/teacher-api/workspace')->status(), "read guard: $name");
                 $page = $this->get('/teacher');
                 $this->assertSame(403, $page->status(), "portal page: $name");
                 if ($name !== 'deleted user') $this->assertSame('refused', $this->embedded($page)['mode'], $name);
@@ -141,6 +140,7 @@ class AppTeacherPortalTest extends TestCase
             }
         }
         $this->assertSame(0, DB::table('erp_attendance')->count());
+        $this->assertSame(0, DB::table('erp_marks')->count());
     }
 
     public function test_workspace_lists_only_own_records_with_explicit_fields(): void
@@ -237,10 +237,13 @@ class AppTeacherPortalTest extends TestCase
         $this->assertSame(1, DB::table('erp_marks')->count());
     }
 
-    public function test_plain_form_posts_keep_their_classic_redirects(): void
+    /** The classic redirects are gone: a plain form post now also answers JSON and saves the same way. */
+    public function test_plain_form_posts_answer_json_and_persist(): void
     {
         $this->actingAs($this->teacherUser);
-        $this->post('/erp/teacher/attendance', ['lesson_id' => $this->ownLesson, 'actual_minutes' => 60])->assertRedirect(route('erp.teacher.index'));
-        $this->post('/erp/teacher/results', $this->resultPayload())->assertRedirect(route('erp.teacher.index', ['section' => 'results']));
+        $this->post('/erp/teacher/attendance', ['lesson_id' => $this->ownLesson, 'actual_minutes' => 60])->assertOk()->assertJsonPath('result.status', 'submitted');
+        $this->assertDatabaseHas('erp_attendance', ['lesson_id' => $this->ownLesson, 'actual_minutes' => 60, 'submitted_by' => $this->teacherUser->id]);
+        $id = $this->post('/erp/teacher/results', $this->resultPayload())->assertOk()->assertJsonPath('message', 'Assessment result saved.')->json('result.id');
+        $this->assertDatabaseHas('erp_marks', ['id' => $id, 'unit_id' => $this->unit, 'created_by' => $this->teacherUser->id]);
     }
 }

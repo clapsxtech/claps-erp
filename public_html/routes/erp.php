@@ -45,6 +45,7 @@ Route::middleware(['auth', 'admin'])->prefix('erp/administration')->name('erp.')
     Route::post('/teams/{id}', [AdministrationController::class, 'team'])->whereNumber('id')->name('teams.update');
     Route::post('/teams/{id}/archive', [AdministrationController::class, 'archive'])->whereNumber('id')->name('teams.archive');
     Route::post('/onboard', [AdministrationController::class, 'onboard'])->name('onboard');
+    Route::post('/accounts/{id}/profile', [AdministrationController::class, 'profile'])->whereNumber('id')->middleware('throttle:20,1,admin-accounts')->name('accounts.profile');
     Route::post('/accounts/{id}', [AdministrationController::class, 'account'])->whereNumber('id')->middleware('throttle:20,1,admin-accounts')->name('accounts.update');
 });
 
