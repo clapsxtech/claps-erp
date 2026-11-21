@@ -79,6 +79,11 @@ export async function postJson<T>(url: string, body: Record<string, unknown>): P
       'X-CSRF-TOKEN': csrfToken(),
     },
     body: JSON.stringify(body),
+    // Some classic routes answer a successful save with a redirect instead of
+    // JSON. Not following it lets us treat it as saved; errors still come back
+    // as JSON (422/403) because the request asks for JSON.
+    redirect: 'manual',
   });
+  if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) return {} as T;
   return handle<T>(response);
 }

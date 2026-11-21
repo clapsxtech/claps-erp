@@ -57,3 +57,5 @@ Route::middleware(['auth', \App\Http\Middleware\TeamAuthorization::class])->pref
     // must declare ->defaults('erp_permission', [kind, value]); see TeamAuthorization.
     foreach (glob(__DIR__.'/app/*.php') as $moduleRoutes) require $moduleRoutes;
 });
+Route::middleware(['auth', 'admin'])->prefix('app-api/admin')->name('app.api.admin.')->group(fn () => require __DIR__.'/app-global/admin.php');
+Route::middleware('auth')->prefix('app-api/account')->name('app.api.account.')->group(fn () => require __DIR__.'/app-global/account.php');

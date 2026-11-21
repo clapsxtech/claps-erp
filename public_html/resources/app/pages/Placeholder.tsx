@@ -19,7 +19,6 @@ const CLASSIC: Record<string, string> = {
   accounts: 'accounts',
   insights: 'insights',
   exports: 'migration',
-  team: 'staff',
   tasks: '',
 };
 

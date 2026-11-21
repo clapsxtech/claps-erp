@@ -22,6 +22,8 @@ import {
   ShieldCheckIcon,
   CloudArrowDownIcon,
   Cog6ToothIcon,
+  BuildingOffice2Icon,
+  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline';
 import type {Session, UnitAccess} from './lib/session';
 
@@ -93,7 +95,9 @@ export const GROUPS: NavGroup[] = [
     title: 'Admin',
     items: [
       {key: 'team', label: 'Team & access', keywords: 'members roles permissions staff accounts', icon: UserGroupIcon, page: 'staff', path: 'team', adminOnly: true},
+      {key: 'teams', label: 'Teams & accounts', keywords: 'create team onboard staff accounts archive', icon: BuildingOffice2Icon, page: null, path: '/app/admin/teams', global: true, adminOnly: true},
       {key: 'operations', label: 'Operations & audit', keywords: 'audit log health outbox', icon: ShieldCheckIcon, page: null, path: '/app/admin/operations', global: true, adminOnly: true},
+      {key: 'migration', label: 'Migration center', keywords: 'import sheets batches cutover', icon: ArrowUpTrayIcon, page: null, path: '/app/admin/migration', global: true, adminOnly: true},
       {key: 'security', label: 'Account security', keywords: 'password two factor 2fa', icon: Cog6ToothIcon, page: null, path: '/app/account/security', global: true},
     ],
   },
