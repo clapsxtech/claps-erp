@@ -7,6 +7,7 @@ import {AppFrame} from './shell/AppFrame';
 import {PageLoading} from './components/PageState';
 import {NotFound} from './pages/NotFound';
 import {preferredUnit} from './lib/session';
+import {moduleRoutes} from './modules';
 
 // Astryx renders every link through this, so in-app links route without a reload
 // while external and download links (marked with reloadDocument) still navigate.
@@ -18,7 +19,6 @@ const AppLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorEle
   },
 );
 
-const Home = lazy(() => import('./pages/Home'));
 const Students = lazy(() => import('./pages/Students'));
 const StudentDetail = lazy(() => import('./pages/StudentDetail'));
 const Placeholder = lazy(() => import('./pages/Placeholder'));
@@ -44,9 +44,12 @@ const router = createBrowserRouter([
     children: [
       {index: true, element: <DefaultUnit />},
       {path: 'u/:unit', element: <UnitIndex />},
-      {path: 'u/:unit/home', element: page(<Home />)},
       {path: 'u/:unit/students', element: page(<Students />)},
       {path: 'u/:unit/students/:student', element: page(<StudentDetail />)},
+      ...moduleRoutes.map(route => {
+        const Component = route.component;
+        return {path: route.global ? route.path : `u/:unit/${route.path}`, element: page(<Component />)};
+      }),
       {path: 'u/:unit/:section', element: page(<Placeholder />)},
       {path: '*', element: <NotFound />},
     ],

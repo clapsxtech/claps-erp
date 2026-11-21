@@ -54,13 +54,13 @@ class WorkspaceController extends Controller
         elseif($action==='duplicate')$result=(new Attendance())->resolveDuplicate($unit,$actor,(int)$request->input('review_id'),$p);
         elseif($action==='no-show')$result=(new Attendance())->noShow($unit,$actor,$p);
         else{abort_unless(isset($map[$action]),404);[$class,$method]=$map[$action];$result=(new $class())->$method($unit,$actor,$p);}
-        if($request->expectsJson())return response()->json(['result'=>$result]);
         $message='Saved and audited.';
         if($action==='pause-classes')$message='Classes paused: '.$result->cancelled.' lesson(s) cancelled without charge. Later lessons stay booked.';
         if($action==='stop-classes')$message='Classes stopped: '.$result->cancelled.' later lesson(s) cancelled and '.$result->ended_assignments.' assignment(s) ended.'.($result->stopped?' Student marked stopped.':' The student stays active until their last class.');
         if($action==='switch-teacher')$message='Teacher changed: '.$result->cancelled.' lesson(s) moved and '.$result->lessons.' new lesson(s) booked with the new teacher.';
         if($action==='no-show')$message='Recorded as a no-show. The student is not charged and the class is not paid.';
         if($action==='approve')$message='Attendance approved. Teacher accrual: '.(!empty($result->teacher_financial_posted)?'posted':'none (demo or disabled policy)').'. Student charge: '.(!empty($result->student_financial_posted)?'already imported':'not imported').'. No money was transferred.';
+        if($request->expectsJson())return response()->json(['result'=>$result,'message'=>$message]);
         if(in_array($request->input('return_page'),['people','academics','money','followups','dashboard','attendance','timetable']))return redirect()->route('erp.business',[$unit,$request->input('return_page')])->with('status',$message);
         return redirect()->route('erp.workspace',$unit)->with('status',$message);
     }

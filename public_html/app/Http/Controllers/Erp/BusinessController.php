@@ -76,7 +76,7 @@ class BusinessController extends Controller
             $payload=array_filter($payload,function($v){return $v!==null&&$v!=='';});unset($payload['clear_fields']);
             foreach($clear as $field)$payload[$field]=null;
         }$result=(new $class())->$method($unit,(int)$request->user()->id,$payload);
-        if($request->expectsJson())return response()->json(['result'=>$result]);$page=$request->input('return_page','dashboard');if(!isset($this->pages()[$page]))$page='dashboard';return redirect()->route('erp.business',[$unit,$page])->with('status','Recorded and audited. No message or money transfer was sent.');
+        if($request->expectsJson())return response()->json(['result'=>$result,'message'=>'Recorded and audited. No message or money transfer was sent.']);$page=$request->input('return_page','dashboard');if(!isset($this->pages()[$page]))$page='dashboard';return redirect()->route('erp.business',[$unit,$page])->with('status','Recorded and audited. No message or money transfer was sent.');
     }
     public function lookup(Request $request,int $unit)
     {

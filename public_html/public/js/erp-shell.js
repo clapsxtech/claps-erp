@@ -1,1 +1,101 @@
-"use strict";(()=>{(()=>{let r=[...document.querySelectorAll(".menu-toggle, [data-navigation-toggle]")],t=r[0],s=document.querySelector(".app-sidebar"),o=document.querySelector(".nav-backdrop"),e=document.querySelector(".app-body");if(!r.length||!s||!o)return;let c=window.matchMedia("(max-width: 1000px)"),l=!1,a=(n,d=!1)=>{l=n,document.body.classList.toggle("nav-open",n),r.forEach(i=>{i.setAttribute("aria-expanded",String(n)),i.setAttribute("aria-label",n?"Close navigation":"Open navigation")}),o.hidden=!n,s.inert=c.matches&&!n,e&&(e.inert=c.matches&&n),n?s.querySelector("a")?.focus():d&&t?.focus()};r.forEach(n=>n.addEventListener("click",()=>{t=n,a(!l,l)})),o.addEventListener("click",()=>a(!1,!0)),document.addEventListener("keydown",n=>{if(l){if(n.key==="Escape"){a(!1,!0);return}if(n.key==="Tab"){let d=[...s.querySelectorAll("a, button, summary")].filter(m=>m.getClientRects().length),i=d[0],u=d.at(-1);n.shiftKey&&document.activeElement===i&&(n.preventDefault(),u?.focus()),!n.shiftKey&&document.activeElement===u&&(n.preventDefault(),i?.focus())}}}),c.addEventListener("change",()=>a(!1)),a(!1)})();document.querySelectorAll("table.mobile-records").forEach(r=>{let t=r.tHead?.rows;if(!t||t.length!==1)return;let s=[...t[0].cells];if(s.some(e=>e.colSpan!==1||e.rowSpan!==1))return;let o=[...r.tBodies].flatMap(e=>[...e.rows]);o.some(e=>[...e.cells].some(c=>c.rowSpan!==1)||e.cells.length!==s.length&&!(e.cells.length===1&&e.cells[0].colSpan>1))||(r.setAttribute("role","table"),r.tHead.setAttribute("role","rowgroup"),t[0].setAttribute("role","row"),s.forEach(e=>{e.scope="col",e.setAttribute("role","columnheader")}),[...r.tBodies].forEach(e=>e.setAttribute("role","rowgroup")),o.forEach(e=>{e.setAttribute("role","row"),[...e.cells].forEach((c,l)=>{if(c.setAttribute("role","cell"),c.colSpan>1)return;let a=document.createElement("span");a.className="mobile-field-label",a.setAttribute("aria-hidden","true"),a.textContent=s[l].textContent.trim()||"Actions",c.prepend(a)})}),r.classList.add("mobile-ready"),r.closest(".scroll")?.classList.add("mobile-record-scroll"))}),document.addEventListener("invalid",r=>{for(let t=r.target.parentElement;t;t=t.parentElement)t.tagName==="DETAILS"&&(t.open=!0)},!0);document.addEventListener("click",r=>{let t=r.target.closest("[data-crm-date]");if(!t)return;let o=t.closest("form")?.elements.namedItem(t.dataset.crmField);!(o instanceof HTMLInputElement)||o.type!=="date"||(o.value=t.dataset.crmDate,o.dispatchEvent(new Event("input",{bubbles:!0})),o.dispatchEvent(new Event("change",{bubbles:!0})),o.focus({preventScroll:!0}))});})();
+"use strict";
+(() => {
+  // resources/js/erp-shell.js
+  (() => {
+    const toggles = [...document.querySelectorAll(".menu-toggle, [data-navigation-toggle]")];
+    let opener = toggles[0];
+    const sidebar = document.querySelector(".app-sidebar");
+    const backdrop = document.querySelector(".nav-backdrop");
+    const content = document.querySelector(".app-body");
+    if (!toggles.length || !sidebar || !backdrop) return;
+    const mobile = window.matchMedia("(max-width: 1000px)");
+    let open = false;
+    const setOpen = (value, returnFocus = false) => {
+      open = value;
+      document.body.classList.toggle("nav-open", value);
+      toggles.forEach((toggle) => {
+        toggle.setAttribute("aria-expanded", String(value));
+        toggle.setAttribute("aria-label", value ? "Close navigation" : "Open navigation");
+      });
+      backdrop.hidden = !value;
+      sidebar.inert = mobile.matches && !value;
+      if (content) content.inert = mobile.matches && value;
+      if (value) sidebar.querySelector("a")?.focus();
+      else if (returnFocus) opener?.focus();
+    };
+    toggles.forEach((toggle) => toggle.addEventListener("click", () => {
+      opener = toggle;
+      setOpen(!open, open);
+    }));
+    backdrop.addEventListener("click", () => setOpen(false, true));
+    document.addEventListener("keydown", (event) => {
+      if (!open) return;
+      if (event.key === "Escape") {
+        setOpen(false, true);
+        return;
+      }
+      if (event.key === "Tab") {
+        const items = [...sidebar.querySelectorAll("a, button, summary")].filter((el) => el.getClientRects().length);
+        const first = items[0], last = items.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        }
+        if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    });
+    mobile.addEventListener("change", () => setOpen(false));
+    setOpen(false);
+  })();
+  (() => {
+    document.querySelectorAll("table.mobile-records").forEach((table) => {
+      const headings = table.tHead?.rows;
+      if (!headings || headings.length !== 1) return;
+      const columns = [...headings[0].cells];
+      if (columns.some((cell) => cell.colSpan !== 1 || cell.rowSpan !== 1)) return;
+      const rows = [...table.tBodies].flatMap((body) => [...body.rows]);
+      if (rows.some((row) => [...row.cells].some((cell) => cell.rowSpan !== 1) || row.cells.length !== columns.length && !(row.cells.length === 1 && row.cells[0].colSpan > 1))) return;
+      table.setAttribute("role", "table");
+      table.tHead.setAttribute("role", "rowgroup");
+      headings[0].setAttribute("role", "row");
+      columns.forEach((cell) => {
+        cell.scope = "col";
+        cell.setAttribute("role", "columnheader");
+      });
+      [...table.tBodies].forEach((body) => body.setAttribute("role", "rowgroup"));
+      rows.forEach((row) => {
+        row.setAttribute("role", "row");
+        [...row.cells].forEach((cell, index) => {
+          cell.setAttribute("role", "cell");
+          if (cell.colSpan > 1) return;
+          const label = document.createElement("span");
+          label.className = "mobile-field-label";
+          label.setAttribute("aria-hidden", "true");
+          label.textContent = columns[index].textContent.trim() || "Actions";
+          cell.prepend(label);
+        });
+      });
+      table.classList.add("mobile-ready");
+      table.closest(".scroll")?.classList.add("mobile-record-scroll");
+    });
+    document.addEventListener("invalid", (event) => {
+      for (let parent = event.target.parentElement; parent; parent = parent.parentElement) {
+        if (parent.tagName === "DETAILS") parent.open = true;
+      }
+    }, true);
+  })();
+  document.addEventListener("click", (event) => {
+    const shortcut = event.target.closest("[data-crm-date]");
+    if (!shortcut) return;
+    const form = shortcut.closest("form");
+    const input = form?.elements.namedItem(shortcut.dataset.crmField);
+    if (!(input instanceof HTMLInputElement) || input.type !== "date") return;
+    input.value = shortcut.dataset.crmDate;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    input.focus({ preventScroll: true });
+  });
+})();

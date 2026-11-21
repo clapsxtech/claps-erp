@@ -53,6 +53,7 @@ Route::middleware('auth')->prefix('erp/units/{unit}/tuition')->whereNumber('unit
 // role matrix as the classic screens.
 Route::get('/app/{path?}', [\App\Http\Controllers\App\AppShellController::class, 'show'])->where('path', '.*')->middleware('auth')->name('app.shell');
 Route::middleware(['auth', \App\Http\Middleware\TeamAuthorization::class])->prefix('app-api/units/{unit}')->whereNumber('unit')->name('app.api.')->group(function () {
-    Route::get('/students', [\App\Http\Controllers\App\StudentsApiController::class, 'index'])->name('students');
-    Route::get('/students/{student}', [\App\Http\Controllers\App\StudentsApiController::class, 'show'])->whereNumber('student')->name('student');
+    // Each module keeps its JSON routes in routes/app/<module>.php. Every route
+    // must declare ->defaults('erp_permission', [kind, value]); see TeamAuthorization.
+    foreach (glob(__DIR__.'/app/*.php') as $moduleRoutes) require $moduleRoutes;
 });
