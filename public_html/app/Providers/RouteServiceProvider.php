@@ -66,6 +66,10 @@ class RouteServiceProvider extends ServiceProvider
             $teacher = is_string($teacher) ? mb_strtolower(trim($teacher)) : '';
             return Limit::perMinute(30)->by('teacher:'.hash('sha256', $teacher));
         });
+        // Sales app requests all arrive from the Worker, so limit per signed-in user, not per IP.
+        RateLimiter::for('sales-api', function (Request $request) {
+            return Limit::perMinute(240)->by('sales-user:'.optional($request->user())->id);
+        });
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
         });

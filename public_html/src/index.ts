@@ -24,6 +24,34 @@ export class StorageGateway extends WorkerEntrypoint<Env> {
     }
 }
 
+// The sales app (sales.clapslearn.in, Worker "claps-crm") reaches the ERP's sales API
+// only through this entrypoint, via a service binding. It is not routable from the
+// internet: the public fetch handler below returns 404 for /api/sales and strips
+// SALES_GATEWAY_HEADER, which Laravel requires (SalesGatewayOnly) on every sales route.
+const SALES_GATEWAY_HEADER = "x-claps-sales-gateway";
+const SALES_API_PREFIX = "/api/sales/";
+
+export class SalesGateway extends WorkerEntrypoint<Env> {
+    async fetch(request: Request): Promise<Response> {
+        const incoming = new URL(request.url);
+        if (!incoming.pathname.startsWith(SALES_API_PREFIX) || !this.env.INTERNAL_TOKEN) {
+            return new Response("Not found", { status: 404 });
+        }
+        // Address the container as the public ERP origin so Laravel applies PUBLIC_ORIGIN (HTTPS).
+        const target = new URL(incoming.pathname + incoming.search, this.env.APP_URL);
+        const headers = new Headers();
+        for (const name of ["accept", "content-type", "authorization", "cf-connecting-ip"]) {
+            const value = request.headers.get(name);
+            if (value) headers.set(name, value);
+        }
+        headers.set(SALES_GATEWAY_HEADER, this.env.INTERNAL_TOKEN);
+        const hasBody = request.method !== "GET" && request.method !== "HEAD";
+        return this.env.LARAVEL_CONTAINER.getByName("production").fetch(new Request(target, {
+            method: request.method, headers, body: hasBody ? request.body : undefined, redirect: "manual",
+        }));
+    }
+}
+
 const PORT = 8080;
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -194,6 +222,14 @@ export default {
         }
         const storage = await storageRequest(request, env);
         if (storage) return storage;
+        if (new URL(request.url).pathname.toLowerCase().startsWith("/api/sales")) {
+            return new Response("Not found", { status: 404 });
+        }
+        if (request.headers.has(SALES_GATEWAY_HEADER)) {
+            const headers = new Headers(request.headers);
+            headers.delete(SALES_GATEWAY_HEADER);
+            request = new Request(request, { headers });
+        }
         return env.LARAVEL_CONTAINER.getByName("production").fetch(request);
     },
 } satisfies ExportedHandler<Env>;
