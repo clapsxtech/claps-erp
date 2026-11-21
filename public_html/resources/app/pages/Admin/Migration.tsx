@@ -1,5 +1,5 @@
 // Migration center (global, administrators only) and the From Sheets read-only
-// copies. Preview and import post multipart uploads to the classic routes, which
+// copies. Preview and import post multipart uploads to the migration routes, which
 // keep their throttles (10 previews and 5 imports a minute), the 30-minute
 // approval of the exact previewed digest, the 100-row web limit and the
 // current-password confirmation.
@@ -54,7 +54,7 @@ function csrfToken(): string {
   return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 }
 
-/** Multipart POST to a classic route that answers JSON; the browser sets the boundary. */
+/** Multipart POST to a route that answers JSON; the browser sets the boundary. */
 async function postForm<T>(url: string, form: FormData): Promise<T> {
   const response = await fetch(url, {
     method: 'POST',

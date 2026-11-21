@@ -1,4 +1,4 @@
-// Payment request (classic erp/payment-request.blade.php).
+// Payment request.
 import {useParams} from 'react-router';
 import {VStack} from '@astryxdesign/core/Layout';
 import {Heading, Text} from '@astryxdesign/core/Text';

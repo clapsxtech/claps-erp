@@ -1,8 +1,8 @@
 <?php
 // Sign-in and account-security screens of the React app. Only the GET pages are
-// defined here; they override the classic Blade pages at the same URLs (and keep
-// the same route names, which redirects, the reset e-mail and Authenticate use).
-// Every POST stays on its classic route and controller, with its throttles:
+// defined here; their URLs and route names are the ones redirects, the reset
+// e-mail and Authenticate use.
+// Every POST is in routes/web.php, on its Auth controller, with its throttles:
 //   POST /login                     LoginController (ThrottlesLogins: 5 a minute per email+IP)
 //   POST /password/email            ForgotPasswordController (broker throttle)
 //   POST /password/reset            ResetPasswordController
@@ -22,8 +22,8 @@ Route::middleware('guest')->group(function () {
     Route::get('/two-factor', [GuestController::class, 'twoFactor'])->name('two-factor.challenge');
 });
 
-// The classic reset controllers carry no `guest` middleware, so a signed-in
-// person can still open a link from an e-mail.
+// The reset pages carry no `guest` middleware, so a signed-in person can still
+// open a link from an e-mail.
 Route::get('/password/reset', [GuestController::class, 'passwordRequest'])->name('password.request');
 Route::get('/password/reset/{token}', [GuestController::class, 'passwordReset'])->name('password.reset');
 

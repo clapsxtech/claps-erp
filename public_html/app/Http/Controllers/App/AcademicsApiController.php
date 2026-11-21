@@ -60,7 +60,7 @@ class AcademicsApiController extends Controller
                 'notes' => $r->notes,
             ])->values(),
             'meta' => ['page' => $page->currentPage(), 'perPage' => $page->perPage(), 'total' => $page->total(), 'sort' => $sort, 'dir' => $dir],
-            // Same rule as academics.blade.php: student names link to profiles only for detail roles.
+            // Student names link to profiles only for detail roles.
             'can' => ['openProfile' => (new TeamPermissions())->allows($request->user(), $unit, 'detail', 'all')],
         ]);
     }

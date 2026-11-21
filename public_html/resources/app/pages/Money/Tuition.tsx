@@ -1,7 +1,7 @@
-// Class follow-up and HR: the classic private Tuition screen (parent queries,
+// Class follow-up and HR: the private tuition records (parent queries,
 // monthly parent statements, parent review of attendance, internal notes and
 // candidate interviews). Only administrators and team managers may open it; the
-// server enforces the same explicit role check as the classic screen.
+// server enforces an explicit role check (TuitionController).
 import {useState} from 'react';
 import {useParams, useSearchParams} from 'react-router';
 import {VStack, HStack, StackItem} from '@astryxdesign/core/Layout';

@@ -1,4 +1,4 @@
-// Sign in with the child's student ID and date of birth. The classic POST route
+// Sign in with the child's student ID and date of birth. The POST route
 // checks the details and applies every lockout; this page only shows its answer.
 import {useState} from 'react';
 import {VStack} from '@astryxdesign/core/Layout';

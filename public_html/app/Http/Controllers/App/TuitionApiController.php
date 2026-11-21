@@ -8,9 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * JSON read for the private "Class follow-up and HR" screen (classic TuitionController).
+ * JSON read for the private "Class follow-up and HR" screen.
  * The route declares ['detail','all'] so TeamAuthorization admits only team managers,
- * read-only and administrators; this controller then repeats the classic screen's own
+ * read-only and administrators; this controller then repeats TuitionController's
  * explicit role check, so the effective rule is exactly superadmin / admin / team_manager.
  */
 class TuitionApiController extends Controller
@@ -61,7 +61,7 @@ class TuitionApiController extends Controller
             'pendingMeta' => ['page' => $pending->currentPage(), 'perPage' => $pending->perPage(), 'total' => $pending->total(), 'sort' => 'created_at', 'dir' => 'asc'],
             'lessons' => $lessons->map(fn ($l) => [
                 'id' => (int) $l->id, 'startsAt' => $l->starts_at, 'status' => $l->status, 'kind' => $l->kind, 'studentName' => $l->student_name, 'teacherName' => $l->teacher_name,
-                // Same rule as the classic list: cancelled, no-show, or still "scheduled" after it ended.
+                // Needs follow-up: cancelled, no-show, or still "scheduled" after it ended.
                 'needsFollowUp' => in_array($l->status, ['cancelled', 'no_show'], true) || ($l->status === 'scheduled' && Carbon::parse($l->ends_at, 'UTC')->lt($now)),
             ])->values(),
             'shortfalls' => $shortfalls->map(fn ($r) => ['lessonId' => (int) $r->id, 'studentName' => $r->name, 'startsAt' => $r->starts_at, 'plannedMinutes' => $r->planned, 'actualMinutes' => (int) $r->actual_minutes])->values(),

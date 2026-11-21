@@ -1,4 +1,4 @@
-// Operations & audit (global, superadmin only). Classic: AdministrationController::operations.
+// Operations & audit (global, superadmin only).
 // Read-only: health indicators and the audit trail (never audit payloads).
 import {useEffect, useMemo, useState} from 'react';
 import {VStack} from '@astryxdesign/core/Layout';

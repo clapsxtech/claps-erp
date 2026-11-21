@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * JSON reads for Teacher hiring (page "teacher-recruitment"). Candidates form one
- * site-wide pool. As on the classic screen, only managers see applications,
+ * site-wide pool. Only managers see applications,
  * review conflicts and a candidate's history; everyone else with the page sees
  * the registered directory (REGISTERED and APPROVED profiles).
  */
@@ -84,7 +84,7 @@ class RecruitmentApiController extends Controller
         $activities = DB::table('erp_teacher_candidate_activities as a')->leftJoin('users as u', 'u.id', '=', 'a.actor_id')->whereIn('a.candidate_id', $ids)->orderByDesc('a.id')->limit(30)
             ->get(['a.id', 'a.kind', 'a.note', 'a.next_follow_up_on', 'a.created_at', 'u.name as actor_name'])
             ->map(fn ($a) => ['id' => (int) $a->id, 'kind' => $a->kind, 'note' => $a->note, 'nextFollowUpOn' => $a->next_follow_up_on, 'createdAt' => $a->created_at, 'actorName' => $a->actor_name])->values();
-        // Only these payload keys are shown, as on the classic screen.
+        // Only these payload keys are shown.
         $sources = DB::table('erp_teacher_candidate_sources')->whereIn('candidate_id', $ids)->limit(30)->get(['id', 'kind', 'source_key', 'payload', 'created_at'])
             ->map(fn ($s) => ['id' => (int) $s->id, 'kind' => $s->kind, 'sourceKey' => $s->source_key, 'createdAt' => $s->created_at,
                 'fields' => array_intersect_key(json_decode($s->payload, true) ?: [], array_flip(['name', 'code', 'phone', 'email', 'source_status', 'submitted_at']))])->values();

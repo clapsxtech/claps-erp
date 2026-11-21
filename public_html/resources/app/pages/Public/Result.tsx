@@ -1,4 +1,4 @@
-// /resultform: a teacher uploads one test result. Saves through the classic
+// /resultform: a teacher uploads one test result. Saves through
 // POST /upload-result, which re-verifies the teacher/student pair and writes
 // the record and its integration outbox event once per submission key.
 import {useRef, useState} from 'react';

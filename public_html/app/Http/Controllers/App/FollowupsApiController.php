@@ -8,8 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * JSON reads for the Follow-ups screen (page "followups"). Three views of the
- * classic page: the due queue (latest instruction per student, due today or
+ * JSON reads for the Follow-ups screen (page "followups"). Three views: the
+ * due queue (latest instruction per student, due today or
  * earlier), students by registration priority, and the conversation history.
  */
 class FollowupsApiController extends Controller
@@ -37,7 +37,7 @@ class FollowupsApiController extends Controller
         $business = DB::table('erp_units')->find($unit);
         $permissions = new TeamPermissions();
         $user = $request->user();
-        // Same rule as the classic students register on this page.
+        // Balances: money roles and sales follow-ups only.
         $canSeeBalance = $permissions->allows($user, $unit, 'page', 'money') || $permissions->role($user, $unit) === 'sales_followups';
         $today = CarbonImmutable::now($business->timezone)->toDateString();
         $month = CarbonImmutable::now($business->timezone)->startOfMonth();

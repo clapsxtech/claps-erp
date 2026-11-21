@@ -1,5 +1,5 @@
-// Team & access for one unit (classic business page "staff"). Superadmin only.
-// Writes go to the classic business-actions routes: membership-grant/revoke and
+// Team & access for one unit (page "staff"). Superadmin only.
+// Writes go to the business-actions routes: membership-grant/revoke and
 // teacher-link/unlink, where Operations keeps the last-admin and teacher-pool safeguards.
 import {useState} from 'react';
 import {useParams} from 'react-router';

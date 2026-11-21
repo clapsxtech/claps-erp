@@ -8,8 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * JSON reads for the Teachers screens (page "people"). Same rule as the classic
- * people register: roles without the Money page see a teacher's code, name and
+ * JSON reads for the Teachers screens (page "people"). Roles without the Money page see a teacher's code, name and
  * status but never their earnings, payments or class rates.
  */
 class TeachersApiController extends Controller

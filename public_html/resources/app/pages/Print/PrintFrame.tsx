@@ -57,7 +57,7 @@ export function DocumentState({error, onRetry}: {error?: Error; onRetry?: () => 
   return <PageLoading />;
 }
 
-/** A label / amount table without a header row, like the classic totals tables. */
+/** A label / amount table without a header row, for totals. */
 export function SummaryTable({rows}: {rows: {label: string; amount: string; isTotal?: boolean}[]}) {
   return (
     <Table density="compact">

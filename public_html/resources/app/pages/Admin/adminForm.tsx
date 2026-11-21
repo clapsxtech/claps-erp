@@ -1,7 +1,7 @@
 // Admin-area form drawer and POST helper. The shared FormDrawer covers routes that
-// answer JSON; the classic /erp/administration routes answer with a redirect instead,
+// answer JSON; the /erp/administration routes answer with a redirect instead,
 // and their forms need password fields, checkbox groups and fields that can be cleared.
-// This posts the same fields to the same classic routes, so validation, audit and
+// This posts their fields to those routes as JSON, so validation, audit and
 // every safeguard stay on the server. A redirect (not followed) means it saved.
 import {useEffect, useState, type ReactNode} from 'react';
 import {Drawer, DrawerHeader} from '@astryxdesign/core/Drawer';
@@ -21,7 +21,7 @@ function csrfToken(): string {
 }
 
 /**
- * POST JSON to a classic route. JSON success bodies ({message}) and redirects both
+ * POST JSON to an /erp/administration route. JSON success bodies ({message}) and redirects both
  * count as saved; errors come back as JSON (422 with field errors, 403, 419, 429).
  */
 export async function adminPost(url: string, body: Record<string, unknown>): Promise<{message?: string}> {

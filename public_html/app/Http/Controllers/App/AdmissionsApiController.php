@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
  * JSON reads for the Admissions CRM (page "admissions"). Every lead query goes
  * through Admissions::visibleLeads(), so sales users only ever see the leads
  * they own; stages come from SalesPipeline::expression() and contact links from
- * SalesPipeline::contact(), the same as the classic CRM.
+ * SalesPipeline::contact().
  */
 class AdmissionsApiController extends Controller
 {

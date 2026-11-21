@@ -1,6 +1,6 @@
 // Shared pieces of the public teacher forms (/attendance, /resultform,
 // /performance, /timetable). There is no sign-in: a teacher picks their name
-// and types their date of birth, and every POST sends it again so the classic
+// and types their date of birth, and every POST sends it again so the form
 // controllers verify it each time. The date of birth lives only in component
 // state; it is never put in the URL, storage or on screen.
 import {useEffect, useRef, useState, type ReactNode} from 'react';
@@ -69,7 +69,7 @@ function csrfToken(): string {
 }
 
 /**
- * POST JSON to a classic public route. The classic controllers answer either
+ * POST JSON to a public form route. The form controllers answer either
  * `{msg}` (results, performance) or Laravel's `{message, errors}`, so both
  * are read. A redirect is never treated as success.
  */
@@ -198,7 +198,7 @@ export interface Verified {
 
 /**
  * Step 1 of the upload forms: pick your name, type your date of birth, and
- * the classic lookup route returns your students. The lookup keeps the
+ * the lookup route returns your students. The lookup keeps the
  * teacher-credentials throttle.
  */
 export function IdentifyStep({
@@ -352,7 +352,7 @@ export function Saved({
   );
 }
 
-/** Clears the in-memory credential when the tab is hidden for good (as the classic pages did). */
+/** Clears the in-memory credential when the tab is hidden for good. */
 export function useForgetOnLeave(forget: () => void) {
   const ref = useRef(forget);
   ref.current = forget;

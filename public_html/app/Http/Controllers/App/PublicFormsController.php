@@ -9,10 +9,10 @@ use App\Models\Topic;
 /**
  * Host pages for the public, no-login teacher forms (attendance, results,
  * performance, timetable). A teacher identifies with their name and date of
- * birth on each POST, which the classic controllers verify; these pages embed
- * only what the classic Blade forms already showed to anyone: the teacher
+ * birth on each POST, which the form controllers (WorkHourController and friends)
+ * verify; these pages embed only what is public anyway: the teacher
  * names and the subject or topic lists. Never a DOB, a student, a code or a rate.
- * The timetable page embeds no directory at all, as before.
+ * The timetable page embeds no directory at all.
  */
 class PublicFormsController extends Controller
 {

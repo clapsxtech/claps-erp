@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Printable staff documents for the React app: payment/refund acknowledgement,
  * invoice or credit note, payment request and the monthly parent statement.
- * Each read mirrors the classic Blade view field for field and formats the
- * display text with the same helpers, so the printed words do not change.
+ * Each read lists its fields explicitly and formats the display text with the
+ * shared domain helpers (e.g. Invoicing::words), so the printed words stay consistent.
  */
 class PrintController extends Controller
 {
@@ -33,7 +33,7 @@ class PrintController extends Controller
         return DB::table('erp_units')->where('id', $unit)->first(['id', 'name', 'legal_name', 'address', 'state', 'phone', 'timezone']);
     }
 
-    /** Classic WorkspaceController::receipt. */
+    /** Payment or refund acknowledgement for one ledger entry. */
     public function receipt(Request $request, int $unit, int $entry)
     {
         (new Access())->unit($request->user(), $unit, false);
@@ -64,7 +64,7 @@ class PrintController extends Controller
         ])->header('Cache-Control', 'no-store');
     }
 
-    /** Classic AccountsController::invoice (staff copy). */
+    /** Invoice, tax invoice or credit note (staff copy). */
     public function invoice(Request $request, int $unit, int $id)
     {
         (new Access())->unit($request->user(), $unit, false);
@@ -122,7 +122,7 @@ class PrintController extends Controller
         ])->header('Cache-Control', 'no-store');
     }
 
-    /** Classic BusinessController::requestPrint. */
+    /** Payment request. */
     public function request(Request $request, int $unit, int $id)
     {
         (new Access())->unit($request->user(), $unit, false);
@@ -148,8 +148,8 @@ class PrintController extends Controller
     }
 
     /**
-     * Classic TuitionController::statement. Private: the same explicit role check
-     * (superadmin, admin, team manager) as the classic tuition screens.
+     * Monthly parent statement. Private: an explicit role check (superadmin, admin,
+     * team manager), the same as TuitionController::authorizeTeam.
      */
     public function statement(Request $request, int $unit)
     {
@@ -183,7 +183,7 @@ class PrintController extends Controller
             ]),
             'totalMinutes' => (int) $rows->sum('actual_minutes'),
             'account' => ['opening' => $balance($account['opening']), 'lines' => $kinds, 'closing' => $balance($account['closing'])],
-            // Exactly the entries the classic "After sharing" form posts to monthly-review.
+            // Exactly the entries the "After sharing" form posts to tuition monthly-review.
             'review' => [
                 'canRecord' => $canRecord && config('sheet_transition.authority') !== 'sheets',
                 'entries' => $submitted->values()->map(fn ($row) => ['attendanceId' => (int) $row->id, 'snapshot' => TuitionWorkflows::reviewSnapshot($row)]),

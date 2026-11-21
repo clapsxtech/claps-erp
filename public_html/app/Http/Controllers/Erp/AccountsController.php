@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 /** Accounts & tax: chart of accounts, journals, reports, invoices and GST summary for one team. */
 class AccountsController extends Controller
 {
-    private const PAGE_SYNC_LIMIT = 500;
     private const VIEWS = ['overview', 'journals', 'ledger', 'reports', 'invoices', 'tax', 'chart'];
 
     public function mutate(Request $request, int $unit, string $action)

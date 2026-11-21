@@ -5,7 +5,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/** Weekly availability rows for the Timetable planning tab (the classic workspace's Availability table). */
+/** Weekly availability rows for the Timetable planning tab. */
 class PlanningApiController extends Controller
 {
     private const WEEKDAYS = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];

@@ -1,7 +1,7 @@
 // The People screens' form drawer. It follows components/FormDrawer (one primary
-// button, inline server errors, JSON post to the classic action route) and adds
+// button, inline server errors, JSON post to the action route) and adds
 // what these actions need: fixed hidden values such as lead_id, a record picker
-// backed by the classic lookup endpoint, time, yes/no and multi-choice fields,
+// backed by the unit lookup endpoint, time, yes/no and multi-choice fields,
 // and one-tap date shortcuts. Rules and validation stay on the server.
 import {useEffect, useMemo, useState, type ReactNode} from 'react';
 import {Drawer, DrawerHeader} from '@astryxdesign/core/Drawer';

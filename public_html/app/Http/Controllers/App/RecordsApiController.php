@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Read-only JSON and CSV for "Records & administration" (/app/records), replacing the classic
- * /admin screens without their "Sync from Sheets" and edit actions. Superadmin only: the route
- * group uses the classic 'admin' middleware and every action asserts it again.
+ * Read-only JSON and CSV for "Records & administration" (/app/records): historical record sets,
+ * with no "Sync from Sheets" or edit actions. Superadmin only: the route group uses the
+ * 'admin' middleware and every action asserts it again.
  * Sets, columns, filters and sorts come from RecordsDatasets; nothing is passed through unlisted.
  */
 class RecordsApiController extends Controller
@@ -26,7 +26,7 @@ class RecordsApiController extends Controller
             $count = isset($set['query'])
                 ? DB::query()->fromSub(($set['query'])($request, []), 'r')->count()
                 : DB::table('settings')->count();
-            $sets[] = ['slug' => $slug, 'group' => $set['group'], 'title' => $set['title'], 'description' => $set['description'], 'count' => $count, 'classicUrl' => $set['classic']];
+            $sets[] = ['slug' => $slug, 'group' => $set['group'], 'title' => $set['title'], 'description' => $set['description'], 'count' => $count];
         }
         $groups = collect(RecordsDatasets::GROUPS)->map(fn ($g, $key) => ['key' => $key] + $g)->values();
         return response()->json(['groups' => $groups, 'sets' => $sets])->header('Cache-Control', 'no-store, private');
@@ -35,7 +35,7 @@ class RecordsApiController extends Controller
     public function settings(Request $request)
     {
         (new SiteAccessPolicy())->assertAdministrator($request->user());
-        // The classic screen 404s on an empty table (firstOrFail); here that is an empty state.
+        // An empty settings table is an empty state, not a 404.
         $s = Settings::query()->orderBy('id')->first(['id', 'name', 'address', 'phone', 'support_mail', 'admin_mail', 'career_mail', 'facebook', 'instagram', 'youtube', 'linkedin', 'twitter', 'map', 'updated_at']);
         $settings = $s ? [
             'name' => $s->name, 'address' => $s->address, 'phone' => $s->phone,

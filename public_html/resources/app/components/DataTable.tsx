@@ -1,6 +1,6 @@
 // The one table every list screen uses. It follows the usual data-grid
 // conventions: search and filters above, sortable headers, numbers right-aligned
-// with tabular figures, page size and count below, a CSV export link (the classic
+// with tabular figures, page size and count below, a CSV export link (an
 // export of the whole register), and a card list on phones instead of a sideways scroll.
 // Rows come pre-sorted and pre-paged from the server; the table only renders.
 import {useMemo, type ReactNode} from 'react';

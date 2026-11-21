@@ -1,5 +1,5 @@
 // Sign-in, password reset, two-factor challenge and account security. Each page
-// posts to the classic auth route (which answers JSON) and, after a sign-in,
+// posts to its auth route (which answers JSON) and, after a sign-in,
 // reloads the whole page because the session and CSRF token rotate.
 import {lazy, Suspense, type ReactElement} from 'react';
 import type {RouteObject} from 'react-router';

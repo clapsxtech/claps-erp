@@ -4,7 +4,7 @@ use App\Http\Middleware\TeamAuthorization;
 use Illuminate\Support\Facades\Route;
 
 // Printable staff documents (React app). The host page serves every /print URL;
-// the documents load from the JSON reads below, which keep the classic checks:
+// the documents load from the JSON reads below, which apply these checks:
 // erp.receipt / erp.request.print need the money page, erp.invoice the accounts
 // page, and the monthly statement keeps its own manager-only role check in the
 // controller (the declared 'detail' check is only the first gate).

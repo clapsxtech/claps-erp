@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * The family portal in the React app. Host pages and JSON reads for one signed-in student.
  * Sign-in, lockouts, the idle timeout and the date-of-birth fingerprint all come from the
- * classic ParentPortalController (its session check) and the ParentPortal service; nothing
+ * ParentPortalController (its session check) and the ParentPortal service; nothing
  * here decides who may see what beyond "this student only". Every JSON field is listed.
  */
 class ParentPortalAppController extends ParentPortalController
@@ -80,7 +80,7 @@ class ParentPortalAppController extends ParentPortalController
                 'subject' => $row->subject_name,
                 'isDemo' => $row->kind === 'demo',
                 'minutes' => (int) $row->actual_minutes,
-                // Same formula as the classic statement; the hourly rate itself never leaves the server.
+                // minutes x rate / 60, rounded; the hourly rate itself never leaves the server.
                 'chargePaise' => $row->kind === 'demo' ? 0 : intdiv((int) $row->actual_minutes * (int) $row->student_rate_paise + 30, 60),
             ])->values(),
             'totalMinutes' => (int) $rows->sum('actual_minutes'),
@@ -189,7 +189,7 @@ class ParentPortalAppController extends ParentPortalController
         ];
     }
 
-    /** The same lookups as the classic document() action, so another family's id is a 404. */
+    /** Every lookup is scoped to this student, so another family's id is a 404. */
     private function documentData(object $student, string $type, int $id): ?array
     {
         $business = DB::table('erp_units')->where('id', $student->unit_id)->first(['name', 'phone', 'legal_name', 'address', 'state']);
@@ -252,7 +252,7 @@ class ParentPortalAppController extends ParentPortalController
                 'sgstPaise' => (int) $invoice->sgst_paise,
                 'totalPaise' => (int) $invoice->total_paise,
                 'amountInWords' => Invoicing::words((int) $invoice->total_paise),
-                // Invoice notes are shown to the family only as a credit note's reason, as on the classic page.
+                // Invoice notes are shown to the family only as a credit note's reason.
                 'creditReason' => $invoice->document_type === 'credit_note' && $invoice->notes ? $invoice->notes : null,
             ]];
         }

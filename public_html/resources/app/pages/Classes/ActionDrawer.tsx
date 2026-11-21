@@ -4,7 +4,7 @@
 // that must be posted even when blank, an explicit confirm step for actions that
 // reverse money or cancel classes, and service errors keyed by a name that is
 // not a field (schedule, allocation, attendance, batch...) shown in the banner.
-// It posts JSON to the existing classic action routes; all rules stay there.
+// It posts JSON to the /erp action routes; all rules stay there.
 import {useEffect, useState, type ComponentProps, type ReactNode} from 'react';
 import {Drawer, DrawerHeader} from '@astryxdesign/core/Drawer';
 import {VStack, HStack} from '@astryxdesign/core/Layout';

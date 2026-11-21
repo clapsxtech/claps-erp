@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * JSON read for the Timetable screen (page "timetable"). The week comes from the
- * same Timetable::week projection as the classic page; this controller only picks
+ * Timetable::week projection; this controller only picks
  * explicit fields and converts times to the team's timezone so the client never
  * does date maths. Lesson rates are never emitted.
  */
@@ -83,7 +83,7 @@ class TimetableApiController extends Controller
         ]);
     }
 
-    /** Weekly slots and unavailability: the two registers the classic page lists under the week. */
+    /** Weekly slots and unavailability: the two registers listed under the week. */
     public function plans(Request $request, int $unit)
     {
         $v = $request->validate([

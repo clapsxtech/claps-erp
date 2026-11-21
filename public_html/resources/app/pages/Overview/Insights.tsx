@@ -1,4 +1,4 @@
-// Trends (classic /business/insights): the last six months side by side. Astryx has no
+// Trends: the last six months side by side. Astryx has no
 // chart component, so each measure is a tile with a month-by-month bar list built from
 // ProgressBar, plus the full table. Headlines are the last complete month.
 import {useParams} from 'react-router';

@@ -1,6 +1,6 @@
 <?php
 // People area: teachers, admissions CRM, follow-ups and teacher hiring. Writes use
-// the classic action routes; see resources/app/README.md.
+// the /erp action routes; see resources/app/README.md.
 use App\Http\Controllers\App\{AdmissionsApiController, FollowupsApiController, RecruitmentApiController, TeachersApiController};
 use Illuminate\Support\Facades\Route;
 

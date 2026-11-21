@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 
 /**
  * Host pages for sign-in, password reset, the two-factor challenge and account
- * security in the React app. The pages post to the classic auth routes, which
+ * security in the React app. The pages post to the Auth controllers' routes, which
  * answer JSON. The embedded session never holds a token, secret or code: the
  * reset token is already in the URL the visitor opened.
  */

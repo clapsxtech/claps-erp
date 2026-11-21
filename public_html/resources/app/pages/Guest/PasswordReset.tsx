@@ -28,7 +28,7 @@ export default function PasswordReset() {
     setBusy(false);
     if (result.ok) {
       setDone(result.body.message ?? 'Your password has been reset.');
-      // The classic reset signs the account in; a full load picks up the new session.
+      // The reset signs the account in; a full load picks up the new session.
       window.setTimeout(() => window.location.assign('/login'), 1200);
       return;
     }

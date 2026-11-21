@@ -1,5 +1,5 @@
-// My tasks (classic /erp/my-tasks) with the unit-wide register from the classic
-// Follow-ups page for roles that have it. Completion posts to the existing routes.
+// My tasks, with the unit-wide register for roles that have the
+// Follow-ups page. Completion posts to the existing routes.
 import {useEffect, useMemo, useState} from 'react';
 import {useParams, useSearchParams} from 'react-router';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
@@ -84,7 +84,7 @@ export default function Tasks() {
       else next.delete('new');
       return next;
     });
-  // Assignees come from the classic lookup (the same list the classic form uses).
+  // Assignees come from the unit lookup endpoint (type "members").
   const members = useResource<{id: number; label: string}[]>(creating && can?.create ? `/erp/units/${unitId}/lookup` : null, {type: 'members'});
 
   const canCompleteTask = (row: TaskRow) => Boolean(can && row.status !== 'completed' && (can.complete || (row.assignedToMe && can.completeOwn)));
@@ -178,7 +178,7 @@ export default function Tasks() {
         align: 'end',
         renderCell: row => {
           if (!canCompleteTask(row)) return <Text> </Text>;
-          // Classic rule: a task with open checklist items is finished through its checklist first.
+          // A task with open checklist items is finished through its checklist first.
           if (row.remainingItems) return <Button label="Open checklist" variant="secondary" size="sm" onClick={() => setChecklistFor(row.id)} />;
           return <Button label="Complete" variant="secondary" size="sm" isLoading={busy === `task-${row.id}`} onClick={() => completeTask(row)} />;
         },

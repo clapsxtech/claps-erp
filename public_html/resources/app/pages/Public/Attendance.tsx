@@ -1,5 +1,5 @@
 // /attendance: a teacher records one lesson (work hours). Saves through the
-// classic POST /upload-workhour, which re-verifies the teacher, prices the
+// POST /upload-workhour, which re-verifies the teacher, prices the
 // lesson from the assignment and de-duplicates by submission key.
 import {useRef, useState} from 'react';
 import {VStack} from '@astryxdesign/core/Layout';

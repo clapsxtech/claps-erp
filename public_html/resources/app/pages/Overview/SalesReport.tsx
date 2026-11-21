@@ -1,4 +1,4 @@
-// Sales report (classic Admissions → Reports): activity by staff, follow-ups due, and
+// Sales report: activity by staff, follow-ups due, and
 // outcomes by counsellor and campaign for the leads this user can see. Collections
 // appear only for money roles; the server decides that.
 import {useParams} from 'react-router';

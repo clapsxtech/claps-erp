@@ -1,4 +1,4 @@
-// Every admissions write, as drawers over the classic admission-* actions. The
+// Every admissions write, as drawers over the admission-* actions. The
 // list (row menu) and the lead page open the same forms, so a sales user logs a
 // call or books a demo in one tap from either place.
 import {useNavigate} from 'react-router';

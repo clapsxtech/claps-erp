@@ -9,12 +9,12 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * JSON reads for Accounts & tax. Access is enforced by TeamAuthorization (page "accounts").
- * Every figure comes from the Books read methods the classic AccountsController uses; this
- * controller only shapes them. Writes use the classic books-* actions.
+ * Every figure comes from the Books read methods; this controller only shapes them.
+ * Writes use the books-* actions (AccountsController::mutate).
  */
 class AccountsApiController extends Controller
 {
-    /** Same bounded batch as the classic page load (AccountsController::PAGE_SYNC_LIMIT). */
+    /** Most operational ledger rows posted to the books per overview load. */
     private const PAGE_SYNC_LIMIT = 500;
     private const ACTIONS = ['books-account', 'books-journal', 'books-journal-reverse', 'books-invoice-run', 'books-invoice-cancel'];
 
@@ -34,7 +34,7 @@ class AccountsApiController extends Controller
     }
 
     /**
-     * Overview: trial balance and P&L totals. Like the classic page load it first posts a bounded
+     * Overview: trial balance and P&L totals. It first posts a bounded
      * batch of operational ledger rows into the books (Books::sync), so figures stay current for
      * people who only use the app; anything left is reported as pendingPosts.
      */
@@ -160,7 +160,7 @@ class AccountsApiController extends Controller
         if (!empty($v['status'])) $query->where('i.status', $v['status']);
         if (!empty($v['type'])) $query->where('i.document_type', $v['type']);
         $page = $query->orderByDesc('i.issue_date')->orderByDesc('i.id')->paginate((int) ($v['per_page'] ?? 25), ['*'], 'page', (int) ($v['page'] ?? 1));
-        // Same "not yet invoiced" figure as the classic Invoices view.
+        // "Not yet invoiced": lesson charges with no invoice that have not been reversed.
         $uninvoiced = DB::table('erp_ledger as l')->where('l.unit_id', $unit)->where('l.kind', 'lesson_charge')->whereNull('l.invoice_id')
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('erp_ledger as r')->whereColumn('r.reverses_id', 'l.id'))
             ->selectRaw('COUNT(*) AS charges, COALESCE(SUM(-l.amount_paise),0) AS total')->first();

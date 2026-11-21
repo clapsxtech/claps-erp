@@ -69,7 +69,7 @@ function lessonLine(lesson: Lesson): string {
   return `${lesson.startTime}–${lesson.endTime} · ${lesson.subjectName} · ${lesson.teacherName}`;
 }
 
-/** Which lesson actions the classic timetable offers for this lesson and role. */
+/** Which lesson actions the timetable offers for this lesson and role. */
 function lessonActions(lesson: Lesson, allowed: (action: string) => boolean): LessonActionKey[] {
   const keys: LessonActionKey[] = [];
   if (lesson.status === 'scheduled') {

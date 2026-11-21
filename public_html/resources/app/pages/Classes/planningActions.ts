@@ -1,6 +1,5 @@
-// Weekly planning actions from the classic planning workspace
-// (resources/views/erp/action-forms.blade.php: availability, propose, confirm,
-// materialize, end-agreement). Each posts to WorkspaceController::mutate; all
+// Weekly planning actions (availability, propose, confirm, materialize,
+// end-agreement). Each posts to WorkspaceController::mutate; all
 // scheduling rules stay in Scheduling.
 import type {ActionField} from './ActionDrawer';
 import type {ActionConfig} from './lessonActions';

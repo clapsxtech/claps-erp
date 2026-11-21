@@ -1,4 +1,4 @@
-// Exports & checks (classic /business/migration): application reconciliation totals,
+// Exports & checks: application reconciliation totals,
 // a CSV download for every dataset the role may export, and the archived history.
 import {useEffect, useMemo, useState} from 'react';
 import {useParams} from 'react-router';

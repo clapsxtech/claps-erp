@@ -1,4 +1,4 @@
-// Invoice, tax invoice or credit note (classic erp/invoice.blade.php, staff copy).
+// Invoice, tax invoice or credit note (staff copy).
 import {useParams} from 'react-router';
 import {VStack, HStack, StackItem} from '@astryxdesign/core/Layout';
 import {Heading, Text} from '@astryxdesign/core/Text';

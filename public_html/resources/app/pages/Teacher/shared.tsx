@@ -1,6 +1,6 @@
 // Shared pieces of the teacher portal: the session shape, the one workspace
 // read (filters live in the URL), lesson cards with one-tap attendance, and the
-// date filter bar. Writes post to the classic /erp/teacher/* routes, which keep
+// date filter bar. Writes post to the /erp/teacher/* routes, which keep
 // their validation, ownership checks and duplicate safety.
 import {useState, type ComponentProps, type ReactNode} from 'react';
 import {useSearchParams} from 'react-router';
@@ -181,7 +181,7 @@ export function Tile({label, value, hint}: {label: string; value: string; hint?:
   );
 }
 
-/** The four classic dashboard figures, computed over the loaded date range. */
+/** The four dashboard figures, computed over the loaded date range. */
 export function Metrics({data}: {data: Workspace}) {
   const pending = data.lessons.filter(lesson => lesson.needsAttendance).length;
   const minutes = data.lessons.reduce((sum, lesson) => sum + (lesson.attendance && lesson.attendance.status !== 'rejected' ? lesson.attendance.minutes : 0), 0);

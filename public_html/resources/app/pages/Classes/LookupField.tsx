@@ -1,4 +1,4 @@
-// Async record picker over the classic GET /erp/units/{unit}/lookup endpoint,
+// Async record picker over the GET /erp/units/{unit}/lookup endpoint,
 // which returns [{id, label}] already scoped to the team and the role's lookups.
 import {useMemo, useState} from 'react';
 import {Typeahead} from '@astryxdesign/core/Typeahead';

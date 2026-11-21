@@ -1,8 +1,8 @@
-// Accounts & tax: the classic Accounts page rebuilt. Books are kept automatically
+// Accounts & tax. Books are kept automatically
 // from Money; staff add manual journals (reversal only, never edited), issue
-// invoice runs and cancel invoices with credit notes, all through the classic
+// invoice runs and cancel invoices with credit notes, all through the
 // books-* actions. The overview load also posts any operational rows not yet in
-// the books (same bounded batch as the classic page), so it always loads first.
+// the books (a bounded batch), so it always loads first.
 import {useState, type ReactNode} from 'react';
 import {useParams, useSearchParams} from 'react-router';
 import {VStack, HStack, StackItem} from '@astryxdesign/core/Layout';
@@ -746,7 +746,7 @@ interface JournalLine {
 
 const EMPTY_LINES: JournalLine[] = Array.from({length: 4}, () => ({account_id: '', debit_inr: '', credit_inr: ''}));
 
-/** Multi-line manual journal. Posts lines[i][account_id|debit_inr|credit_inr] exactly as the classic form. */
+/** Multi-line manual journal. Posts lines[i][account_id|debit_inr|credit_inr]. */
 function JournalDrawer({unitId, timezone, isOpen, onOpenChange, onSaved}: {unitId: number; timezone: string; isOpen: boolean; onOpenChange: (open: boolean) => void; onSaved: () => void}) {
   const showToast = useToast();
   const chart = useResource<{data: (AccountRef & {isActive: boolean})[]}>(isOpen ? `/app-api/units/${unitId}/accounts/chart` : null);

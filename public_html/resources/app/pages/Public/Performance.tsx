@@ -1,5 +1,5 @@
 // /performance: a teacher records a performance remark for a student on a
-// topic. Saves through the classic POST /performnce-upload (verified pair,
+// topic. Saves through POST /performnce-upload (verified pair,
 // one record and outbox event per submission key).
 import {useRef, useState} from 'react';
 import {VStack} from '@astryxdesign/core/Layout';

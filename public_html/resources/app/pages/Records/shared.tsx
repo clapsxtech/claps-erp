@@ -66,7 +66,7 @@ export const LIST_DEFAULTS = {
 };
 export type ListKey = keyof typeof LIST_DEFAULTS;
 
-/** The classic screens were superadmin-only; the server refuses everyone else anyway. */
+/** Superadmin only; the server refuses everyone else anyway. */
 export function AdminOnly({title, children}: {title: string; children: ReactNode}) {
   if (session().user?.isAdmin) return <>{children}</>;
   return (

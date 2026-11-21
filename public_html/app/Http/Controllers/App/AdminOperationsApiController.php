@@ -23,8 +23,8 @@ class AdminOperationsApiController extends Controller
             'page' => 'nullable|integer|min:1|max:100000',
             'per_page' => 'nullable|integer|in:25,50,100',
         ]);
-        // Always 200: the classic JSON answers 503 on error, which would hide the checks
-        // exactly when they matter. The status is in the body.
+        // Always 200, even when a check fails: a 503 would hide the checks exactly when
+        // they matter. The status is in the body.
         $health = (new OperationalHealth())->inspect();
         $query = DB::table('erp_audit as a')->leftJoin('users as u', 'u.id', '=', 'a.actor_id')->leftJoin('erp_units as t', 't.id', '=', 'a.unit_id')
             ->select('a.id', 'a.unit_id', 'a.actor_id', 'a.action', 'a.entity_type', 'a.entity_id', 'a.created_at', 'u.name as actor_name', 't.name as unit_name');

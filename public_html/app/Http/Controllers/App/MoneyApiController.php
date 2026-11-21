@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * JSON reads for Payments & dues. Access is enforced by TeamAuthorization (page "money")
  * before these run. Figures come from the ledger as posted and from the Reporting read
- * projections the classic Money page uses; nothing here posts or changes money. Writes go
- * through the classic action routes (payment, request-*, receipt-*, refund-*, salary-*).
+ * projections; nothing here posts or changes money. Writes go
+ * through the /erp action routes (payment, request-*, receipt-*, refund-*, salary-*).
  */
 class MoneyApiController extends Controller
 {
@@ -20,12 +20,12 @@ class MoneyApiController extends Controller
     private const REQUEST_SORTS = ['requested_on' => 'r.requested_on', 'due_on' => 'r.due_on', 'reference' => 'r.reference', 'amount' => 'r.amount_paise', 'student' => 's.name'];
     private const LEDGER_SORTS = ['occurred_at' => 'l.occurred_at', 'amount' => 'l.amount_paise'];
     private const TEACHER_SORTS = ['name' => 't.name', 'code' => 't.code'];
-    /** The classic Tuition screen's own role check (TuitionController::authorizeTeam). */
+    /** The private tuition records' role check (TuitionController::authorizeTeam). */
     public const TUITION_ROLES = ['superadmin', 'admin', 'team_manager'];
 
     private function studentBalances(int $unit)
     {
-        // Same projection as the classic Money queue: student-side ledger rows only.
+        // Student-side ledger rows only.
         return DB::table('erp_ledger')->where('unit_id', $unit)->whereNotNull('student_id')->whereNull('teacher_id')
             ->select('student_id', DB::raw('SUM(amount_paise) AS balance'))->groupBy('student_id');
     }
@@ -55,7 +55,7 @@ class MoneyApiController extends Controller
         ]);
     }
 
-    /** Collection queue: students who owe money (negative balance), as on the classic Money page. */
+    /** Collection queue: students who owe money (negative balance). */
     public function dues(Request $request, int $unit)
     {
         $v = $request->validate([
@@ -237,7 +237,7 @@ class MoneyApiController extends Controller
         ]);
     }
 
-    /** Teacher pay: earned, paid and owed per teacher from Reporting::teacherStatements, as on the classic page. */
+    /** Teacher pay: earned, paid and owed per teacher from Reporting::teacherStatements. */
     public function teachers(Request $request, int $unit)
     {
         $v = $request->validate([

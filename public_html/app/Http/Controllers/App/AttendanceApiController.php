@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * JSON reads for the Attendance screen (page "attendance"). Queues come from
- * WorkQueues, exactly as the classic page renders them; the register adds the
- * read-only student/teacher finance states WorkspaceController::workspace shows.
- * Nothing here posts money: approvals go to the classic POST routes.
+ * WorkQueues unchanged; the register adds read-only student/teacher finance
+ * states. Nothing here posts money: approvals go to the /erp action routes
+ * (WorkspaceController::mutate).
  */
 class AttendanceApiController extends Controller
 {
@@ -59,7 +59,7 @@ class AttendanceApiController extends Controller
         ]);
     }
 
-    /** One of the classic work queues: approval (teacher accrual), import (student charge) or missing. */
+    /** One of the work queues: approval (teacher accrual), import (student charge) or missing. */
     public function queue(Request $request, int $unit, string $queue)
     {
         $v = $request->validate([
@@ -166,8 +166,8 @@ class AttendanceApiController extends Controller
     }
 
     /**
-     * Read-only copy of the finance-state labels in WorkspaceController::workspace.
-     * Keep in step with that method; it decides nothing, it only describes the ledger.
+     * Read-only finance-state labels for the register. It decides nothing, it only
+     * describes the ledger.
      */
     private function financeStates(int $unit, Collection $rows): array
     {

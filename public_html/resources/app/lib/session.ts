@@ -1,4 +1,4 @@
-// Read once from the JSON the Blade host page embeds. The server already
+// Read once from the JSON the server-rendered host page embeds. The server already
 // filtered `pages` by TeamPermissions, so the client never decides access;
 // it only hides what the server would refuse anyway.
 

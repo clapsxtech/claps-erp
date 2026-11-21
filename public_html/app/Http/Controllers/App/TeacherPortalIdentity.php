@@ -32,7 +32,7 @@ class TeacherPortalIdentity
     }
 
     /**
-     * Mirrors TeacherController::entry(): anyone with a teacher record or a
+     * Anyone with a teacher record or a
      * teacher membership, or with no teams at all, goes to the dashboard (and is
      * refused there if resolve() fails). Only the remainder see setup steps.
      */

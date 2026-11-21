@@ -1,12 +1,10 @@
 <?php
 // Public, no-login teacher forms served by the React app. The URLs and route
-// names are the classic ones, so bookmarks, emails and route() calls keep
-// working. Loaded after routes/web.php inside the `web` group, so these
-// definitions replace the classic ones for the same method and URI; the web
-// group keeps TeacherWorkspaceRedirect (linked teachers go to their workspace),
-// SheetAuthority and CSRF. Every POST keeps the shared teacher-credentials
-// throttle, and each still runs the classic controller, so DOB verification,
-// submission keys and the integration outbox are unchanged.
+// names are stable, so bookmarks, emails and route() calls keep working.
+// Loaded inside the `web` group, which keeps TeacherWorkspaceRedirect (linked
+// teachers go to their workspace), SheetAuthority and CSRF. Every POST keeps the shared teacher-credentials
+// throttle, and each runs its form controller, which owns DOB verification,
+// submission keys and the integration outbox.
 use App\Http\Controllers\App\PublicFormsController;
 use App\Http\Controllers\MarkListFrontentController;
 use App\Http\Controllers\PerformanceController;

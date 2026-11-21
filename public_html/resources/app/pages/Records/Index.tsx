@@ -1,5 +1,5 @@
-// Records & administration overview (/app/records): every read-only record set from the
-// classic /tools page, grouped as before, with its row count. Superadmin only.
+// Records & administration overview (/app/records): every read-only record set, grouped,
+// with its row count. Superadmin only.
 import {VStack} from '@astryxdesign/core/Layout';
 import {Grid} from '@astryxdesign/core/Grid';
 import {ClickableCard} from '@astryxdesign/core/ClickableCard';
@@ -13,7 +13,7 @@ import {AdminOnly, RECORDS_API} from './shared';
 
 interface Overview {
   groups: {key: string; title: string; description: string}[];
-  sets: {slug: string; group: string; title: string; description: string; count: number; classicUrl: string}[];
+  sets: {slug: string; group: string; title: string; description: string; count: number}[];
 }
 
 function countLabel(slug: string, count: number): string {

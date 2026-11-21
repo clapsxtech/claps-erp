@@ -1,5 +1,5 @@
 // Records that a monthly parent statement was shared: posts every submitted entry
-// of the statement, with its review snapshot, to the classic tuition
+// of the statement, with its review snapshot, to the tuition
 // "monthly-review" operation. The server converts the deadline from the team's time.
 import {ConfirmActionDialog} from '../Money/shared';
 import type {StatementData} from './Statement';

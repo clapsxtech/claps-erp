@@ -1,5 +1,4 @@
-// Scheduling and attendance action forms, field-for-field from
-// resources/views/erp/action-forms.blade.php. Each posts to the classic
+// Scheduling and attendance action forms. Each posts to the
 // WorkspaceController::mutate route. When opened from a lesson, the lesson,
 // assignment or student is fixed instead of picked.
 import type {ActionField} from './ActionDrawer';
@@ -107,7 +106,7 @@ export function lessonAction(key: LessonActionKey, unitId: number, timezone: str
         ],
         fixed: lesson ? {lesson_id: lesson.id} : undefined,
         initial: lesson ? {actual_minutes: String(lesson.durationMinutes)} : undefined,
-        // The classic form always posts this key; its presence makes a changed duration need a reason.
+        // Always post this key; its presence makes a changed duration need a reason.
         alwaysSend: ['actual_starts_at', 'change_reason'],
       };
     case 'no-show':

@@ -1,5 +1,5 @@
 // Administrators and staff without a linked teacher record see how to connect a
-// teacher's login, as the classic setup page did. Links leave the portal with a
+// teacher's login. Links leave the portal with a
 // full page load so the staff app gets its own session.
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Card} from '@astryxdesign/core/Card';

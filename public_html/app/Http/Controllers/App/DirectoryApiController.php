@@ -7,9 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Sales teacher directory (classic Admissions "Teachers" view, erp/crm/teachers):
+ * Sales teacher directory (Admissions "Teachers" view):
  * find a teacher, call or message them, and send their profile to a parent by
- * WhatsApp. Only the fields the classic cards show.
+ * WhatsApp. Only the fields the directory cards show.
  */
 class DirectoryApiController extends Controller
 {
@@ -22,7 +22,7 @@ class DirectoryApiController extends Controller
         $teachers = (new TeacherDirectory())->list($unit, $request->query(), $business->timezone ?: 'UTC');
         $profileLead = null;
         if ($request->filled('for_lead')) {
-            // Only an enquiry this user may see, exactly like the classic for_lead.
+            // Only an enquiry this user may see (Admissions::visibleLeads).
             $profileLead = (new Admissions())->visibleLeads($unit, (int) $request->user()->id)->where('l.id', $request->integer('for_lead'))->first();
         }
         $parentWhatsapp = $profileLead ? SalesPipeline::contact($profileLead)['whatsapp'] : null;

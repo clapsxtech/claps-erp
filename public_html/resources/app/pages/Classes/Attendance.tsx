@@ -169,7 +169,7 @@ export default function Attendance() {
     }
   }
 
-  // Bulk approval loops the classic single-row POST, one at a time, so every
+  // Bulk approval loops the single-row POST, one at a time, so every
   // row gets the same duplicate, parent-review and policy checks.
   async function approveSelected() {
     const chosen = rows.filter(row => selectedKeys.has(String(row.id)) && selectable(row));

@@ -1,8 +1,7 @@
 <?php
-// Family portal (React). Loaded after routes/web.php, so these GETs replace the classic
-// Blade pages at the same URLs and keep their route names. Sign-in, sign-out and disputes
-// stay on the classic POST routes in web.php, which answer JSON when asked. No `auth`
-// middleware: families sign in with the student ID and date of birth, and every action
+// Family portal (React): the GET pages, under stable URLs and route names. Sign-in,
+// sign-out and disputes are POST routes in web.php (ParentPortalController), which
+// answer JSON when asked. No `auth` middleware: families sign in with the student ID and date of birth, and every action
 // checks the parent_portal session through ParentPortalController (idle timeout, DOB fingerprint).
 use App\Http\Controllers\App\ParentPortalAppController as Portal;
 use Illuminate\Support\Facades\Route;

@@ -1,4 +1,4 @@
-// Public, no-login teacher forms. Each URL is the classic one (bookmarks and
+// Public, no-login teacher forms. The URLs are stable (bookmarks and
 // messages to teachers keep working) and is served by
 // App\Http\Controllers\App\PublicFormsController, which embeds only teacher
 // names and subject/topic lists. The teacher verifies with their date of birth

@@ -1,8 +1,7 @@
 <?php
-// Teacher portal (React). Loaded after routes/erp.php, so GET /teacher replaces the
-// classic entry (TeacherController::entry) and keeps its name `teacher.portal`.
+// Teacher portal (React). GET /teacher keeps the route name `teacher.portal`.
 // Access is TeacherPortalIdentity (a copy of TeacherController::identity()), not the
-// staff role matrix. Writes stay on the classic POST /erp/teacher/attendance and
+// staff role matrix. Writes go to POST /erp/teacher/attendance and
 // /erp/teacher/results routes, which answer JSON when asked.
 use App\Http\Controllers\App\TeacherPortalController as Portal;
 use Illuminate\Support\Facades\Route;

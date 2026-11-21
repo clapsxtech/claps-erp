@@ -15,8 +15,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * The signed-in teacher portal at /teacher. The host page embeds only the
  * teacher's own name, code and time zone (or, for administrators and unlinked
- * staff, the setup steps). Data comes from workspace(), which mirrors the
- * queries of Erp\TeacherController::index(). Writes post to the classic
+ * staff, the setup steps). Data comes from workspace(). Writes post to the
  * /erp/teacher/attendance and /erp/teacher/results routes, which answer JSON.
  */
 class TeacherPortalController extends Controller
@@ -114,7 +113,7 @@ class TeacherPortalController extends Controller
                 'date' => $start->setTimezone($tz)->toDateString(),
                 'startTime' => $start->setTimezone($tz)->format('H:i'),
                 'endTime' => $end->setTimezone($tz)->format('H:i'),
-                // Prefills the "different time" form, in the teacher's zone, as the classic form did.
+                // Prefills the "different time" form, in the teacher's zone.
                 'startsAtLocal' => $start->setTimezone($tz)->format('Y-m-d\TH:i'),
                 // Same measure Attendance::submit compares against when deciding whether a reason is needed.
                 'scheduledMinutes' => (int) round(abs($start->diffInMinutes($end))),

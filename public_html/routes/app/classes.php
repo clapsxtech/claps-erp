@@ -3,7 +3,7 @@ use App\Http\Controllers\App\{AcademicsApiController, AttendanceApiController, M
 use Illuminate\Support\Facades\Route;
 
 // Classes area: Timetable, Attendance, Teacher matching and Results. Writes reuse
-// the classic POST routes (WorkspaceController::mutate and business-actions).
+// the /erp POST routes (WorkspaceController::mutate and business-actions).
 Route::get('/timetable', [TimetableApiController::class, 'week'])->name('classes.timetable')->defaults('erp_permission', ['page', 'timetable']);
 Route::get('/timetable/plans', [TimetableApiController::class, 'plans'])->name('classes.timetable.plans')->defaults('erp_permission', ['page', 'timetable']);
 
@@ -17,3 +17,6 @@ Route::get('/matching/prepare/{teacher}', [MatchingApiController::class, 'prepar
 
 Route::get('/academics', [AcademicsApiController::class, 'marks'])->name('classes.academics')->defaults('erp_permission', ['page', 'academics']);
 Route::get('/academics/eligibility', [AcademicsApiController::class, 'eligibility'])->name('classes.academics.eligibility')->defaults('erp_permission', ['page', 'academics']);
+
+// Weekly availability list for timetable planning.
+Route::get('/timetable/availability', [\App\Http\Controllers\App\PlanningApiController::class, 'availability'])->name('classes.timetable.availability')->defaults('erp_permission', ['page', 'timetable']);

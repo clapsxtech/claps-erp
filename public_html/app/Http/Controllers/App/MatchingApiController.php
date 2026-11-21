@@ -48,7 +48,7 @@ class MatchingApiController extends Controller
         $leads = (new Admissions())->visibleLeads($unit, $user->id, $p['q'] ?? null)->whereIn('l.status', ['LEAD', 'JOINED'])->limit(30)->get()
             ->map(fn ($lead) => ['id' => (int) $lead->id, 'name' => SalesPipeline::name($lead)])->values();
 
-        // Same gate as the classic page: only roles that can allocate see the handoff list.
+        // Only roles that can allocate see the handoff list.
         $handoffs = $can('allocation-regular')
             ? DB::table('erp_demos as d')->join('erp_leads as l', 'l.id', '=', 'd.lead_id')->leftJoin('erp_teachers as t', 't.id', '=', 'd.teacher_id')->leftJoin('erp_subjects as s', 's.id', '=', 'd.subject_id')
                 ->where('d.unit_id', $unit)->where('d.status', 'ATTENDED')->where('d.feedback_outcome', 'CONTINUE')->whereNull('d.enrollment_id')->where('l.status', 'LEAD')
@@ -77,7 +77,7 @@ class MatchingApiController extends Controller
                 'aboutStudent' => $handoff->about_student, 'aboutParent' => $handoff->about_parent,
             ] : null,
             'demos' => $demos->map(function ($d) use ($context, $can, $tz) {
-                // Copied if/elseif chain from teacher-allocation.blade.php.
+                // Next step per demo: enrolled -> timetable; attended and continuing -> allocate; otherwise feedback.
                 $next = null;
                 $allocate = null;
                 if ($d->enrollment_id) {
@@ -185,7 +185,7 @@ class MatchingApiController extends Controller
         ]);
     }
 
-    /** Latest 30 timed demos for an enquiry, as the classic page loads them. */
+    /** Latest 30 timed demos for an enquiry. */
     private function demos(int $unit, ?object $context)
     {
         if (!$context?->lead_id) return collect();

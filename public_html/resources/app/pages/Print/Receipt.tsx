@@ -1,4 +1,4 @@
-// Payment or refund acknowledgement (classic erp/receipt.blade.php).
+// Payment or refund acknowledgement.
 import {useParams} from 'react-router';
 import {VStack} from '@astryxdesign/core/Layout';
 import {Heading, Text} from '@astryxdesign/core/Text';

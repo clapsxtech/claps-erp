@@ -1,6 +1,6 @@
 // Historical timetable (/app/records/timetable, by teacher) and student timetable
 // (/app/records/student-timetable, by student): pick a person, see their week as seven
-// day sections, like the classic screens. Read-only; links are http(s) only (server-checked).
+// day sections. Read-only; links are http(s) only (server-checked).
 import {useLocation} from 'react-router';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Grid} from '@astryxdesign/core/Grid';

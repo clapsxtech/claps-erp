@@ -1,6 +1,6 @@
-// Payments & dues: the classic Money page rebuilt. Four tabs share one URL so
+// Payments & dues. Four tabs share one URL so
 // links and the back button reopen the same view. Reads come from
-// /app-api/units/{unit}/money/*; every write goes to the classic action routes.
+// /app-api/units/{unit}/money/*; every write goes to the /erp action routes.
 import {useEffect, useMemo, useState} from 'react';
 import {useParams, useSearchParams} from 'react-router';
 import {VStack, HStack} from '@astryxdesign/core/Layout';

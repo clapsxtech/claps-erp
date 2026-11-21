@@ -51,7 +51,7 @@ export async function parentGet<T>(url: string, query?: Record<string, string | 
   return handle<T>(response);
 }
 
-/** Posts to the classic portal routes, which answer JSON when asked. A redirect is never taken as success. */
+/** Posts to the portal routes, which answer JSON when asked. A redirect is never taken as success. */
 export async function parentPost<T>(url: string, body: Record<string, unknown>, opts: {signedOutRedirect?: boolean} = {signedOutRedirect: true}): Promise<T> {
   const response = await fetch(url, {
     method: 'POST',
@@ -95,7 +95,7 @@ export function rupees(paise: number): string {
   return inr.format(paise / 100);
 }
 
-/** A balance in words, as the classic portal shows it: positive is paid in advance, negative is due. */
+/** A balance in words: positive is paid in advance, negative is due. */
 export function balanceWord(paise: number): string {
   return paise > 0 ? 'Paid in advance' : paise < 0 ? 'Due now' : 'Nothing due';
 }

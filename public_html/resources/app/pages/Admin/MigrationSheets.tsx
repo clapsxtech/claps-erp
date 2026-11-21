@@ -1,4 +1,4 @@
-// From Sheets (classic /erp/from-sheets, SheetTransitionController::index): the
+// From Sheets (SheetTransitionController::index): the
 // validated read-only copies of the team's Google Sheets during the transition.
 // The server picks which sources this user may see (by team page) and whether the
 // administrator refresh review is allowed; it answers 404 while the feature is off.

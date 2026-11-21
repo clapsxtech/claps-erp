@@ -31,7 +31,7 @@ class StudentsApiController extends Controller
         $business = DB::table('erp_units')->find($unit);
         $permissions = new TeamPermissions();
         $user = $request->user();
-        // Same rule as the classic Students table: balances are for money roles, and
+        // Balances are for money roles, and
         // for sales, who answer parents' "how much do I owe?" questions.
         $canSeeBalance = $permissions->allows($user, $unit, 'page', 'money') || $permissions->role($user, $unit) === 'sales_followups';
         $canOpenProfile = $permissions->allows($user, $unit, 'detail', 'all');

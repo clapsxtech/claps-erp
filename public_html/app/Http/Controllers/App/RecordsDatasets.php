@@ -12,7 +12,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The read-only "Records & administration" sets (the classic /admin screens), one entry per set.
+ * The read-only "Records & administration" sets, one entry per set.
  * Each set lists its columns explicitly; credentials (teacher_dob, dob, submission_key/hash,
  * password and 2FA fields) are never selected. Legacy figures are spreadsheet text, so they are
  * returned exactly as stored and only cast for sorting and totals.
@@ -56,7 +56,7 @@ final class RecordsDatasets
         return DB::connection()->getDriverName() === 'sqlite' ? "CAST($expr AS REAL)" : "CAST($expr AS DECIMAL(20,6))";
     }
 
-    /** Copy of TimeTableController::safeMeetingLink: only http(s) links ever reach an href. */
+    /** Only http(s) links ever reach an href: a bare host gets https://, any other scheme is dropped. */
     public static function safeLink(?string $link): ?string
     {
         $link = trim((string) $link);
@@ -68,7 +68,7 @@ final class RecordsDatasets
         return filter_var($link, FILTER_VALIDATE_URL) ? $link : null;
     }
 
-    /** ReportAccess (classic /markreport and /attendanceReport) reads teacher_name/student_name from a request. */
+    /** ReportAccess reads teacher_name/student_name from a request. */
     private static function reportScope($eloquent, Request $request, array $f)
     {
         $scoped = Request::create('/', 'GET', array_filter([
@@ -144,7 +144,7 @@ final class RecordsDatasets
         return $sets = [
             // ---------------------------------------------------------------- Academic history
             'topics' => [
-                'group' => 'academic', 'title' => 'Topics', 'classic' => '/admin/topics',
+                'group' => 'academic', 'title' => 'Topics',
                 'description' => 'Topic names used when teachers report lessons.',
                 'query' => fn () => DB::table('topics')->select('id', 'name', 'created_at'),
                 'columns' => ['name' => ['Topic', 'text', true], 'createdAt' => ['Added', 'datetime', true]],
@@ -152,7 +152,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'name', 'subtitle' => ['createdAt']],
             ],
             'subjects' => [
-                'group' => 'academic', 'title' => 'Subjects', 'classic' => '/admin/subjects',
+                'group' => 'academic', 'title' => 'Subjects',
                 'description' => 'The original subject list used by mark lists and work-hour records.',
                 'query' => fn () => DB::table('subjects')->select('id', 'name', 'description', 'created_at'),
                 'columns' => ['name' => ['Subject', 'text', true], 'description' => ['Description', 'text', false], 'createdAt' => ['Added', 'datetime', true]],
@@ -160,7 +160,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'name', 'subtitle' => ['description']],
             ],
             'assessments' => [
-                'group' => 'academic', 'title' => 'Assessment records', 'classic' => '/admin/marklist',
+                'group' => 'academic', 'title' => 'Assessment records',
                 'description' => 'Marks recorded in the original mark list (admin and teacher form entries).',
                 // Same resolution as MarklistController::index: admin rows store IDs, public rows store names.
                 'query' => fn () => DB::table('marklists')
@@ -184,7 +184,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'studentName', 'subtitle' => ['subject', 'teacherName', 'examinationDate'], 'trailing' => ['markScored', 'totalMark']],
             ],
             'assignments' => [
-                'group' => 'academic', 'title' => 'Assignment records', 'classic' => '/admin/master',
+                'group' => 'academic', 'title' => 'Assignment records',
                 'description' => 'The master sheet: which teacher taught which student, at what hourly rates.',
                 'query' => fn () => DB::table('masters')->select('id', 'student_name', 'student_code', 'teacher_name', 'teacher_code', 'team', 'hour_payment', 'payment_per_hour', 'profit_per_hour'),
                 'columns' => [
@@ -200,7 +200,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'studentName', 'subtitle' => ['teacherName', 'team'], 'trailing' => ['hourPayment']],
             ],
             'students' => [
-                'group' => 'academic', 'title' => 'Student records', 'classic' => '/admin/students',
+                'group' => 'academic', 'title' => 'Student records',
                 'description' => 'The original student register imported from the spreadsheet.',
                 'query' => fn () => DB::table('students')->select('id', 'student_name', 'student_code', 'status', 'hour_rate', 'category', 'source', 'hours'),
                 'columns' => [
@@ -215,7 +215,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'studentName', 'subtitle' => ['studentCode', 'status', 'category'], 'trailing' => ['hourRate']],
             ],
             'teachers' => [
-                'group' => 'academic', 'title' => 'Teacher records', 'classic' => '/admin/teachers',
+                'group' => 'academic', 'title' => 'Teacher records',
                 'description' => 'The original teacher register imported from the spreadsheet.',
                 'query' => fn () => DB::table('teachers')->select('id', 'teacher_name', 'teacher_code', 'status', 'type', 'subject', 'medium'),
                 'columns' => [
@@ -231,7 +231,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'teacherName', 'subtitle' => ['teacherCode', 'subject', 'medium'], 'trailing' => ['status']],
             ],
             'assessment-reports' => [
-                'group' => 'academic', 'title' => 'Assessment reports', 'classic' => '/admin/marklistreport',
+                'group' => 'academic', 'title' => 'Assessment reports',
                 'description' => 'Every assessment result: saved results plus the historical mark-list import. Pick a student for their report.',
                 'query' => fn (Request $request, array $f) => self::reportScope(app(AssessmentHistory::class)->query(), $request, $f)
                     ->select('id', 'teacher_name', 'teacher_code', 'student_name', 'student_code', 'subject', 'chapter', 'mark_scored', 'total_mark', 'mode_of_exam', 'date_submitted', 'examination_date', 'remark'),
@@ -259,7 +259,7 @@ final class RecordsDatasets
 
             // ---------------------------------------------------------------- Historical operations
             'monthly-reports' => [
-                'group' => 'operations', 'title' => 'Monthly reports', 'classic' => '/admin/monthlyreport',
+                'group' => 'operations', 'title' => 'Monthly reports',
                 'description' => 'Hours taken and class fees per student for a date range.',
                 'query' => fn (Request $request, array $f) => DB::table('get_students as g')
                     ->leftJoin('work_hours as w', function ($join) use ($f) {
@@ -282,7 +282,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'studentName', 'subtitle' => ['studentCode', 'hourTaken'], 'trailing' => ['totalAmount']],
             ],
             'teacher-hours' => [
-                'group' => 'operations', 'title' => 'Teacher hour reports', 'classic' => '/admin/workreport',
+                'group' => 'operations', 'title' => 'Teacher hour reports',
                 'description' => 'Lesson reports teachers submitted through the original spreadsheet form.',
                 'query' => fn () => DB::table('teacher_reports')->select('id', 'teacher_name', 'teacher_code', 'student_name', 'student_code', 'subject', 'date', 'date_submitted', 'chapter', 'topic', 'hour_taken', 'homework_status'),
                 'columns' => [
@@ -300,7 +300,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'studentName', 'subtitle' => ['teacherName', 'subject', 'date'], 'trailing' => ['hourTaken']],
             ],
             'work-hours' => [
-                'group' => 'operations', 'title' => 'Work-hour records', 'classic' => '/admin/workhour',
+                'group' => 'operations', 'title' => 'Work-hour records',
                 'description' => 'Every recorded class hour with its rates and payable amount. Export downloads the filtered rows.',
                 'query' => fn () => self::workHourQuery(),
                 'columns' => [
@@ -322,8 +322,8 @@ final class RecordsDatasets
                 'card' => ['title' => 'studentName', 'subtitle' => ['teacherName', 'subject', 'date'], 'trailing' => ['hourTaken']],
             ],
             'attendance' => [
-                'group' => 'operations', 'title' => 'Attendance history', 'classic' => '/attendanceReport',
-                'description' => 'Delivered hours by teacher, with a total for the period (the classic attendance report).',
+                'group' => 'operations', 'title' => 'Attendance history',
+                'description' => 'Delivered hours by teacher, with a total for the period.',
                 'query' => fn (Request $request, array $f) => self::attendanceQuery($request, $f),
                 'columns' => [
                     'teacherName' => ['Teacher', 'text', true], 'studentName' => ['Student', 'text', true], 'date' => ['Date', 'date', true],
@@ -339,7 +339,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'studentName', 'subtitle' => ['teacherName', 'subject', 'date'], 'trailing' => ['hourTaken']],
             ],
             'student-attendance' => [
-                'group' => 'operations', 'title' => 'Student attendance history', 'classic' => '/student-attendance-report',
+                'group' => 'operations', 'title' => 'Student attendance history',
                 'description' => 'One student\'s delivered hours across all teachers, with a total for the period.',
                 'query' => fn (Request $request, array $f) => self::attendanceQuery($request, $f),
                 'columns' => [
@@ -355,7 +355,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'date', 'subtitle' => ['studentName', 'subject', 'teacherName'], 'trailing' => ['hourTaken']],
             ],
             'dues' => [
-                'group' => 'operations', 'title' => 'Historical dues', 'classic' => '/admin/duereport',
+                'group' => 'operations', 'title' => 'Historical dues',
                 'description' => 'The original due report, exactly as imported from the spreadsheet (figures are the sheet\'s text).',
                 'query' => fn () => DB::table('due_reports')->select('id', 'student_name', 'student_code', 'phone', 'status', 'hour_rate', 'monthly', 'advance_expected', 'section',
                     'admin_staff', 'last_month_balance', 'recived', 'total_advance', 'hour_taken', 'c_amount', 'error', 'balance', 'current_status'),
@@ -376,7 +376,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'studentName', 'subtitle' => ['studentCode', 'adminStaff', 'currentStatus'], 'trailing' => ['balance']],
             ],
             'timetable' => [
-                'group' => 'operations', 'title' => 'Historical timetable', 'classic' => '/admin/timetable',
+                'group' => 'operations', 'title' => 'Historical timetable',
                 'description' => 'The original weekly schedule by teacher.',
                 'query' => fn () => self::lessons(),
                 'columns' => [
@@ -391,7 +391,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'studentName', 'subtitle' => ['day', 'time', 'subject'], 'trailing' => ['hour']],
             ],
             'student-timetable' => [
-                'group' => 'operations', 'title' => 'Student timetable', 'classic' => '/admin/studentTimetable',
+                'group' => 'operations', 'title' => 'Student timetable',
                 'description' => 'The original weekly schedule by student.',
                 'query' => fn () => self::lessons(),
                 'columns' => [
@@ -408,7 +408,7 @@ final class RecordsDatasets
 
             // ---------------------------------------------------------------- Site administration
             'users' => [
-                'group' => 'site', 'title' => 'User accounts', 'classic' => '/admin/users',
+                'group' => 'site', 'title' => 'User accounts',
                 'description' => 'Site staff accounts, read-only. Create, edit and deactivate accounts in Teams & accounts.',
                 // Same organization boundary as UsersController::index (StaffProvisioner::staffQuery).
                 'query' => fn (Request $request) => app(StaffProvisioner::class)->staffQuery($request->user())->toBase()->select('id', 'name', 'email', 'phone'),
@@ -421,7 +421,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'name', 'subtitle' => ['email', 'phone']],
             ],
             'roles' => [
-                'group' => 'site', 'title' => 'Site roles', 'classic' => '/admin/roles',
+                'group' => 'site', 'title' => 'Site roles',
                 'description' => 'Site-wide roles and the permissions each grants. Team roles are managed per team in Team & access.',
                 'query' => fn () => DB::table('roles as ro')->select('ro.id', 'ro.name', 'ro.guard_name', DB::raw('(SELECT COUNT(*) FROM model_has_roles mr WHERE mr.role_id = ro.id) as members')),
                 'columns' => ['name' => ['Role', 'text', true], 'guardName' => ['Guard', 'text', true], 'members' => ['Accounts', 'number', true], 'permissions' => ['Permissions', 'list', false]],
@@ -434,7 +434,7 @@ final class RecordsDatasets
                 'card' => ['title' => 'name', 'subtitle' => ['permissions']],
             ],
             'settings' => [
-                'group' => 'site', 'title' => 'Application settings', 'classic' => '/admin/settings',
+                'group' => 'site', 'title' => 'Application settings',
                 'description' => 'Organization name, contact addresses and social links shown on public pages.',
             ],
         ];

@@ -101,7 +101,7 @@ class AppRecordsTest extends TestCase
         $sets = collect($json['sets'])->keyBy('slug');
         $this->assertSame(['topics', 'subjects', 'assessments', 'assignments', 'students', 'teachers', 'assessment-reports', 'monthly-reports', 'teacher-hours', 'work-hours',
             'attendance', 'student-attendance', 'dues', 'timetable', 'student-timetable', 'users', 'roles', 'settings'], $sets->keys()->all());
-        $this->assertSame(['slug', 'group', 'title', 'description', 'count', 'classicUrl'], array_keys($json['sets'][0]));
+        $this->assertSame(['slug', 'group', 'title', 'description', 'count'], array_keys($json['sets'][0]));
         $this->assertSame(30, $sets['work-hours']['count']);
         $this->assertSame(3, $sets['assessment-reports']['count']);
         $this->assertSame(2, $sets['timetable']['count']);

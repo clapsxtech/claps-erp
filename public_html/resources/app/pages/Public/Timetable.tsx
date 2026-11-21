@@ -1,6 +1,6 @@
 // /timetable and /timetableReport: a teacher types their name and date of
-// birth and sees only their own lessons, from the classic POST
-// /get-teacher-dob. The page embeds no teacher directory, as before.
+// birth and sees only their own lessons, from POST /get-teacher-dob.
+// The page embeds no teacher directory.
 import {useRef, useState} from 'react';
 import {VStack} from '@astryxdesign/core/Layout';
 import {Heading, Text} from '@astryxdesign/core/Text';

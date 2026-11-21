@@ -8,14 +8,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * JSON read for the unit "Team & access" screen (classic page "staff"). TeamAuthorization
+ * JSON read for the unit "Team & access" screen (page "staff"). TeamAuthorization
  * checks ['page','staff'], which only superadmins pass; the controller asserts it again
- * because the screen lists accounts across the organization. Writes stay on the classic
+ * because the screen lists accounts across the organization. Writes go to the
  * business-actions routes (membership-grant/revoke, teacher-link/unlink).
  */
 class AdminTeamAccessApiController extends Controller
 {
-    /** Roles the classic grant form offers, in the same order (config/erp_forms.php). */
+    /** Roles the grant form offers, in order (config/erp_forms.php). */
     private const GRANT_ROLES = [
         'team_manager' => 'Team manager',
         'academics' => 'Academics / attendance',
@@ -64,7 +64,7 @@ class AdminTeamAccessApiController extends Controller
                 'linkedUserName' => $row->user_id !== null ? ($row->user_name ?? 'Unavailable account') : null,
             ])->values();
 
-        // Same filter as the classic "users" lookup: active accounts of this organization.
+        // Same filter as the "users" lookup: active accounts of this organization.
         $accounts = DB::table('users')->where('business_id', config('erp.business_id'))->where('status', 1)->whereNull('deleted_at')
             ->orderBy('name')->limit(2000)
             ->get(['id', 'name', 'email'])

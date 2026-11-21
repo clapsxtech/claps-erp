@@ -1,4 +1,4 @@
-// Posts a form to a classic auth route as JSON. Unlike lib/api postJson, it
+// Posts a form to an auth route as JSON. Unlike lib/api postJson, it
 // returns the whole body (redirect targets, one-time codes) and picks up a
 // rotated CSRF token when the server hands one back.
 export interface GuestResult<T> {

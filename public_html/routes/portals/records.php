@@ -1,6 +1,6 @@
 <?php
-// Records & administration (React /app/records): read-only JSON and CSV for the classic
-// /admin record screens. Superadmin only, the same 'admin' middleware the classic group uses.
+// Records & administration (React /app/records): read-only JSON and CSV for the historical
+// record sets. Superadmin only, through the 'admin' middleware.
 use App\Http\Controllers\App\RecordsApiController;
 use App\Http\Controllers\App\RecordsDatasets;
 use Illuminate\Support\Facades\Route;

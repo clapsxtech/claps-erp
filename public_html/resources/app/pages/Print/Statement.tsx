@@ -1,4 +1,4 @@
-// Monthly parent statement (classic erp/parent-statement.blade.php, staff copy).
+// Monthly parent statement (staff copy).
 // Below the statement, managers record that it was shared (tuition monthly-review);
 // that part is never printed.
 import {useState} from 'react';
@@ -36,7 +36,7 @@ export interface StatementData {
 export default function Statement() {
   const {unit} = useParams();
   const [params] = useSearchParams();
-  // Classic parameter names; "student" is accepted as a short form.
+  // Query parameters student_id and month; "student" is accepted as a short form.
   const studentId = params.get('student_id') ?? params.get('student') ?? '';
   const month = params.get('month') ?? '';
   const {data, error, reload} = useResource<StatementData>(`/app-api/units/${unit}/print/statement`, {student_id: studentId, month});

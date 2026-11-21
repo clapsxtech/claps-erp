@@ -11,12 +11,12 @@ export function canAct(unit: UnitAccess | undefined, action: string): boolean {
   return unit.actions.includes(action);
 }
 
-/** Classic WorkspaceController::mutate action URL. */
+/** WorkspaceController::mutate action URL. */
 export function workspaceAction(unitId: number, action: string): string {
   return `/erp/units/${unitId}/${action}`;
 }
 
-/** Classic BusinessController::mutate action URL (allocation-* lives here). */
+/** BusinessController::mutate action URL (allocation-* lives here). */
 export function businessAction(unitId: number, action: string): string {
   return `/erp/units/${unitId}/business-actions/${action}`;
 }

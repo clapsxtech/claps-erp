@@ -28,7 +28,7 @@ class OverviewApiController extends Controller
         $now = CarbonImmutable::now($zone);
         $today = $now->toDateString();
 
-        // The classic dashboard metrics, each only for the role that has the page it summarises.
+        // Dashboard metrics, each only for the role that has the page it summarises.
         $metrics = [
             'activeStudents' => $can('people') ? DB::table('erp_students')->where('unit_id', $unit)->where('status', 'active')->count() : null,
             'scheduledLessons' => $can('timetable') ? DB::table('erp_lessons')->where('unit_id', $unit)->where('status', 'scheduled')->count() : null,
@@ -89,12 +89,12 @@ class OverviewApiController extends Controller
         if ($can('followups')) {
             $open = DB::table('erp_tasks')->where('unit_id', $unit)->where('status', '!=', 'completed');
             $unitTasks = ['count' => (clone $open)->count(), 'overdue' => (clone $open)->whereNotNull('due_on')->where('due_on', '<', $today)->count()];
-            // Classic "Due follow-ups": the latest instruction per student, due today or earlier.
+            // "Due follow-ups": the latest instruction per student, due today or earlier.
             $latest = DB::table('erp_followups')->where('unit_id', $unit)->select(DB::raw('MAX(id) AS id'))->groupBy('student_id');
             $followupsDue = DB::table('erp_followups')->where('unit_id', $unit)->whereIn('id', $latest)->whereNotNull('next_due_on')->where('next_due_on', '<=', $today)->count();
         }
 
-        // Attendance work queues: the attendance page has all three; money sees only the import queue (as in the classic money page).
+        // Attendance work queues: the attendance page has all three; money sees only the import queue.
         $queues = null;
         if ($can('attendance') || $can('money')) {
             $work = (new WorkQueues())->attendance($unit);
@@ -132,7 +132,7 @@ class OverviewApiController extends Controller
         $user = $request->user();
         $permissions = new TeamPermissions();
         $business = DB::table('erp_units')->find($unit);
-        // The unit-wide task register is the classic Follow-ups page; everyone else sees only their own.
+        // The unit-wide task register needs the Follow-ups page; everyone else sees only their own.
         $canSeeAll = $permissions->allows($user, $unit, 'page', 'followups');
         $scope = $v['scope'] ?? 'mine';
         abort_if($scope === 'all' && !$canSeeAll, 403, 'Your team role does not allow this operation.');
@@ -152,7 +152,7 @@ class OverviewApiController extends Controller
         if ($status === 'open') $query->where('t.status', '!=', 'completed');
         if ($status === 'completed') $query->where('t.status', 'completed');
         $search = trim((string) ($v['q'] ?? ''));
-        // Notes are shown only on the assignee's own-task view (classic Follow-ups lists no notes), so only "mine" searches them.
+        // Notes are shown only on the assignee's own-task view (the unit-wide register lists no notes), so only "mine" searches them.
         if ($search !== '') $query->where(fn ($q) => $scope === 'mine' ? $q->where('t.title', 'like', '%'.$search.'%')->orWhere('t.notes', 'like', '%'.$search.'%') : $q->where('t.title', 'like', '%'.$search.'%'));
         $sort = $v['sort'] ?? 'due_on';
         $dir = $v['dir'] ?? 'asc';

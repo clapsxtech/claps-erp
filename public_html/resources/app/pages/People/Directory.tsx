@@ -1,4 +1,4 @@
-// Sales teacher directory (classic Admissions "Teachers" view, erp/crm/teachers):
+// Sales teacher directory (Admissions "Teachers" view):
 // find a teacher by level, category or subject, call or WhatsApp them, and send
 // their profile to a parent by WhatsApp. Opened from an enquiry (?for_lead=),
 // "Send profile" goes straight to that parent's WhatsApp.

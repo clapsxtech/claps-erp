@@ -1,7 +1,7 @@
 // Helpers shared by the Money screens (Payments, Accounts, Tuition). Everything
-// writes through the classic Laravel action routes; nothing here computes or
+// writes through the Laravel action routes; nothing here computes or
 // posts money itself. Amounts are typed as rupee strings ("100.50"), exactly what
-// the classic forms submit as amount_inr; the server converts them to paise.
+// the action routes expect as amount_inr; the server converts them to paise.
 import {useEffect, useState, type ReactNode} from 'react';
 import {Dialog, DialogHeader} from '@astryxdesign/core/Dialog';
 import {AlertDialog} from '@astryxdesign/core/AlertDialog';
@@ -23,7 +23,7 @@ import {session, type UnitAccess} from '../../lib/session';
 import {useDebounced} from '../../lib/hooks';
 import {Balance} from '../../components/Amount';
 
-/** Whether the signed-in role may run a classic action here. Archived teams and Sheets authority are read-only. */
+/** Whether the signed-in role may run an action here. Archived teams and Sheets authority are read-only. */
 export function canAct(unit: UnitAccess | undefined, action: string): boolean {
   if (!unit || unit.isArchived || session().sheetsAuthority) return false;
   return unit.role === 'superadmin' || unit.actions.includes(action);
@@ -49,7 +49,7 @@ export function monthOptions(timezone: string, count = 24): {value: string; labe
   });
 }
 
-/** Classic action URLs: workspace actions post to /{action}, business actions to /business-actions/{action}. */
+/** Action URLs: workspace actions post to /{action}, business actions to /business-actions/{action}. */
 export function actionUrl(unitId: number, action: string): string {
   return action === 'payment' || action === 'approve' ? `/erp/units/${unitId}/${action}` : `/erp/units/${unitId}/business-actions/${action}`;
 }
@@ -64,7 +64,7 @@ const ERROR_ALIASES: Record<string, string> = {amount_paise: 'amount_inr'};
 /**
  * A reversal, correction or cancellation: collect the reason (and any replacement
  * values) first, then confirm in an AlertDialog that states the consequence, then
- * post to the classic action. Ledger rows are never edited; the server records an
+ * post to the action route. Ledger rows are never edited; the server records an
  * equal and opposite entry.
  */
 export function ConfirmActionDialog({
@@ -139,7 +139,7 @@ export function ConfirmActionDialog({
     const payload: Record<string, unknown> = {...fixed};
     for (const field of fields) {
       let raw = (values[field.name] ?? '').trim();
-      // Classic datetime-local inputs send YYYY-MM-DDTHH:MM in the team's time; drop any seconds.
+      // datetime-local values are sent as YYYY-MM-DDTHH:MM in the team's time; drop any seconds.
       if (field.kind === 'datetime') raw = raw.slice(0, 16);
       if (raw !== '') payload[field.name] = raw;
     }

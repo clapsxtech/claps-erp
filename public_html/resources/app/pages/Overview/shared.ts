@@ -37,7 +37,7 @@ function csrfToken(): string {
 }
 
 /**
- * POST to the classic own-task routes (/erp/my-tasks/...). They answer success with a
+ * POST to the own-task routes (/erp/my-tasks/...). They answer success with a
  * redirect rather than JSON, so the redirect is not followed and counts as success;
  * failures still come back as JSON because the request asks for it.
  */

@@ -1,4 +1,4 @@
-// Application settings (/app/records/settings), read-only. Classic: SettingsController::index.
+// Application settings (/app/records/settings), read-only.
 import {Card} from '@astryxdesign/core/Card';
 import {MetadataList, MetadataListItem} from '@astryxdesign/core/MetadataList';
 import {EmptyState} from '@astryxdesign/core/EmptyState';

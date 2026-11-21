@@ -9,7 +9,7 @@ export const routes: AppRoute[] = [
   {path: 'admin/operations', global: true, component: lazy(() => import('../pages/Admin/Operations'))},
   {path: 'admin/migration', global: true, component: lazy(() => import('../pages/Admin/Migration'))},
   {path: 'account/security', global: true, component: lazy(() => import('../pages/Admin/Security'))},
-  // Records & administration (read-only classic /admin record sets).
+  // Records & administration (read-only historical record sets).
   {path: 'records', global: true, component: lazy(() => import('../pages/Records/Index'))},
   {path: 'records/timetable', global: true, component: lazy(() => import('../pages/Records/Timetable'))},
   {path: 'records/student-timetable', global: true, component: lazy(() => import('../pages/Records/Timetable'))},

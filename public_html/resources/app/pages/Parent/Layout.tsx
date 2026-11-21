@@ -59,7 +59,7 @@ const styles = stylex.create({
   active: {color: 'var(--color-text-accent)'},
 });
 
-/** Signs out through the classic route (it clears the portal session), then reloads the sign-in page. */
+/** Signs out through the logout route (it clears the portal session), then reloads the sign-in page. */
 export function SignOutButton() {
   const [busy, setBusy] = useState(false);
   async function signOut() {

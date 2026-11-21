@@ -9,10 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * JSON reads for the global "Teams & accounts" screen (classic AdministrationController::index).
+ * JSON reads for the global "Teams & accounts" screen.
  * Route middleware 'admin' already requires a superadmin; each action asserts it again.
  * Account rows are explicit arrays: never a serialized User (password, 2FA, tokens).
- * Writes stay on the classic /erp/administration POST routes.
+ * Writes go to the /erp/administration POST routes (AdministrationController).
  */
 class AdminTeamsApiController extends Controller
 {

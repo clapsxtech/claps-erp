@@ -1,5 +1,5 @@
-// Teams & accounts (global, superadmin only). Classic: AdministrationController::index.
-// Writes post to the classic /erp/administration routes, which answer with a redirect;
+// Teams & accounts (global, superadmin only).
+// Writes post to the /erp/administration routes, which answer with a redirect;
 // adminPost treats that as saved. Account actions need the admin's own password.
 import {useEffect, useMemo, useState} from 'react';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
