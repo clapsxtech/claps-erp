@@ -86,8 +86,19 @@ export function FormDrawer({
       onSaved?.(result.result);
     } catch (reason) {
       if (reason instanceof ApiError) {
-        setErrors(reason.fieldErrors);
-        setFormError(Object.keys(reason.fieldErrors).length ? 'Fix the highlighted fields. Nothing was saved.' : reason.message);
+        // Errors for a field on the form show beside it; any other error (for
+        // example an amount over what is owed, keyed amount_paise) shows in the banner.
+        const names = new Set(fields.map(field => field.name));
+        const placed: Record<string, string[]> = {};
+        const unplaced: string[] = [];
+        for (const [key, messages] of Object.entries(reason.fieldErrors)) {
+          if (names.has(key)) placed[key] = messages;
+          else unplaced.push(...messages);
+        }
+        setErrors(placed);
+        setFormError(
+          unplaced.length ? unplaced.join(' ') : Object.keys(placed).length ? 'Fix the highlighted fields. Nothing was saved.' : reason.message,
+        );
       } else {
         setFormError('Could not reach the server. Nothing was saved.');
       }

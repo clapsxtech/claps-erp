@@ -33,6 +33,8 @@ export interface PhoneCard<T extends Record<string, unknown>> {
   subtitle?: (row: T) => ReactNode;
   trailing?: (row: T) => ReactNode;
   href?: (row: T) => string | undefined;
+  /** Open the card's link in a new tab (printable documents). */
+  newTab?: boolean;
 }
 
 export interface ListMeta {
@@ -166,6 +168,7 @@ export function DataTable<T extends Record<string, unknown>>({
             description={phoneCard.subtitle?.(row)}
             endContent={phoneCard.trailing?.(row)}
             href={phoneCard.href?.(row)}
+            target={phoneCard.newTab ? '_blank' : undefined}
           />
         ))}
       </List>
