@@ -105,7 +105,7 @@ export function AppFrame() {
       footer={
         <SideNavSection title="More" isHeaderHidden>
           {sess.user.isTeacher && <SideNavItem label="My lessons" icon={AcademicCapIcon} href="/teacher" />}
-          {sess.user.isAdmin && <SideNavItem label="Records & admin tools" icon={WrenchScrewdriverIcon} href="/tools" />}
+          {sess.user.isAdmin && <SideNavItem label="Records & administration" icon={WrenchScrewdriverIcon} href="/app/records" />}
         </SideNavSection>
       }>
       {groups.map(group => (
