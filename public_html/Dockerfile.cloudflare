@@ -7,6 +7,8 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY scripts ./scripts
 COPY resources ./resources
+# Brand theme for the React app, written by the Astryx theme editor.
+COPY src/themes ./src/themes
 RUN npm run production
 
 FROM composer:2 AS vendor

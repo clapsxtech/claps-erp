@@ -56,6 +56,19 @@ class TeamPermissions
         }
         return false;
     }
+    /**
+     * What the app shell may show for this unit. Every value is computed through
+     * allows(), so the shell can never list something the server would refuse.
+     */
+    public function capabilities(User $user, int $unit, bool $archived): array
+    {
+        $pages = array_values(array_filter(array_unique(array_merge(...array_values(self::PAGES)), SORT_REGULAR), fn ($page) => $this->allows($user, $unit, 'page', $page)));
+        if ((new SiteAccessPolicy())->isAdministrator($user)) $pages[] = 'staff';
+        $candidates = array_merge(array_merge(...array_values(self::ACTIONS)), ['allocation-demo','allocation-feedback','allocation-qualify','allocation-window','allocation-regular','teacher-candidate-create','teacher-candidate-update','teacher-candidate-contact','teacher-candidate-register','teacher-candidate-approve','teacher-candidate-resolve']);
+        $actions = $archived ? [] : array_values(array_filter($candidates, fn ($action) => $this->allows($user, $unit, 'action', $action)));
+        $exports = array_values(array_filter(array_keys((new Reporting())->datasets()), fn ($dataset) => $this->allows($user, $unit, 'export', $dataset)));
+        return ['pages' => array_values(array_unique($pages)), 'actions' => $actions, 'exports' => $exports];
+    }
     public function landing(User $user,int $unit): string
     {
         foreach (['dashboard','admissions','academics','money','followups'] as $page) if($this->allows($user,$unit,'page',$page)) return $page;

@@ -27,7 +27,8 @@ class TeamAuthorization
             'erp.invoice'=>['page','accounts'],
             'erp.reconciliation'=>['page','migration'],
             // These legacy composite screens contain financial and personal histories.
-            'erp.workspace','erp.student-profile'=>['detail','all'],
+            'erp.workspace','erp.student-profile','app.api.student'=>['detail','all'],
+            'app.api.students'=>['page','people'],
             default=>['unknown',''],
         };
         abort_unless($permissions->allows($user,$unit,$kind,$value),403,'Your team role does not allow this operation.');

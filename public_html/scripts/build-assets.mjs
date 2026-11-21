@@ -9,6 +9,31 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 process.chdir(root);
 const production = process.argv.includes('--production');
 const options = { minify: production, legalComments: 'eof', target: ['es2020'], logLevel: 'warning' };
+// The React + Astryx application. Astryx ships prebuilt CSS; the StyleX plugin
+// compiles only our own stylex.create() calls (never node_modules/@astryxdesign).
+async function buildReactApp() {
+    const { default: stylex } = await import('@stylexjs/unplugin/esbuild');
+    await rm('public/app', { recursive: true, force: true });
+    const result = await build({
+        ...options,
+        entryPoints: { main: 'resources/app/main.tsx' },
+        bundle: true, splitting: true, format: 'esm', platform: 'browser',
+        outdir: 'public/app', entryNames: '[name]-[hash]', chunkNames: 'chunks/[name]-[hash]', assetNames: 'assets/[name]-[hash]',
+        jsx: 'automatic', metafile: true,
+        loader: { '.woff': 'file', '.woff2': 'file', '.svg': 'file', '.png': 'file' },
+        define: { 'process.env.NODE_ENV': JSON.stringify(production ? 'production' : 'development') },
+        plugins: [stylex({ useCSSLayers: true, dev: !production, unstable_moduleResolution: { type: 'commonJS', rootDir: root } })],
+    });
+    // The Blade host page reads this manifest to find the hashed entry files.
+    const entry = {};
+    for (const [file, meta] of Object.entries(result.metafile.outputs)) {
+        if (meta.entryPoint === 'resources/app/main.tsx') {
+            entry.js = '/' + path.relative('public', file).split(path.sep).join('/');
+            if (meta.cssBundle) entry.css = '/' + path.relative('public', meta.cssBundle).split(path.sep).join('/');
+        }
+    }
+    await writeFile('public/app/manifest.json', JSON.stringify(entry, null, 2) + '\n');
+}
 async function buildAssets() {
     await mkdir('public/js', { recursive: true });
     await mkdir('public/css', { recursive: true });
@@ -16,6 +41,7 @@ async function buildAssets() {
     await build({ ...options, entryPoints: ['resources/js/report-dates.js'], bundle: true, platform: 'browser', outfile: 'public/js/report-dates.js' });
     await build({ ...options, entryPoints: ['resources/js/erp-shell.js'], bundle: true, platform: 'browser', outfile: 'public/js/erp-shell.js' });
     await build({ ...options, entryPoints: ['resources/css/erp.css'], bundle: true, outfile: 'public/css/erp.css' });
+    await buildReactApp();
     for (const name of ['app', 'toastr']) {
         const compiled = compile(`resources/sass/${name}.scss`, {
             loadPaths: ['node_modules'], quietDeps: true,
@@ -81,7 +107,7 @@ await buildAssets();
 if (process.argv.includes('--watch')) {
     // Async iteration serializes builds; no stale build can finish over a newer one.
     for await (const event of watch('resources', { recursive: true })) {
-        if (!event.filename || !/\.(js|css|scss)$/.test(event.filename)) continue;
+        if (!event.filename || !/\.(js|css|scss|ts|tsx)$/.test(event.filename)) continue;
         try { await buildAssets(); } catch (error) { console.error(error); }
     }
 }

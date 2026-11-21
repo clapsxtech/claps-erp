@@ -47,3 +47,12 @@ Route::middleware('auth')->prefix('erp/units/{unit}/tuition')->whereNumber('unit
     Route::get('/statement', [\App\Http\Controllers\Erp\TuitionController::class,'statement'])->name('erp.tuition.statement');
     Route::post('/{operation}', [\App\Http\Controllers\Erp\TuitionController::class,'mutate'])->name('erp.tuition.mutate');
 });
+
+// React + Astryx application. One Blade host page serves every /app URL; data
+// comes from the JSON routes below, which pass through the same TeamAuthorization
+// role matrix as the classic screens.
+Route::get('/app/{path?}', [\App\Http\Controllers\App\AppShellController::class, 'show'])->where('path', '.*')->middleware('auth')->name('app.shell');
+Route::middleware(['auth', \App\Http\Middleware\TeamAuthorization::class])->prefix('app-api/units/{unit}')->whereNumber('unit')->name('app.api.')->group(function () {
+    Route::get('/students', [\App\Http\Controllers\App\StudentsApiController::class, 'index'])->name('students');
+    Route::get('/students/{student}', [\App\Http\Controllers\App\StudentsApiController::class, 'show'])->whereNumber('student')->name('student');
+});
