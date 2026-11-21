@@ -125,7 +125,7 @@ export function DataTable<T extends Record<string, unknown>>({
         />
       </StackItem>
       {filters}
-      {exportHref && (
+      {exportHref && !isPhone && (
         <Button
           label="Export CSV"
           variant="secondary"

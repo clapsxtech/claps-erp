@@ -15,7 +15,7 @@ import {Status} from '../components/Status';
 import {Metric, MetricRow} from '../components/Metric';
 import {Balance} from '../components/Amount';
 import {useDebounced, useListQuery, useResource} from '../lib/hooks';
-import {money, date, number} from '../lib/format';
+import {money, date, number, titleCase} from '../lib/format';
 import {unitById} from '../lib/session';
 
 interface StudentRow extends Record<string, unknown> {
@@ -190,7 +190,7 @@ export default function Students() {
         emptyAction={canCreate ? <Button label="Add student" variant="secondary" onClick={() => setCreating(true)} /> : undefined}
         phoneCard={{
           title: row => row.name,
-          subtitle: row => `${row.code} · Grade ${row.grade} · ${row.status}`,
+          subtitle: row => `${row.code} · Grade ${row.grade} · ${titleCase(row.status)}`,
           trailing: row => (row.balancePaise !== null ? <Balance paise={row.balancePaise} whole /> : undefined),
           href: row => (can?.openProfile ? `/app/u/${unitId}/students/${row.id}` : undefined),
         }}
