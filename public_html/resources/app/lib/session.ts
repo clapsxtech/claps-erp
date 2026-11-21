@@ -21,6 +21,7 @@ export interface Session {
   user: {id: number; name: string; initials: string; isAdmin: boolean; isTeacher: boolean};
   units: UnitAccess[];
   sheetsAuthority: boolean;
+  sheetsEnabled: boolean;
   legacyBase: string;
 }
 

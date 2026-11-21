@@ -25,6 +25,7 @@ import {
   BuildingOffice2Icon,
   ArrowUpTrayIcon,
   PresentationChartLineIcon,
+  TableCellsIcon,
 } from '@heroicons/react/24/outline';
 import type {Session, UnitAccess} from './lib/session';
 
@@ -44,6 +45,8 @@ export interface Destination {
   path: string;
   global?: boolean;
   adminOnly?: boolean;
+  /** Extra condition, e.g. a feature that is switched off. */
+  when?: (sess: Session) => boolean;
 }
 
 export interface NavGroup {
@@ -89,6 +92,7 @@ export const GROUPS: NavGroup[] = [
     title: 'Reports',
     items: [
       {key: 'sales-report', label: 'Sales report', keywords: 'counsellor conversions campaigns collections activity', icon: PresentationChartLineIcon, page: 'admissions', path: 'sales-report'},
+      {key: 'from-sheets', label: 'From Sheets', keywords: 'google sheets imported records bridge', icon: TableCellsIcon, page: null, path: '/app/admin/migration?tab=sheets', global: true, when: sess => sess.sheetsEnabled},
       {key: 'insights', label: 'Trends', keywords: 'insights analytics charts growth', icon: ChartBarIcon, page: 'insights', path: 'insights'},
       {key: 'exports', label: 'Exports & checks', keywords: 'migration csv download reconciliation', icon: CloudArrowDownIcon, page: 'migration', path: 'exports'},
     ],
@@ -107,6 +111,7 @@ export const GROUPS: NavGroup[] = [
 
 export function allows(item: Destination, unit: UnitAccess | undefined, sess: Session): boolean {
   if (item.adminOnly && !sess.user.isAdmin) return false;
+  if (item.when && !item.when(sess)) return false;
   if (item.page === null) return true;
   if (!unit) return false;
   if (sess.user.isAdmin) return true;

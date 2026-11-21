@@ -22,7 +22,6 @@ const AppLink = forwardRef<HTMLAnchorElement, AnchorHTMLAttributes<HTMLAnchorEle
 
 const Students = lazy(() => import('./pages/Students'));
 const StudentDetail = lazy(() => import('./pages/StudentDetail'));
-const Placeholder = lazy(() => import('./pages/Placeholder'));
 
 function page(element: ReactElement) {
   return <Suspense fallback={<PageLoading />}>{element}</Suspense>;
@@ -52,7 +51,6 @@ const router = createBrowserRouter([
         const Component = route.component;
         return {path: route.global ? route.path : `u/:unit/${route.path}`, element: page(<Component />)};
       }),
-      {path: 'u/:unit/:section', element: page(<Placeholder />)},
       {path: '*', element: <NotFound />},
     ],
   },

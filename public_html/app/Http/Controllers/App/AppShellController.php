@@ -42,6 +42,7 @@ class AppShellController extends Controller
             ],
             'units' => $units,
             'sheetsAuthority' => config('sheet_transition.authority') === 'sheets',
+            'sheetsEnabled' => (bool) config('sheet_transition.enabled'),
             'legacyBase' => '/erp',
         ];
         return self::page($session + ['kind' => 'staff']);

@@ -194,7 +194,12 @@ export default function Admissions() {
     <Page
       title="Admissions"
       description="Enquiries, demos and follow-ups for this team."
-      actions={canCreate && <Button label="New lead" variant="primary" icon={<Icon icon={PlusIcon} size="sm" />} onClick={() => setCreating(true)} />}>
+      actions={
+        <>
+          <Button label="Teacher directory" variant="secondary" href={`/app/u/${unitId}/admissions/teachers`} />
+          {canCreate && <Button label="New lead" variant="primary" icon={<Icon icon={PlusIcon} size="sm" />} onClick={() => setCreating(true)} />}
+        </>
+      }>
       {totals && (
         <MetricRow>
           <Metric label="Active leads" value={number(totals.active)} onClick={() => setQuery({tab: 'pipeline', status: 'LEAD', followup: '', stage: ''})} isActive={query.tab === 'pipeline' && query.status === 'LEAD'} />

@@ -113,6 +113,7 @@ export default function LeadDetail() {
           {can.followup && <Button label="Log follow-up" variant="primary" onClick={() => open('followup')} />}
           {active && can.scheduleDemo && <Button label="Schedule demo" variant="secondary" onClick={() => open('demo')} />}
           {active && can.convert && <Button label="Register student" variant="secondary" onClick={() => open('convert')} />}
+          {active && <Button label="Send teacher profile" variant="secondary" href={`/app/u/${unitId}/admissions/teachers?for_lead=${lead.id}`} />}
           {more.length > 0 && <MoreMenu label="More lead actions" items={more} alignment="end" />}
         </>
       }>

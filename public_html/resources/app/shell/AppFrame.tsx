@@ -157,7 +157,6 @@ export function AppFrame() {
             <DropdownMenuItem label={sess.user.name} description={unit ? unit.roleLabel : 'Signed in'} isDisabled />
             <DropdownMenuDivider />
             <DropdownMenuItem label="Account security" onClick={() => navigate('/app/account/security')} />
-            <DropdownMenuItem label="Use the classic screens" href={unit ? `/erp/units/${unit.id}/business/dashboard` : '/'} />
             <DropdownMenuDivider />
             <DropdownMenuItem label="Sign out" icon={ArrowRightStartOnRectangleIcon} onClick={signOut} />
           </DropdownMenu>
