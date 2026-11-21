@@ -60,6 +60,8 @@ export const GROUPS: NavGroup[] = [
     items: [
       {key: 'home', label: 'Home', keywords: 'dashboard today overview kpi', icon: HomeIcon, page: null, path: 'home'},
       {key: 'tasks', label: 'My tasks', short: 'Tasks', keywords: 'todo assigned work inbox', icon: InboxStackIcon, page: null, path: 'tasks'},
+      // Without any team in the session (legacy roles), the cross-team list replaces Home and My tasks.
+      {key: 'my-tasks', label: 'My tasks', short: 'Tasks', keywords: 'todo assigned work inbox', icon: InboxStackIcon, page: null, path: '/app/my-tasks', global: true, when: sess => sess.units.length === 0},
     ],
   },
   {
@@ -112,6 +114,8 @@ export const GROUPS: NavGroup[] = [
 export function allows(item: Destination, unit: UnitAccess | undefined, sess: Session): boolean {
   if (item.adminOnly && !sess.user.isAdmin) return false;
   if (item.when && !item.when(sess)) return false;
+  // Team screens need a team; without one only global destinations are listed.
+  if (!unit && !item.global) return false;
   if (item.page === null) return true;
   if (!unit) return false;
   if (sess.user.isAdmin) return true;

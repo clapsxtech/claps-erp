@@ -96,13 +96,13 @@ class StudentsApiController extends Controller
 
     public function show(Request $request, int $unit, int $student)
     {
-        // Each section pages on its own; the classic profile refused malformed page numbers.
+        // Each section pages on its own; malformed page numbers are refused with 422.
         $request->validate(collect(self::SECTIONS)->mapWithKeys(fn ($section) => [$section.'_page' => 'nullable|integer|min:1|max:1000000'])->all());
         $p = (new StudentProfile())->read($unit, $student);
         $s = $p['student'];
         $permissions = new TeamPermissions();
         $user = $request->user();
-        // Rates are money: shown to roles with the money page only, as the classic workspace did.
+        // Rates are money: shown to roles with the money page only.
         $canSeeMoney = $permissions->allows($user, $unit, 'page', 'money');
         $canUpdate = $permissions->allows($user, $unit, 'action', 'student-update');
         $page = fn ($paginator, array $fields) => collect($paginator->items())->map(fn ($row) => collect($fields)->mapWithKeys(fn ($f) => [$f => $row->$f ?? null])->all())->values();

@@ -69,6 +69,15 @@ class AppPeopleApiTest extends TestCase
         $this->assertNull($academic['data'][0]['netPayablePaise']);
         $detail = $this->getJson('/app-api/units/'.$this->unit.'/teachers/'.$this->teacher)->assertOk()->json();
         $this->assertNull($detail['statement']);
+        // Class hourly rates are money: null for roles without the money page.
+        $subject = DB::table('erp_subjects')->value('id');
+        DB::table('erp_enrollments')->insert(['unit_id' => $this->unit, 'student_id' => $this->student, 'teacher_id' => $this->teacher, 'subject_id' => $subject, 'starts_on' => '2026-01-01', 'status' => 'active', 'student_rate_paise' => 45123, 'teacher_rate_paise' => 30123, 'currency' => 'INR']);
+        $detail = $this->getJson('/app-api/units/'.$this->unit.'/teachers/'.$this->teacher)->assertOk()->json();
+        $this->assertSame(['id', 'studentId', 'studentName', 'subjectName', 'startsOn', 'endsOn', 'status', 'studentRatePaise', 'teacherRatePaise'], array_keys($detail['classes'][0]));
+        $this->assertSame([null, null], [$detail['classes'][0]['studentRatePaise'], $detail['classes'][0]['teacherRatePaise']]);
+        $this->assertStringNotContainsString('30123', json_encode($detail));
+        $managed = $this->actingAs($this->member('team_manager'))->getJson('/app-api/units/'.$this->unit.'/teachers/'.$this->teacher)->assertOk()->json();
+        $this->assertSame([45123, 30123], [$managed['classes'][0]['studentRatePaise'], $managed['classes'][0]['teacherRatePaise']]);
         $this->assertSame([['subject' => 'Synthetic Maths', 'grade' => '8', 'syllabus' => 'CBSE']], $detail['eligibilities']);
         $hidden = DB::table('erp_teachers')->where('code', 'CT3')->value('id');
         $this->getJson('/app-api/units/'.$this->unit.'/teachers/'.$hidden)->assertNotFound();
@@ -125,7 +134,7 @@ class AppPeopleApiTest extends TestCase
         $json = $this->getJson('/app-api/units/'.$this->unit.'/admissions/'.$lead)->assertOk()->json();
         $this->assertSame('contacted', $json['lead']['stage']);
         $this->assertSame('2099-01-02', $json['lead']['nextFollowUpOn']);
-        $this->assertSame(['id', 'kind', 'channel', 'outcome', 'summary', 'occurredAt', 'actorName'], array_keys($json['activities'][0]));
+        $this->assertSame(['id', 'kind', 'channel', 'outcome', 'summary', 'details', 'occurredAt', 'actorName'], array_keys($json['activities'][0]));
         $this->assertTrue($json['reminders'][0]['isOverdue']);
         $this->assertSame([['value' => (string) $colleague->id, 'label' => 'Synthetic sales_followups']], $json['members']);
         $this->assertTrue($json['transfers'][0]['canCancel']);
@@ -238,7 +247,7 @@ class AppPeopleApiTest extends TestCase
             'rawName', 'email', 'country', 'studentPhone', 'notes', 'lostReason', 'joinedOn', 'admissionCode', 'studentId', 'studentCode', 'learningRequirement', 'concern', 'aboutStudent', 'aboutParent', 'awaitingAllocation', 'joinedMessage'], array_keys($detail['lead']));
         $this->assertNull($detail['demos'][0]['meetLink'], 'Only http(s) meeting links are returned.');
         $demo = $this->getJson('/app-api/units/'.$this->unit.'/admissions/demos')->assertOk()->json('data.0');
-        $this->assertSame(['id', 'scheduledOn', 'scheduledTime', 'status', 'meetLink', 'isMatched', 'feedbackOutcome', 'feedbackNote', 'teacherName', 'subjectName', 'leadId', 'leadName'], array_keys($demo));
+        $this->assertSame(['id', 'scheduledOn', 'scheduledTime', 'status', 'meetLink', 'isMatched', 'feedbackOutcome', 'feedbackNote', 'teacherName', 'subjectName', 'leadId', 'leadName', 'parentDial', 'parentWhatsapp', 'hasTeacher', 'teacherDial', 'teacherWhatsapp', 'isUpcoming'], array_keys($demo));
         $reminder = $this->getJson('/app-api/units/'.$this->unit.'/admissions/reminders')->assertOk()->json('data.0');
         $this->assertSame(['id', 'leadId', 'leadName', 'dueOn', 'dueTime', 'text', 'isOverdue'], array_keys($reminder));
         $transfer = $this->getJson('/app-api/units/'.$this->unit.'/admissions/transfers')->assertOk()->json('data.0');
@@ -255,5 +264,58 @@ class AppPeopleApiTest extends TestCase
         $this->assertSame(['id', 'name', 'phone', 'email', 'teacherCode', 'teacherId', 'stage', 'mergedIntoId', 'qualification', 'subjects', 'grades', 'syllabuses', 'medium', 'availability', 'sourceStatus', 'cvUrl', 'registeredAt'], array_keys($json['candidate']));
         $this->assertSame(['name' => 'Synthetic Fields', 'phone' => '9800000012'], $json['sources'][0]['fields']);
         $this->assertStringNotContainsString('SECRET-123', json_encode($json));
+    }
+    public function test_lead_activity_details_are_whitelisted_display_fields(): void
+    {
+        $manager = $this->member('team_manager');
+        $lead = $this->lead($manager->id, 'Synthetic Details Lead');
+        $activity = fn (string $kind, array $metadata) => DB::table('erp_lead_activities')->insert(['unit_id' => $this->unit, 'lead_id' => $lead, 'actor_id' => $manager->id, 'kind' => $kind, 'summary' => $kind, 'metadata' => json_encode($metadata), 'occurred_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $activity('re_enquiry', ['external_id' => 'crm-9', 'status' => 'LEAD', 'enquiry_date' => '2026-04-02', 'source' => 'Later campaign', 'secret_key' => 'PRIVATE-META', 'student_id' => 4242]);
+        $activity('edited', ['changes' => ['source' => ['from' => 'Walk-in', 'to' => 'Referral'], 'assigned_to' => ['from' => 7, 'to' => 8], 'bank' => ['from' => 'x', 'to' => 'PRIVATE-CHANGE']]]);
+        DB::table('erp_lead_activities')->insert(['unit_id' => $this->unit, 'lead_id' => $lead, 'actor_id' => $manager->id, 'kind' => 'created', 'summary' => 'Bad json', 'metadata' => '{not json', 'occurred_at' => now()->subDay(), 'created_at' => now(), 'updated_at' => now()]);
+
+        $activities = collect($this->actingAs($manager)->getJson('/app-api/units/'.$this->unit.'/admissions/'.$lead)->assertOk()->json('activities'))->keyBy('kind');
+        $this->assertSame(['id', 'kind', 'channel', 'outcome', 'summary', 'details', 'occurredAt', 'actorName'], array_keys($activities['re_enquiry']));
+        $this->assertSame([['label' => 'Source', 'value' => 'Later campaign'], ['label' => 'Enquiry date', 'value' => '2026-04-02'], ['label' => 'CRM reference', 'value' => 'crm-9'], ['label' => 'Lead status', 'value' => 'LEAD']], $activities['re_enquiry']['details']);
+        $this->assertSame([['label' => 'Source', 'value' => 'Walk-in → Referral']], $activities['edited']['details']);
+        $this->assertSame([], $activities['created']['details']);
+        $body = json_encode($activities);
+        foreach (['PRIVATE-META', '4242', 'PRIVATE-CHANGE', 'secret_key'] as $hidden) $this->assertStringNotContainsString($hidden, $body);
+    }
+
+    public function test_demo_contacts_follow_the_classic_card_rules(): void
+    {
+        $sales = $this->member('sales_followups');
+        $local = $this->lead($sales->id, 'Synthetic Local Lead', ['phone' => '04712345678', 'country' => null]);
+        $indian = $this->lead($sales->id, 'Synthetic Indian Lead', ['phone' => '9800000002']);
+        $noPhone = DB::table('erp_teachers')->insertGetId(['code' => 'CT40', 'name' => 'Synthetic Phoneless Teacher', 'timezone' => 'UTC', 'status' => 'active']);
+        DB::table('erp_teacher_candidates')->insert(['business_id' => 1, 'identity_key' => 'demo-contact', 'name' => 'Synthetic Paid Teacher', 'phone' => '9876500009', 'teacher_id' => $this->teacher, 'stage' => 'APPROVED', 'created_at' => now(), 'updated_at' => now()]);
+        $demo = fn (int $lead, ?int $teacher, string $on, string $status = 'SCHEDULED') => DB::table('erp_demos')->insertGetId(['unit_id' => $this->unit, 'lead_id' => $lead, 'teacher_id' => $teacher, 'scheduled_on' => $on, 'scheduled_time' => '10:00', 'status' => $status, 'duration_minutes' => 45, 'created_by' => $sales->id]);
+        $withTeacher = $demo($indian, $this->teacher, '2099-01-01');
+        $without = $demo($local, null, '2099-01-02');
+        $phoneless = $demo($indian, $noPhone, '2099-01-03');
+        $past = $demo($indian, $this->teacher, '2020-01-01', 'ATTENDED');
+        // Another counsellor's demo never appears, contact links included.
+        $demo($this->lead($this->member('sales_followups')->id, 'Synthetic Hidden Lead', ['phone' => '9800000099']), $this->teacher, '2099-01-04');
+
+        $rows = collect($this->actingAs($sales)->getJson('/app-api/units/'.$this->unit.'/admissions/demos?scope=all')->assertOk()->assertJsonPath('meta.total', 4)->json('data'))->keyBy('id');
+        $this->assertSame('+919800000002', $rows[$withTeacher]['parentDial']);
+        $this->assertStringStartsWith('https://wa.me/919800000002?text='.rawurlencode('Dear Parent,'), $rows[$withTeacher]['parentWhatsapp']);
+        $this->assertStringContainsString(rawurlencode('Duration: 45 minutes'), $rows[$withTeacher]['parentWhatsapp']);
+        $this->assertSame('+919876500009', $rows[$withTeacher]['teacherDial']);
+        $this->assertStringStartsWith('https://wa.me/919876500009?text='.rawurlencode('Hi Synthetic Paid Teacher,'), $rows[$withTeacher]['teacherWhatsapp']);
+        $this->assertTrue($rows[$withTeacher]['isUpcoming']);
+        // A local number without a country: dial as written, WhatsApp lets the sender pick the chat.
+        $this->assertSame('04712345678', $rows[$without]['parentDial']);
+        $this->assertStringStartsWith('https://wa.me/?text=', $rows[$without]['parentWhatsapp']);
+        $this->assertFalse($rows[$without]['hasTeacher']);
+        $this->assertNull($rows[$without]['teacherDial']);
+        $this->assertNull($rows[$without]['teacherWhatsapp']);
+        $this->assertTrue($rows[$phoneless]['hasTeacher']);
+        $this->assertNull($rows[$phoneless]['teacherDial']);
+        $this->assertNull($rows[$phoneless]['teacherWhatsapp']);
+        $this->assertFalse($rows[$past]['isUpcoming']);
+        $this->assertStringNotContainsString('9800000099', json_encode($rows));
+        $this->actingAs($this->member('academics'))->getJson('/app-api/units/'.$this->unit.'/admissions/demos')->assertForbidden();
     }
 }

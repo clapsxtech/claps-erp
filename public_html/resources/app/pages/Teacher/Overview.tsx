@@ -8,6 +8,7 @@ import {Button} from '@astryxdesign/core/Button';
 import {Banner} from '@astryxdesign/core/Banner';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {PageError, PageLoading} from '../../components/PageState';
+import {OwnTasks} from '../Overview/OwnTasks';
 import {LessonList, Metrics, RangeNote, Section, SubHeading, longDate, teacherSession, useWorkspace} from './shared';
 
 export default function Overview() {
@@ -49,6 +50,10 @@ export default function Overview() {
           onSaved={ws.reload}
           empty={<EmptyState isCompact title="No upcoming lessons" description="Ask your administrator to publish your timetable." />}
         />
+      </VStack>
+      <VStack gap={3}>
+        <SubHeading title="My tasks" note="Tasks your team assigned to you. Finish the checklist, then complete the task." />
+        <OwnTasks status="open" showTeam={false} emptyDescription="Nothing to do right now. Tasks your team assigns to you appear here." />
       </VStack>
       <Grid columns={{minWidth: 220, repeat: 'fill'}} gap={3}>
         <ClickableCard label="Add assessment result" href="/teacher/results" padding={4}>

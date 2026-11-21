@@ -146,8 +146,7 @@ class TimetableApiController extends Controller
     }
 
     /**
-     * The local interval in the row's snapshot timezone, with the same rules as the
-     * classic exception-interval view: legacy rows (no snapshot) are full days in the
+     * The local interval in the row's snapshot timezone. Legacy rows (no snapshot) are full days in the
      * participant's timezone, 00:00 to 00:00 the next day is "Full day", and an end on
      * the following local date is marked "(next day)".
      */

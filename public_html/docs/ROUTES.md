@@ -16,6 +16,7 @@ Every page URL serves the React host page; data and writes go through the JSON r
 | Method | URI | Name | Middleware |
 |---|---|---|---|
 | GET | `/app-api/account/two-factor` | app.api.account.two-factor | Authenticate |
+| GET | `/app-api/me/tasks` | app.api.me.tasks | Authenticate, TeamAuthorization |
 | GET | `/app-api/units/{unit}/academics` | app.api.classes.academics | Authenticate, TeamAuthorization |
 | GET | `/app-api/units/{unit}/academics/eligibility` | app.api.classes.academics.eligibility | Authenticate, TeamAuthorization |
 | GET | `/app-api/units/{unit}/accounts/chart` | app.api.accounts.chart | Authenticate, TeamAuthorization |
@@ -38,6 +39,7 @@ Every page URL serves the React host page; data and writes go through the JSON r
 | GET | `/app-api/units/{unit}/matching` | app.api.classes.matching | Authenticate, TeamAuthorization |
 | GET | `/app-api/units/{unit}/matching/prepare/{teacher}` | app.api.classes.matching.prepare | Authenticate, TeamAuthorization |
 | GET | `/app-api/units/{unit}/matching/teachers` | app.api.classes.matching.teachers | Authenticate, TeamAuthorization |
+| GET | `/app-api/units/{unit}/money/charge-queue` | app.api.money.charge-queue | Authenticate, TeamAuthorization |
 | GET | `/app-api/units/{unit}/money/dues` | app.api.money.dues | Authenticate, TeamAuthorization |
 | GET | `/app-api/units/{unit}/money/ledger` | app.api.money.ledger | Authenticate, TeamAuthorization |
 | GET | `/app-api/units/{unit}/money/requests` | app.api.money.requests | Authenticate, TeamAuthorization |
@@ -71,6 +73,7 @@ Every page URL serves the React host page; data and writes go through the JSON r
 | Method | URI | Name | Middleware |
 |---|---|---|---|
 | POST | `/erp/administration/accounts/{id}` | erp.accounts.update | Authenticate, RequireAdministrator, ThrottleRequests:20,1,admin-accounts |
+| POST | `/erp/administration/accounts/{id}/profile` | erp.accounts.profile | Authenticate, RequireAdministrator, ThrottleRequests:20,1,admin-accounts |
 | POST | `/erp/administration/onboard` | erp.onboard | Authenticate, RequireAdministrator |
 | POST | `/erp/administration/teams` | erp.teams.create | Authenticate, RequireAdministrator |
 | POST | `/erp/administration/teams/{id}` | erp.teams.update | Authenticate, RequireAdministrator |
@@ -104,6 +107,7 @@ Every page URL serves the React host page; data and writes go through the JSON r
 | Method | URI | Name | Middleware |
 |---|---|---|---|
 | GET | `/app-api/admin/accounts` | app.api.admin.accounts | Authenticate, RequireAdministrator |
+| GET | `/app-api/admin/accounts/{id}/profile` | app.api.admin.accounts.profile | Authenticate, RequireAdministrator |
 | GET | `/app-api/admin/migration` | app.api.admin.migration | Authenticate, RequireAdministrator |
 | GET | `/app-api/admin/operations` | app.api.admin.operations | Authenticate, RequireAdministrator |
 | GET | `/app-api/admin/teams` | app.api.admin.teams | Authenticate, RequireAdministrator |

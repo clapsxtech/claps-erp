@@ -10,6 +10,8 @@ import {ToggleButton} from '@astryxdesign/core/ToggleButton';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
 import {TabList, Tab} from '@astryxdesign/core/TabList';
 import {MoreMenu} from '@astryxdesign/core/MoreMenu';
+import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
+import {pixel} from '@astryxdesign/core/Table';
 import {Token} from '@astryxdesign/core/Token';
 import {useToast} from '@astryxdesign/core/Toast';
 import {PlusIcon} from '@heroicons/react/24/outline';
@@ -20,7 +22,7 @@ import {Metric, MetricRow} from '../../components/Metric';
 import {Toned} from '../../components/Amount';
 import {useDebounced, useIsPhone, useListQuery, useResource} from '../../lib/hooks';
 import {ApiError, postJson} from '../../lib/api';
-import {date, dateTime, number} from '../../lib/format';
+import {date, dateTime, number, titleCase} from '../../lib/format';
 import {unitById} from '../../lib/session';
 import {LeadForms, type DemoTarget, type LeadFormKind, type LeadFormTarget} from './LeadForms';
 import {businessAction, canAct, withParam} from './access';
@@ -82,6 +84,29 @@ interface DemoRow extends Record<string, unknown> {
   isMatched: boolean;
   teacherName: string | null;
   subjectName: string | null;
+  /** Contact links built on the server (SalesPipeline). */
+  parentDial: string | null;
+  parentWhatsapp: string;
+  hasTeacher: boolean;
+  teacherDial: string | null;
+  teacherWhatsapp: string | null;
+  isUpcoming: boolean;
+}
+
+/** Call and WhatsApp the parent and the teacher; WhatsApp opens with the demo details filled in. */
+function demoContactItems(row: DemoRow) {
+  const details = row.isUpcoming ? ' · send demo details' : '';
+  return [
+    ...(row.parentDial ? [{label: 'Call parent', href: `tel:${row.parentDial}`}] : []),
+    {label: `WhatsApp parent${details}`, href: row.parentWhatsapp, target: '_blank' as const, rel: 'noopener noreferrer'},
+    ...(row.hasTeacher && row.teacherDial ? [{type: 'divider' as const}, {label: 'Call teacher', href: `tel:${row.teacherDial}`}] : []),
+    ...(row.hasTeacher && row.teacherWhatsapp ? [{label: `WhatsApp teacher${details}`, href: row.teacherWhatsapp, target: '_blank' as const, rel: 'noopener noreferrer'}] : []),
+    ...(row.hasTeacher && !row.teacherDial ? [{type: 'divider' as const}, {label: "No phone in the teacher's recruitment record", isDisabled: true}] : []),
+  ];
+}
+
+function DemoContacts({row}: {row: DemoRow}) {
+  return <DropdownMenu button={{label: 'Contact', size: 'sm', variant: 'secondary', 'aria-label': `Contact about ${row.leadName}'s demo`}} alignment="end" menuWidth={260} items={demoContactItems(row)} />;
 }
 
 interface ReminderRow extends Record<string, unknown> {
@@ -383,9 +408,12 @@ function Demos({unitId, query, setQuery, searchText, setSearchText, nonce, openF
       key: 'id',
       header: '',
       align: 'end',
+      // Join, Contact and Update/Feedback stay on one line.
+      width: pixel(270),
       renderCell: row => (
         <HStack gap={1} hAlign="end">
           {row.meetLink && <Button label="Join" size="sm" variant="ghost" href={row.meetLink} target="_blank" />}
+          <DemoContacts row={row} />
           {!row.isMatched && can?.updateDemo && (
             <Button label="Update" size="sm" variant="secondary" onClick={() => openForm({kind: 'demo-update', demo: {id: row.id, scheduledOn: row.scheduledOn, scheduledTime: row.scheduledTime}})} />
           )}
@@ -422,8 +450,8 @@ function Demos({unitId, query, setQuery, searchText, setSearchText, nonce, openF
       emptyDescription="Schedule a demo from a lead's menu or page."
       phoneCard={{
         title: row => row.leadName,
-        subtitle: row => `${date(row.scheduledOn)} · ${row.scheduledTime} · ${row.teacherName ?? 'No teacher yet'}`,
-        trailing: row => <Status value={row.status.toLowerCase()} />,
+        subtitle: row => `${titleCase(row.status)} · ${date(row.scheduledOn)} · ${row.scheduledTime} · ${row.teacherName ?? 'No teacher yet'}`,
+        trailing: row => <DemoContacts row={row} />,
         href: row => `/app/u/${unitId}/admissions/${row.leadId}`,
       }}
     />

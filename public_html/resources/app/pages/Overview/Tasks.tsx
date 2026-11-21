@@ -216,7 +216,13 @@ export default function Tasks() {
     <Page
       title={query.scope === 'all' ? 'Team tasks' : 'My tasks'}
       description={query.scope === 'all' ? 'Every task in this team' : 'Tasks assigned to you in this team'}
-      actions={can?.create && <Button label="New task" variant="primary" icon={<Icon icon={PlusIcon} size="sm" />} onClick={() => setCreating(true)} />}>
+      actions={
+        <>
+          {/* Your own tasks in every team, including teams where your role has no screens. */}
+          <Button label="All my teams" variant="ghost" href="/app/my-tasks" />
+          {can?.create && <Button label="New task" variant="primary" icon={<Icon icon={PlusIcon} size="sm" />} onClick={() => setCreating(true)} />}
+        </>
+      }>
       {can?.seeAll && (
         <SegmentedControl label="Whose tasks" value={query.scope} onChange={value => setQuery({scope: value})}>
           <SegmentedControlItem value="mine" label={counts ? `Mine · ${number(counts.mineOpen)} open` : 'Mine'} />

@@ -246,4 +246,19 @@ class AppTeacherPortalTest extends TestCase
         $id = $this->post('/erp/teacher/results', $this->resultPayload())->assertOk()->assertJsonPath('message', 'Assessment result saved.')->json('result.id');
         $this->assertDatabaseHas('erp_marks', ['id' => $id, 'unit_id' => $this->unit, 'created_by' => $this->teacherUser->id]);
     }
+    public function test_teacher_lists_and_completes_own_tasks_from_the_portal(): void
+    {
+        $own = DB::table('erp_tasks')->insertGetId(['unit_id' => $this->unit, 'assigned_to' => $this->teacherUser->id, 'title' => 'Synthetic teacher task', 'status' => 'open', 'created_by' => 1]);
+        $other = $this->createMember(['name' => 'Synthetic Colleague']);
+        DB::table('erp_tasks')->insert(['unit_id' => $this->unit, 'assigned_to' => $other->id, 'title' => 'Colleague private task', 'status' => 'open', 'created_by' => 1]);
+        $item = DB::table('erp_task_items')->insertGetId(['unit_id' => $this->unit, 'task_id' => $own, 'title' => 'Synthetic teacher item']);
+
+        $response = $this->actingAs($this->teacherUser)->getJson('/app-api/me/tasks')->assertOk()->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.title', 'Synthetic teacher task')->assertJsonPath('data.0.unitName', 'Portal Unit A')->assertJsonPath('data.0.items.0.title', 'Synthetic teacher item');
+        $this->assertNoPrivateData($response->getContent());
+        $this->assertStringNotContainsString('Colleague private task', $response->getContent());
+        $this->postJson('/erp/my-tasks/'.$own.'/items/'.$item.'/complete')->assertOk();
+        $this->postJson('/erp/my-tasks/'.$own.'/complete')->assertOk();
+        $this->getJson('/app-api/me/tasks')->assertJsonPath('data.0.status', 'completed')->assertJsonPath('data.0.remainingItems', 0);
+    }
 }

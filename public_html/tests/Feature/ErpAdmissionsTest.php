@@ -26,17 +26,32 @@ class ErpAdmissionsTest extends TestCase
         DB::table('erp_subjects')->insert(['name' => 'Admissions Maths']);
     }
 
+    /** Admissions reads now come from the People > Admissions JSON endpoints. */
+    private function admissions(array $query = [])
+    {
+        return $this->getJson('/app-api/units/'.$this->unit.'/admissions'.($query ? '?'.http_build_query($query) : ''));
+    }
+
+    private function lead(int $id)
+    {
+        return $this->getJson('/app-api/units/'.$this->unit.'/admissions/'.$id);
+    }
+
+    private function names($response): array
+    {
+        return array_column($response->assertOk()->json('data'), 'name');
+    }
+
     public function test_admissions_page_and_conversion_share_canonical_student_and_ledger(): void
     {
         $this->actingAs($this->admin);
-        $this->get(route('erp.business', [$this->unit, 'admissions']))
-            ->assertOk()->assertSee('Admissions &amp; CRM', false)->assertSee('New enquiry');
+        $this->admissions()->assertOk()->assertJsonPath('can.createLead', true)->assertJsonPath('can.convert', true)->assertJsonPath('totals.all', 0);
 
-        $this->post(route('erp.business.mutate', [$this->unit, 'admission-create-lead']), [
+        $this->postJson(route('erp.business.mutate', [$this->unit, 'admission-create-lead']), [
             'name' => 'Enquiry Student', 'phone' => '+91 90000 11111', 'grade' => 'Class 8',
             'subject' => 'Admissions Maths', 'syllabus' => 'CBSE', 'source' => 'Meta Ads',
             'enquiry_date' => '2026-10-26',
-        ])->assertRedirect(route('erp.business', [$this->unit, 'admissions']))->assertSessionHasNoErrors();
+        ])->assertOk();
 
         $lead = DB::table('erp_leads')->first();
         $this->assertSame('919000011111', $lead->phone);
@@ -77,7 +92,9 @@ class ErpAdmissionsTest extends TestCase
         ])->assertOk();
         $this->assertDatabaseHas('erp_demos', ['lead_id' => $lead->id, 'status' => 'SCHEDULED']);
         $this->assertDatabaseHas('erp_lead_activities', ['lead_id' => $lead->id, 'kind' => 'contact_attempt']);
-        $this->get(route('erp.business', [$this->unit, 'admissions']))->assertOk()->assertSee('Counselor Lead');
+        $this->assertSame(['Counselor Lead'], $this->names($this->admissions()));
+        $detail = $this->lead($lead->id)->assertOk()->assertJsonPath('demos.0.status', 'SCHEDULED')->assertJsonPath('lead.nextFollowUpOn', '2026-10-30');
+        $this->assertContains('contact_attempt', array_column($detail->json('activities'), 'kind'));
     }
 
     public function test_external_crm_identity_is_deduplicated(): void
@@ -101,7 +118,22 @@ class ErpAdmissionsTest extends TestCase
         $this->assertSame(2, DB::table('erp_leads')->count());
         $this->postJson($url, array_replace($payload, ['existing_lead_id'=>$first->id,'source'=>'Later campaign','enquiry_date'=>'2026-10-26']))->assertOk();
         $this->assertDatabaseHas('erp_leads', ['id'=>$first->id,'source'=>'Original campaign','enquiry_date'=>'2026-10-01','assigned_to'=>$this->sales->id]);
-        $this->get(route('erp.business', [$this->unit,'admissions','lead_id'=>$first->id]))->assertOk()->assertSee('Later campaign')->assertSee('Activity history');
+        $this->assertContains('re_enquiry', array_column($this->lead($first->id)->assertOk()->assertJsonPath('lead.source', 'Original campaign')->json('activities'), 'kind'));
+    }
+
+    public function test_re_enquiry_source_is_visible_in_the_lead_activity_history(): void
+    {
+        $this->actingAs($this->sales);
+        $url = route('erp.business.mutate', [$this->unit, 'admission-create-lead']);
+        $payload = ['name'=>'First child','phone'=>'919000012345','source'=>'Original campaign','enquiry_date'=>'2026-10-01'];
+        $this->postJson($url, $payload)->assertOk();
+        $first = DB::table('erp_leads')->first();
+        $this->postJson($url, array_replace($payload, ['existing_lead_id'=>$first->id,'source'=>'Later campaign','enquiry_date'=>'2026-10-26']))->assertOk();
+        $activities = collect($this->lead($first->id)->assertOk()->assertJsonPath('lead.source', 'Original campaign')->json('activities'));
+        $reEnquiry = $activities->firstWhere('kind', 're_enquiry');
+        $this->assertNotNull($reEnquiry);
+        $this->assertContains(['label' => 'Source', 'value' => 'Later campaign'], $reEnquiry['details']);
+        $this->assertContains(['label' => 'Enquiry date', 'value' => '2026-10-26'], $reEnquiry['details']);
     }
 
     public function test_followup_queue_and_history_respect_owner_and_local_date(): void
@@ -115,13 +147,15 @@ class ErpAdmissionsTest extends TestCase
             $id = DB::table('erp_leads')->where('name',$name)->value('id');
             if ($due) $this->postJson(route('erp.business.mutate',[$this->unit,'admission-followup']), ['lead_id'=>$id,'channel'=>'call','outcome'=>'No reply','note'=>'Called parent','next_due_on'=>$due])->assertOk();
         }
-        $page = fn ($filter) => route('erp.business',[$this->unit,'admissions','followup'=>$filter]);
-        $this->get($page('today'))->assertOk()->assertSee('Due today')->assertDontSee('Overdue child');
-        $this->get($page('overdue'))->assertOk()->assertSee('Overdue child')->assertViewHas('leads', fn ($leads) => !$leads->contains('name', 'Due today'));
-        $this->get($page('unscheduled'))->assertOk()->assertSee('No action child')->assertDontSee('Overdue child');
+        $this->assertSame(['Due today'], $this->names($this->admissions(['followup'=>'today'])));
+        $this->assertSame(['Overdue child'], $this->names($this->admissions(['followup'=>'overdue'])));
+        $this->assertSame(['No action child'], $this->names($this->admissions(['followup'=>'unscheduled'])));
+        $this->admissions()->assertJsonPath('totals.dueToday', 1)->assertJsonPath('totals.overdue', 1)->assertJsonPath('totals.unscheduled', 1)->assertJsonPath('today', '2026-10-27');
         $id = DB::table('erp_leads')->where('name','Due today')->value('id');
+        $this->lead($id)->assertOk();
         DB::table('erp_leads')->where('id',$id)->update(['assigned_to'=>$this->admin->id]);
-        $this->get(route('erp.business',[$this->unit,'admissions','lead_id'=>$id]))->assertNotFound();
+        $this->lead($id)->assertNotFound();
+        $this->assertNotContains('Due today', $this->names($this->admissions()));
         $this->postJson($url,['name'=>'Repeat','phone'=>'919000012345','existing_lead_id'=>$id])->assertForbidden();
         $this->travelBack();
     }
@@ -133,12 +167,11 @@ class ErpAdmissionsTest extends TestCase
         $id = DB::table('erp_leads')->value('id');
         $this->postJson(route('erp.business.mutate',[$this->unit,'admission-followup']),['lead_id'=>$id,'channel'=>'call','outcome'=>'Discussed price','note'=>'Parent called','interest_status'=>'Fees issue'])->assertOk();
         $this->postJson(route('erp.business.mutate',[$this->unit,'admission-schedule-demo']),['lead_id'=>$id,'scheduled_on'=>'2026-10-29','scheduled_time'=>'17:30'])->assertOk();
-        $page = route('erp.business',[$this->unit,'admissions']);
-        $this->get($page)->assertOk()->assertSee('Demo scheduled')->assertSee('Fees issue');
+        $this->admissions()->assertOk()->assertJsonPath('data.0.stageLabel', 'Demo scheduled')->assertJsonPath('data.0.interestStatus', 'Fees issue');
         DB::table('erp_demos')->where('lead_id',$id)->update(['status'=>'ATTENDED']);
-        $this->get($page)->assertOk()->assertSee('Demo attended');
+        $this->admissions()->assertOk()->assertJsonPath('data.0.stageLabel', 'Demo attended');
         DB::table('erp_demos')->where('lead_id',$id)->update(['status'=>'CANCELLED']);
-        $this->get($page)->assertOk()->assertSee('Contacted');
+        $this->admissions()->assertOk()->assertJsonPath('data.0.stageLabel', 'Contacted')->assertJsonPath('data.0.interestStatus', 'Fees issue');
     }
 
 }

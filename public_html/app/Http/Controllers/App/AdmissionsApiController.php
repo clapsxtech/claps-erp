@@ -138,8 +138,8 @@ class AdmissionsApiController extends Controller
         $activities = DB::table('erp_lead_activities as a')->leftJoin('users as u', 'u.id', '=', 'a.actor_id')
             ->where('a.unit_id', $unit)->where('a.lead_id', $l->id)
             ->orderByDesc('a.occurred_at')->orderByDesc('a.id')->limit(50)
-            ->get(['a.id', 'a.kind', 'a.channel', 'a.outcome', 'a.summary', 'a.occurred_at', 'u.name as actor_name'])
-            ->map(fn ($a) => ['id' => (int) $a->id, 'kind' => $a->kind, 'channel' => $a->channel, 'outcome' => $a->outcome, 'summary' => $a->summary, 'occurredAt' => $a->occurred_at, 'actorName' => $a->actor_name])->values();
+            ->get(['a.id', 'a.kind', 'a.channel', 'a.outcome', 'a.summary', 'a.metadata', 'a.occurred_at', 'u.name as actor_name'])
+            ->map(fn ($a) => ['id' => (int) $a->id, 'kind' => $a->kind, 'channel' => $a->channel, 'outcome' => $a->outcome, 'summary' => $a->summary, 'details' => $this->activityDetails($a->metadata), 'occurredAt' => $a->occurred_at, 'actorName' => $a->actor_name])->values();
         $demos = DB::table('erp_demos as d')->leftJoin('erp_teachers as t', 't.id', '=', 'd.teacher_id')->leftJoin('erp_subjects as s', 's.id', '=', 'd.subject_id')
             ->where('d.unit_id', $unit)->where('d.lead_id', $l->id)->orderByDesc('d.scheduled_on')->orderByDesc('d.id')->limit(20)
             ->get(['d.id', 'd.scheduled_on', 'd.scheduled_time', 'd.status', 'd.meet_link', 'd.starts_at', 'd.feedback_outcome', 'd.feedback_note', 't.name as teacher_name', 's.name as subject_name'])
@@ -184,6 +184,29 @@ class AdmissionsApiController extends Controller
         ]);
     }
 
+    /** Activity metadata keys shown as "Recorded details"; anything else (internal ids) stays on the server. */
+    private const ACTIVITY_DETAILS = ['source' => 'Source', 'enquiry_date' => 'Enquiry date', 'external_id' => 'CRM reference', 'status' => 'Lead status', 'next_due_on' => 'Next follow-up', 'admission_code' => 'Admission code'];
+    /** Lead fields whose edits are shown from a "changes" record; ids such as assigned_to are left out. */
+    private const CHANGE_FIELDS = ['name' => 'Student name', 'phone' => 'Parent phone', 'student_phone' => 'Student phone', 'email' => 'Email', 'country' => 'Country', 'grade' => 'Class', 'subject' => 'Subject', 'syllabus' => 'Syllabus', 'source' => 'Source', 'enquiry_date' => 'Enquiry date', 'status' => 'Status', 'interest_status' => 'Interest', 'next_follow_up_on' => 'Next follow-up', 'lost_reason' => 'Lost reason', 'is_hot' => 'Hot lead', 'notes' => 'Notes', 'learning_requirement' => 'Learning needs', 'concern' => 'Parent concerns', 'about_student' => 'About the student', 'about_parent' => 'Parent preferences'];
+
+    /** Whitelisted, display-ready details from erp_lead_activities.metadata: [{label, value}]. */
+    private function activityDetails(?string $metadata): array
+    {
+        $data = $metadata ? json_decode($metadata, true) : null;
+        if (!is_array($data)) return [];
+        $text = fn ($value) => is_scalar($value) && trim((string) $value) !== '' ? (is_bool($value) ? ($value ? 'Yes' : 'No') : (string) $value) : null;
+        $details = [];
+        foreach (self::ACTIVITY_DETAILS as $key => $label) {
+            $value = $text($data[$key] ?? null);
+            if ($value !== null) $details[] = ['label' => $label, 'value' => $value];
+        }
+        foreach (is_array($data['changes'] ?? null) ? $data['changes'] : [] as $field => $change) {
+            if (!isset(self::CHANGE_FIELDS[$field]) || !is_array($change)) continue;
+            $details[] = ['label' => self::CHANGE_FIELDS[$field], 'value' => ($text($change['from'] ?? null) ?? '—').' → '.($text($change['to'] ?? null) ?? '—')];
+        }
+        return $details;
+    }
+
     private function demo(object $d): array
     {
         return [
@@ -192,6 +215,26 @@ class AdmissionsApiController extends Controller
             // Demos booked through Teacher matching are managed there (cancel and rebook, feedback).
             'isMatched' => !empty($d->starts_at), 'feedbackOutcome' => $d->feedback_outcome ?? null, 'feedbackNote' => $d->feedback_note ?? null,
             'teacherName' => $d->teacher_name, 'subjectName' => $d->subject_name,
+        ];
+    }
+
+    /**
+     * Call and WhatsApp links for a demo: the parent's WhatsApp always
+     * (without an international number the sender picks the chat), Call only with a number, and the teacher's
+     * links only when the demo has a teacher with a phone in their recruitment record.
+     */
+    private function demoContacts(object $d, object $business): array
+    {
+        $parent = SalesPipeline::contact($d);
+        $teacher = SalesPipeline::teacherContact($d->teacher_phone ?? null);
+        $hasTeacher = !empty($d->teacher_id);
+        return [
+            'parentDial' => $parent['dial'] !== '' ? $parent['dial'] : null,
+            'parentWhatsapp' => SalesPipeline::whatsappMessage($parent['whatsapp'], SalesPipeline::demoParentMessage($d, $business)),
+            'hasTeacher' => $hasTeacher,
+            'teacherDial' => $hasTeacher ? $teacher['dial'] : null,
+            'teacherWhatsapp' => $hasTeacher && $teacher['dial'] ? SalesPipeline::whatsappMessage($teacher['whatsapp'], SalesPipeline::demoTeacherMessage($d, $business)) : null,
+            'isUpcoming' => in_array($d->status, ['SCHEDULED', 'RESCHEDULED'], true),
         ];
     }
 
@@ -222,13 +265,16 @@ class AdmissionsApiController extends Controller
     public function demos(Request $request, int $unit)
     {
         $v = $request->validate(['q' => 'nullable|string|max:100', 'scope' => 'nullable|in:upcoming,all', 'page' => 'nullable|integer|min:1|max:100000', 'per_page' => 'nullable|integer|in:25,50,100']);
-        [, $today, $can] = $this->context($request, $unit);
+        [$business, $today, $can] = $this->context($request, $unit);
         $visible = (new Admissions())->visibleLeads($unit, (int) $request->user()->id)->reorder()->select('l.id');
         $query = DB::table('erp_demos as d')->join('erp_leads as l', function ($join) { $join->on('l.id', '=', 'd.lead_id')->on('l.unit_id', '=', 'd.unit_id'); })
             ->leftJoin('erp_students as st', function ($join) { $join->on('st.id', '=', 'l.student_id')->on('st.unit_id', '=', 'l.unit_id'); })
             ->leftJoin('erp_teachers as t', 't.id', '=', 'd.teacher_id')->leftJoin('erp_subjects as s', 's.id', '=', 'd.subject_id')
+            ->leftJoinSub(SalesPipeline::teacherPhones(), 'tp', 'tp.teacher_id', '=', 'd.teacher_id')
             ->where('d.unit_id', $unit)->whereIn('d.lead_id', $visible)
-            ->select('d.id', 'd.lead_id', 'd.scheduled_on', 'd.scheduled_time', 'd.status', 'd.meet_link', 'd.starts_at', 'd.feedback_outcome', 'd.feedback_note', 'l.name as lead_name', 'st.name as canonical_student_name', 't.name as teacher_name', 's.name as subject_name');
+            // Every column the demo WhatsApp messages read (SalesPipeline::demoParentMessage/demoTeacherMessage).
+            ->select('d.id', 'd.lead_id', 'd.teacher_id', 'd.scheduled_on', 'd.scheduled_time', 'd.status', 'd.meet_link', 'd.starts_at', 'd.timezone', 'd.duration_minutes', 'd.matching_grade', 'd.matching_syllabus', 'd.matching_medium', 'd.feedback_outcome', 'd.feedback_note',
+                'l.name as lead_name', 'l.phone', 'l.country', 'l.grade as lead_grade', 'l.syllabus as lead_syllabus', 'st.name as canonical_student_name', 't.name as teacher_name', 'tp.phone as teacher_phone', 's.name as subject_name');
         $search = trim((string) ($v['q'] ?? ''));
         if ($search !== '') $query->where(fn ($q) => $q->where('l.name', 'like', '%'.$search.'%')->orWhere('l.phone', 'like', '%'.$search.'%'));
         $scope = $v['scope'] ?? 'upcoming';
@@ -236,7 +282,7 @@ class AdmissionsApiController extends Controller
         else $query->orderByDesc('d.scheduled_on')->orderByDesc('d.id');
         $page = $query->paginate((int) ($v['per_page'] ?? 25), ['*'], 'page', (int) ($v['page'] ?? 1));
         return response()->json([
-            'data' => collect($page->items())->map(fn ($d) => $this->demo($d) + ['leadId' => (int) $d->lead_id, 'leadName' => SalesPipeline::name($d, 'lead_name')])->values(),
+            'data' => collect($page->items())->map(fn ($d) => $this->demo($d) + ['leadId' => (int) $d->lead_id, 'leadName' => SalesPipeline::name($d, 'lead_name')] + $this->demoContacts($d, $business))->values(),
             'meta' => $this->pageMeta($page, 'scheduled_on', $scope === 'upcoming' ? 'asc' : 'desc'),
             'can' => $can,
             'today' => $today,

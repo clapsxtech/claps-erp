@@ -4,12 +4,13 @@
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Button} from '@astryxdesign/core/Button';
-import {leave, signOut, teacherSession} from './shared';
+import {OwnTasks} from '../Overview/OwnTasks';
+import {SubHeading, leave, signOut, teacherSession} from './shared';
 
 export default function Refused() {
   const sess = teacherSession();
   return (
-    <VStack padding={5} hAlign="center">
+    <VStack padding={5} gap={5} hAlign="center">
       <EmptyState
         headingLevel={1}
         title="Your teacher account isn't ready"
@@ -21,6 +22,11 @@ export default function Refused() {
           </HStack>
         }
       />
+      {/* Tasks do not need the teacher link: any current team member can see and complete their own. */}
+      <VStack gap={3} width="100%" maxWidth={720}>
+        <SubHeading title="My tasks" />
+        <OwnTasks status="open" emptyDescription="Tasks your team assigns to you appear here." />
+      </VStack>
     </VStack>
   );
 }

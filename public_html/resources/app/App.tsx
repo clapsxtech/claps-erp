@@ -29,7 +29,8 @@ function page(element: ReactElement) {
 
 function DefaultUnit() {
   const unit = preferredUnit();
-  return unit ? <Navigate to={`/app/u/${unit.id}/home`} replace /> : <NotFound title="No team assigned" description="Ask an administrator to add you to a team." />;
+  // No team screens (for example a legacy role): your own tasks, which explain a refusal themselves.
+  return <Navigate to={unit ? `/app/u/${unit.id}/home` : '/app/my-tasks'} replace />;
 }
 
 function UnitIndex() {

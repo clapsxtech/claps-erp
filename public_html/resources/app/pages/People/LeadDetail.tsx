@@ -43,7 +43,8 @@ interface LeadProfile {
     awaitingAllocation: boolean;
     joinedMessage: string | null;
   };
-  activities: {id: number; kind: string; channel: string | null; outcome: string | null; summary: string; occurredAt: string; actorName: string | null}[];
+  /** `details`: the server's whitelisted "Recorded details" (e.g. a re-enquiry's later source and date). */
+  activities: {id: number; kind: string; channel: string | null; outcome: string | null; summary: string; details: {label: string; value: string}[]; occurredAt: string; actorName: string | null}[];
   demos: {id: number; scheduledOn: string; scheduledTime: string; status: string; meetLink: string | null; isMatched: boolean; feedbackOutcome: string | null; feedbackNote: string | null; teacherName: string | null; subjectName: string | null}[];
   reminders: {id: number; dueOn: string; dueTime: string | null; text: string; isOverdue: boolean}[];
   transfers: TransferRow[];
@@ -254,7 +255,20 @@ export default function LeadDetail() {
                 <ListItem
                   key={a.id}
                   label={titleCase(a.kind)}
-                  description={<Text type="supporting">{[a.summary, a.channel || a.outcome ? `${titleCase(a.channel ?? '')} · ${a.outcome ?? ''}` : null].filter(Boolean).join(' — ')}</Text>}
+                  description={
+                    <VStack gap={1}>
+                      <Text type="supporting">{[a.summary, a.channel || a.outcome ? `${titleCase(a.channel ?? '')} · ${a.outcome ?? ''}` : null].filter(Boolean).join(' — ')}</Text>
+                      {a.details.length > 0 && (
+                        <MetadataList title={<Text size="sm" weight="semibold">Recorded details</Text>} orientation="horizontal">
+                          {a.details.map(detail => (
+                            <MetadataListItem key={detail.label} label={detail.label}>
+                              {/^\d{4}-\d{2}-\d{2}$/.test(detail.value) ? date(detail.value) : detail.value}
+                            </MetadataListItem>
+                          ))}
+                        </MetadataList>
+                      )}
+                    </VStack>
+                  }
                   endContent={<Text color="secondary" size="sm">{`${dateTime(a.occurredAt)} · ${a.actorName ?? 'System'}`}</Text>}
                 />
               ))}

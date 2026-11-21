@@ -187,4 +187,41 @@ class AppOverviewApiTest extends TestCase
         $this->assertIsArray($manager['collections']);
         $this->actingAs($this->member('academics'))->getJson('/app-api/units/'.$this->unit.'/overview/sales-report')->assertForbidden();
     }
+    public function test_own_tasks_across_teams_for_legacy_roles_with_explicit_fields(): void
+    {
+        $user = $this->member('sales');
+        DB::table('erp_memberships')->insert(['unit_id' => $this->other, 'user_id' => $user->id, 'role' => 'read_only']);
+        $archived = DB::table('erp_units')->insertGetId(['code' => 'OV-ARC', 'name' => 'Archived Unit', 'timezone' => 'UTC', 'archived_at' => now()]);
+        DB::table('erp_memberships')->insert(['unit_id' => $archived, 'user_id' => $user->id, 'role' => 'sales']);
+        $noMembership = DB::table('erp_units')->insertGetId(['code' => 'OV-NOM', 'name' => 'Former Unit', 'timezone' => 'UTC']);
+        $later = $this->task(['title' => 'Later own task', 'assigned_to' => $user->id, 'due_on' => '2026-05-01', 'notes' => 'Own notes', 'student_id' => $this->student]);
+        $sooner = $this->task(['title' => 'Read-only team task', 'unit_id' => $this->other, 'assigned_to' => $user->id, 'due_on' => '2026-04-01']);
+        $this->task(['title' => 'Undated own task', 'assigned_to' => $user->id, 'status' => 'completed']);
+        $this->task(['title' => 'Archived team task', 'unit_id' => $archived, 'assigned_to' => $user->id]);
+        $this->task(['title' => 'Former team task', 'unit_id' => $noMembership, 'assigned_to' => $user->id]);
+        $this->task(['title' => 'Colleague task', 'assigned_to' => $this->member('sales')->id]);
+        DB::table('erp_task_items')->insert([['unit_id' => $this->unit, 'task_id' => $later, 'title' => 'Open item'], ['unit_id' => $this->other, 'task_id' => $later, 'title' => 'Corrupt item']]);
+
+        $json = $this->actingAs($user)->getJson('/app-api/me/tasks')->assertOk()->assertJsonPath('meta.total', 3)->json();
+        $this->assertSame(['Read-only team task', 'Later own task', 'Undated own task'], array_column($json['data'], 'title'));
+        $this->assertSame(['id', 'unitId', 'unitName', 'title', 'notes', 'dueOn', 'status', 'remainingItems', 'canComplete', 'items'], array_keys($json['data'][1]));
+        $this->assertSame(['Open item'], array_column($json['data'][1]['items'], 'title'));
+        $this->assertSame(1, $json['data'][1]['remainingItems']);
+        $this->assertSame('Overview Unit A', $json['data'][1]['unitName']);
+        $this->assertTrue($json['data'][1]['canComplete']);
+        $this->assertFalse($json['data'][0]['canComplete'], 'Read-only members cannot complete (Operations::ownedTask).');
+        $body = json_encode($json);
+        foreach (['Archived team task', 'Former team task', 'Colleague task', 'Corrupt item', 'Synthetic Owing Student'] as $hidden) $this->assertStringNotContainsString($hidden, $body);
+        $this->assertSame(['Read-only team task', 'Later own task'], array_column($this->getJson('/app-api/me/tasks?status=open')->assertOk()->json('data'), 'title'));
+        $this->getJson('/app-api/me/tasks?status=bogus')->assertUnprocessable();
+        // The legacy role still has no unit screens.
+        $this->getJson('/app-api/units/'.$this->unit.'/overview/tasks')->assertForbidden();
+    }
+
+    public function test_own_tasks_refuse_guests_and_users_without_a_current_membership(): void
+    {
+        $this->getJson('/app-api/me/tasks')->assertUnauthorized();
+        $this->actingAs($this->createMember(['name' => 'Synthetic No Team']))->getJson('/app-api/me/tasks')->assertForbidden();
+        $this->actingAs($this->createMember(['user_type' => 'superadmin']))->getJson('/app-api/me/tasks')->assertOk()->assertJsonPath('meta.total', 0);
+    }
 }

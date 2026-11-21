@@ -109,8 +109,8 @@ class TeachersApiController extends Controller
             ->where('e.teacher_id', $t->id)->orderBy('s.name')->orderBy('e.grade')
             ->get(['s.name as subject', 'e.grade', 'e.syllabus'])
             ->map(fn ($r) => ['subject' => $r->subject, 'grade' => $r->grade, 'syllabus' => $r->syllabus])->values();
-        // Class rates are money: hourly rates go to roles with the money page only
-        // (the classic workspace Enrollments register); only the fields below leave the server.
+        // Class rates are money: hourly rates go to roles with the money page only;
+        // only the fields below leave the server.
         $classes = DB::table('erp_enrollments as e')->join('erp_students as s', 's.id', '=', 'e.student_id')->leftJoin('erp_subjects as sub', 'sub.id', '=', 'e.subject_id')
             ->where('e.unit_id', $unit)->where('e.teacher_id', $t->id)
             ->orderByRaw("CASE WHEN e.status = 'active' THEN 0 ELSE 1 END")->orderByDesc('e.starts_on')->limit(50)

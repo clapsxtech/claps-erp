@@ -11,7 +11,7 @@
 </head>
 <body>
 <script type="application/json" id="erp-session">{!! json_encode($session, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
-<div id="erp-root">@if(empty($manifest['js']))<p style="font:16px system-ui;padding:24px">The new app has not been built on this server (run <code>npm run production</code>). <a href="/">Use the classic screens</a>.</p>@endif</div>
-<noscript>This application needs JavaScript. <a href="/">Use the classic screens</a>.</noscript>
+<div id="erp-root">@if(empty($manifest['js']))<p style="font:16px system-ui;padding:24px">The new app has not been built on this server (run <code>npm run production</code>).</p>@endif</div>
+<noscript>ClapsLearn needs JavaScript. Turn it on in your browser settings and reload.</noscript>
 </body>
 </html>
