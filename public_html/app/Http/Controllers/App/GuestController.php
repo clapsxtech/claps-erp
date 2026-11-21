@@ -83,8 +83,8 @@ class GuestController extends Controller
     private function loginPage(Request $request, ?string $portal)
     {
         return $this->page($request, 'login', match ($portal) {
-            'superadmin' => 'Superadmin login · ClapsLearn',
-            'staff' => 'Staff login · ClapsLearn',
+            'superadmin' => 'Administrator sign-in · ClapsLearn',
+            'staff' => 'Staff sign-in · ClapsLearn',
             default => 'Sign in · ClapsLearn',
         }, ['portal' => $portal]);
     }

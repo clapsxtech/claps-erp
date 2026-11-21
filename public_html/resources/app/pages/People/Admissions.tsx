@@ -160,7 +160,7 @@ export function useResolveTransfer(unitId: number, onDone: () => void) {
       showToast({body: status === 'accepted' ? 'Transfer accepted. The lead is now yours.' : status === 'rejected' ? 'Transfer declined.' : 'Transfer cancelled.', uniqueID: `transfer-${transferId}`});
       onDone();
     } catch (reason) {
-      showToast({body: reason instanceof ApiError ? reason.message : 'Could not reach the server. Nothing was changed.', uniqueID: `transfer-error-${transferId}`});
+      showToast({body: reason instanceof ApiError ? reason.message : 'Could not connect. Check your internet and try again; nothing was changed.', uniqueID: `transfer-error-${transferId}`});
     }
   };
 }
@@ -472,7 +472,7 @@ function Reminders({unitId, query, setQuery, searchText, setSearchText, nonce, r
       showToast({body: 'Reminder done.', uniqueID: `reminder-${row.id}`});
       reload();
     } catch (reason) {
-      showToast({body: reason instanceof ApiError ? reason.message : 'Could not reach the server. Nothing was changed.', uniqueID: `reminder-error-${row.id}`});
+      showToast({body: reason instanceof ApiError ? reason.message : 'Could not connect. Check your internet and try again; nothing was changed.', uniqueID: `reminder-error-${row.id}`});
     }
   };
   const columns: DataColumn<ReminderRow>[] = [

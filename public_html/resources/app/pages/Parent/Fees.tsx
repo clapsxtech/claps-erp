@@ -33,7 +33,7 @@ export default function ParentFees() {
       <VStack gap={2}>
         <Heading level={2}>Fee requests</Heading>
         {data.requests.length === 0 ? (
-          <EmptyState title="No fee requests" isCompact />
+          <EmptyState title="No fee requests" description="When the centre asks for a payment, it will appear here." isCompact />
         ) : (
           <Card padding={0}>
             <List hasDividers>
@@ -68,7 +68,7 @@ export default function ParentFees() {
         )}
         {data.requests.length > 0 && (
           <Text color="secondary" size="sm">
-            The amount on the right is still outstanding. Tap a request to view or print it.
+            The amount on the right is what is still to pay. Tap a request to see or print it.
           </Text>
         )}
       </VStack>
@@ -76,7 +76,7 @@ export default function ParentFees() {
       <VStack gap={2}>
         <Heading level={2}>Invoices</Heading>
         {data.invoices.length === 0 ? (
-          <EmptyState title="No invoices yet" isCompact />
+          <EmptyState title="No invoices yet" description="Invoices appear here once the centre issues them." isCompact />
         ) : (
           <Card padding={0}>
             <List hasDividers>
@@ -102,7 +102,7 @@ export default function ParentFees() {
       <VStack gap={2}>
         <Heading level={2}>Receipts and refunds</Heading>
         {data.receipts.length === 0 ? (
-          <EmptyState title="No payments recorded yet" isCompact />
+          <EmptyState title="No payments recorded yet" description="Payments you make to the centre will be listed here once they are recorded." isCompact />
         ) : (
           <Card padding={0}>
             <List hasDividers>

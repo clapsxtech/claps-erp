@@ -165,7 +165,7 @@ export function ConfirmActionDialog({
           else unplaced.push(...messages);
         }
         setErrors(mapped);
-        setFormError(unplaced[0] ?? (Object.keys(mapped).length ? 'Fix the highlighted fields. Nothing was saved.' : reason.message));
+        setFormError(unplaced[0] ?? (Object.keys(mapped).length ? 'Please check the highlighted fields. Nothing has been saved yet.' : reason.message));
       } else {
         setFormError('Could not reach the server. Nothing was saved.');
       }
@@ -305,7 +305,7 @@ export function StudentPicker({
         />
         {error && <Banner status="error" title={error} />}
         {rows && rows.length === 0 ? (
-          <EmptyState title="No students match" isCompact />
+          <EmptyState title="No students match" description="Check the spelling, or search by student code instead." isCompact />
         ) : (
           <List hasDividers edge="flush">
             {(rows ?? []).map(row => (

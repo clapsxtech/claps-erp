@@ -80,7 +80,7 @@ export default function LeadDetail() {
       showToast({body: lead.isHot ? 'Hot priority removed.' : 'Marked as a hot lead.', uniqueID: `hot-${lead.id}`});
       reload();
     } catch (reason) {
-      showToast({body: reason instanceof ApiError ? reason.message : 'Could not reach the server. Nothing was changed.', uniqueID: `hot-error-${lead.id}`});
+      showToast({body: reason instanceof ApiError ? reason.message : 'Could not connect. Check your internet and try again; nothing was changed.', uniqueID: `hot-error-${lead.id}`});
     }
   }
 
@@ -90,7 +90,7 @@ export default function LeadDetail() {
       showToast({body: 'Reminder done.', uniqueID: `reminder-${id}`});
       reload();
     } catch (reason) {
-      showToast({body: reason instanceof ApiError ? reason.message : 'Could not reach the server. Nothing was changed.', uniqueID: `reminder-error-${id}`});
+      showToast({body: reason instanceof ApiError ? reason.message : 'Could not connect. Check your internet and try again; nothing was changed.', uniqueID: `reminder-error-${id}`});
     }
   }
 
@@ -177,7 +177,7 @@ export default function LeadDetail() {
             {can.reminder && <Button label="Add reminder" size="sm" variant="ghost" onClick={() => open('reminder')} />}
           </HStack>
           {data.reminders.length === 0 ? (
-            <EmptyState title="No open reminders" isCompact />
+            <EmptyState title="No open reminders" description="Use “Add reminder” in the menu above so the next step is not forgotten." isCompact />
           ) : (
             <List hasDividers edge="flush">
               {data.reminders.map(r => (
@@ -250,7 +250,7 @@ export default function LeadDetail() {
         <VStack gap={3}>
           <Heading level={2}>Activity</Heading>
           {data.activities.length === 0 ? (
-            <EmptyState title="No activity yet" isCompact />
+            <EmptyState title="No activity yet" description="Calls, demos and changes to this lead will be listed here." isCompact />
           ) : (
             <List hasDividers edge="flush">
               {data.activities.map(a => (

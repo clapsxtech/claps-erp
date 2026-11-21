@@ -108,7 +108,7 @@ export function FormDrawer({
         }
         setErrors(placed);
         setFormError(
-          unplaced.length ? unplaced.join(' ') : Object.keys(placed).length ? 'Fix the highlighted fields. Nothing was saved.' : reason.message,
+          unplaced.length ? unplaced.join(' ') : Object.keys(placed).length ? 'Please check the highlighted fields. Nothing has been saved yet.' : reason.message,
         );
       } else {
         setFormError('Could not reach the server. Nothing was saved.');

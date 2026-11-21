@@ -330,7 +330,7 @@ export default function StudentDetail() {
               <Pager meta={data.pages.ledger} onPage={pageTo('ledger')} label="Ledger pages" />
               <VStack gap={1}>
                 <Heading level={3}>Payment requests</Heading>
-                <Text size="sm" color="secondary">A request is not a receipt and does not change the balance.</Text>
+                <Text size="sm" color="secondary">Asking for a payment doesn't change the balance. It changes when you record the money as received.</Text>
               </VStack>
               <Section<RequestRow>
                 rows={data.requests}

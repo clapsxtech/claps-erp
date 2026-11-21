@@ -1,7 +1,9 @@
 {
   "palette.config.json": "299e2eb795fc97d4f493bb7c3d8364b1570791a40e16efceadc295d39b2716e9",
-  "preview.png": "0b567a3329f30c3bc2ef9193892c1756bad4427f1fbd5e7c9d32d825f0d7910d",
-  "preview-dark.png": "be1af764dc1d523c3c5296b8bc57382272ffb7a24bd8f2d7b3d95e9f57f95886",
-  "sheet-overlays.png": "404b1eb105dc65c8e0858024c92ac2ae2dbb6e9cfc87dbf7371b370436f78572",
-  "sheet-overlays-dark.png": "83d02cc2bf45cd02e17067d5814f35f7a57eb224584ddc73e9ee8bf04e6dddd9"
+  "preview.png": "4c9c21bbd31dbb7793993ff185b9dc818c031302a35427856bbda5024cefb2a1",
+  "preview-dark.png": "ba19af0d9c4b64ba56a3033107ea5425e0466f18834c0f429fe2f6c8977435b8",
+  "sheet-overlays.png": "1c97a7ee011a9c78264ff6008ecd6ed0a4a6510dfed337b99d7d1cf82da693c7",
+  "sheet-overlays-dark.png": "253d259355900f9baf937cce17268c32467367d8ab327d645e21a5f7ccf81c87",
+  "sheet-actions.png": "7ab9d180b18ec8b0073ee575a7863cd6f34f1adfdddff93d308c325c55c98bb9",
+  "sheet-actions-dark.png": "e8f2ff26f854f9930fe56e0ddddcbdb5d44ed825a78f995c920ab7c9b06b8d32"
 }

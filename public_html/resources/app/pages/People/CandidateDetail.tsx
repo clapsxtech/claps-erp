@@ -150,7 +150,7 @@ export default function CandidateDetail() {
         <VStack gap={3}>
           <Heading level={2}>Review history</Heading>
           {data.activities.length === 0 ? (
-            <EmptyState title="No contacts recorded yet" isCompact />
+            <EmptyState title="No contacts recorded yet" description="Calls and messages with this applicant will be listed here." isCompact />
           ) : (
             <List hasDividers edge="flush">
               {data.activities.map(a => (

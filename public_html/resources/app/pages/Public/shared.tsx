@@ -125,7 +125,7 @@ export function splitErrors(error: FormError, fields: string[]): {placed: Record
     if (fields.includes(key)) placed[key] = messages[0];
     else other.push(...messages);
   }
-  const banner = other.length ? other.join(' ') : Object.keys(placed).length ? 'Fix the highlighted fields. Nothing was saved.' : error.message;
+  const banner = other.length ? other.join(' ') : Object.keys(placed).length ? 'Please check the highlighted fields. Nothing has been saved yet.' : error.message;
   return {placed, banner};
 }
 

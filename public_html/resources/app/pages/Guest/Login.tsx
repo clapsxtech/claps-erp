@@ -46,21 +46,24 @@ export default function Login() {
     setBanner(bannerMessage(result, ['email', 'password']));
   }
 
-  const title = portal === 'superadmin' ? 'Superadmin login' : portal === 'staff' ? 'Staff login' : 'Sign in';
+  const title = portal === 'superadmin' ? 'Administrator sign-in' : portal === 'staff' ? 'Staff sign-in' : 'Welcome back';
   const description = portal
-    ? 'Superadmins manage every team. Staff see only the teams they are assigned to.'
-    : 'Teachers and staff sign in with the account from their administrator.';
+    ? 'Administrators look after every team. Staff see only the teams they work in.'
+    : 'Teachers and staff: sign in with the email and password your administrator gave you.';
 
   return (
     <GuestLayout
       title={title}
       description={description}
       footer={
-        <>
-          <Link href="/superadmin/login">Superadmin login</Link>
-          <Text color="secondary">·</Text>
-          <Link href="/staff/login">Staff login</Link>
-        </>
+        portal ? (
+          <Link href="/login">Back to sign in</Link>
+        ) : (
+          <>
+            <Text color="secondary">A parent?</Text>
+            <Link href="/parent/login">Open the parent portal</Link>
+          </>
+        )
       }
     >
       <form onSubmit={submit} noValidate>

@@ -54,3 +54,12 @@ The app is meant to be run from a phone, so every screen is built phone-first:
 - **Install.** `public/manifest.webmanifest` (staff and teachers, opens `/`) and `public/parent.webmanifest` (parents, opens `/parent`) with the icons in `public/icons` let people add the app to their home screen, where it opens full screen. There is no service worker: the app needs a connection, and nothing is cached offline.
 
 To check a change on a phone, run the app and look at it at 360px wide with touch emulation (Chrome DevTools device mode, or Playwright with `isMobile: true, hasTouch: true`): nothing may scroll sideways and every control must be at least 44px tall, including inside open menus, pickers and drawers. Check 768px (portrait tablet beside the sidebar) and 1024px too.
+
+## Writing for people
+
+The app is used by teachers, sales staff and parents, not accountants. Screen text follows these rules:
+
+- **Plain words for money.** `lib/plain.ts` holds the one wording for each money idea and translates the server's states: a class is *billed to the family* (not "imported for charge"), approved attendance is *added to the teacher's pay* (not "accrued"), and a *possible duplicate* is a class that may be recorded twice. Precise accounting terms stay on Accounts & tax only.
+- **Say what to do next.** The staff home starts with a greeting and "Needs you today" in sentences ("3 classes are waiting for your approval"). Every empty state says why it is empty or what to do.
+- **Errors say how to fix it.** Validation messages come from `resources/lang/en/validation.php` with plain field names ("Please fill in the joining date", "Please choose the student"). A dropped connection reads "Could not connect. Check your internet and try again", never "Failed to fetch".
+- **Money disclaimers keep their meaning.** Screens still say that recording a payment takes or sends no money, in everyday words.

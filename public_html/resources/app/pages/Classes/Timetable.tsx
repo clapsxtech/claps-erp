@@ -296,7 +296,7 @@ export default function Timetable() {
                 ))}
               </VStack>
             ) : (
-              <Text color="secondary">View only for your current access.</Text>
+              <Text color="secondary">You can view this but not change it.</Text>
             )}
           </VStack>
         )}
@@ -389,7 +389,7 @@ function PlansView({
           <Heading level={2}>{`Weekly slots (${number(plans.agreements.meta.total)})`}</Heading>
           <Text color="secondary" size="sm">Propose a slot from both sides’ availability, confirm it once the teacher and family agree, then generate its dated lessons.</Text>
           {plans.agreements.data.length === 0 ? (
-            <EmptyState title="No weekly slots yet" isCompact />
+            <EmptyState title="No weekly slots yet" description="Add a weekly class to put this on the timetable." isCompact />
           ) : isPhone ? (
             <VStack gap={3}>
               {plans.agreements.data.map(r => (
@@ -424,7 +424,7 @@ function PlansView({
         <VStack gap={3}>
           <Heading level={2}>{`Weekly availability (${number(availability?.meta.total ?? 0)})`}</Heading>
           {!availability || availability.data.length === 0 ? (
-            <EmptyState title="No availability recorded" isCompact />
+            <EmptyState title="No availability recorded" description="Add the times this teacher can teach to help with matching." isCompact />
           ) : isPhone ? (
             <List hasDividers edge="flush">
               {availability.data.map(r => (
@@ -450,7 +450,7 @@ function PlansView({
         <VStack gap={3}>
           <Heading level={2}>{`Unavailability (${number(plans.exceptions.meta.total)})`}</Heading>
           {plans.exceptions.data.length === 0 ? (
-            <EmptyState title="No unavailability recorded" isCompact />
+            <EmptyState title="No unavailability recorded" description="Add leave or busy times so no class is booked then." isCompact />
           ) : (
             <RowTable<Row>
               data={plans.exceptions.data}

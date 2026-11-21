@@ -105,7 +105,7 @@ const KIND_LABELS: Record<string, string> = {
 };
 
 const NOTICE =
-  'Bookkeeping only: these actions record money already received or paid; they do not collect, refund or transfer money. Enter amounts in rupees, such as 100.50, with up to two decimals and no commas.';
+  'This is your record book: note money that has already been received or paid. Nothing here takes, refunds or sends money. Type amounts in rupees, like 1500 or 100.50, without commas.';
 
 /** What a form drawer is currently doing. Ids that identify the record are single-option selects preset in `initial`. */
 type Drawer =
@@ -330,7 +330,7 @@ function MoneyDrawer({unitId, unit, drawer, onOpenChange, onSaved}: {unitId: num
     if (drawer.kind === 'payment') {
       config = {
         title: 'Record payment received',
-        description: `${balance} Enter a payment already received; this does not collect money.`,
+        description: `${balance} Record money the family has already paid. This does not take any money.`,
         fields: [studentField, {kind: 'money', name: 'amount_inr', label: 'Amount received', required: true}, {kind: 'text', name: 'reference', label: 'Receipt reference', required: true, description: 'UPI, bank or cash reference. Must be unique.'}],
         initial: {student_id: String(s.id), amount_inr: amount},
         action: actionUrl(unitId, 'payment'),
@@ -357,7 +357,7 @@ function MoneyDrawer({unitId, unit, drawer, onOpenChange, onSaved}: {unitId: num
     } else {
       config = {
         title: 'Record refund already paid',
-        description: `${balance} Records money already returned from the student's credit. It cannot exceed that credit. No money is sent.`,
+        description: `${balance} Record money you have already given back from the family's credit. It can't be more than the credit. No money is sent from here.`,
         fields: [
           studentField,
           {kind: 'money', name: 'amount_inr', label: 'Amount refunded', required: true},
@@ -376,7 +376,7 @@ function MoneyDrawer({unitId, unit, drawer, onOpenChange, onSaved}: {unitId: num
     const t = drawer.teacher;
     config = {
       title: 'Record teacher payment',
-      description: `Net payable ${money(t.netPayablePaise)}. Confirm this amount was already paid externally. Advances and overpayments need separate review. No money is sent.`,
+      description: `Net payable ${money(t.netPayablePaise)}. Record pay you have already given the teacher, for example by bank transfer. Advances and overpayments are handled separately. No money is sent from here.`,
       fields: [
         {kind: 'select', name: 'teacher_id', label: 'Teacher', required: true, options: [{value: String(t.id), label: `${t.name} · ${t.code}`}]},
         {kind: 'money', name: 'amount_inr', label: 'Amount paid', required: true},
@@ -460,7 +460,7 @@ function MoneyConfirm({unitId, confirm, onClose, onDone}: {unitId: number; confi
         fixed={{entry_id: row.id}}
         initial={{amount_inr: paiseToInput(row.amountPaise)}}
         confirmTitle="Replace this receipt?"
-        confirmDescription={`Receipt ${row.reference} will be reversed with an equal and opposite entry, and a replacement receipt recorded. No money is refunded or collected.`}
+        confirmDescription={`Receipt ${row.reference} will be cancelled and a corrected receipt recorded in its place. No money is refunded or taken.`}
         confirmLabel="Correct receipt"
         successMessage="Receipt corrected: original reversed and replacement recorded."
         isDestructive={false}
@@ -825,7 +825,7 @@ function TeachersTab({unitId, unit, onPay, onHistory}: {unitId: number; unit: Un
     <VStack gap={3}>
       <Card padding={3}>
         <Text color="secondary" size="sm">
-          Owed = earned − recorded payments + other adjustments. Earnings accrue when attendance is approved.
+          What a teacher is owed: classes earned, minus pay already recorded, plus any adjustments. A class counts as earned once its attendance is approved.
         </Text>
       </Card>
       <DataTable<TeacherRow>

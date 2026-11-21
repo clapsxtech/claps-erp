@@ -128,7 +128,7 @@ export default function Tasks() {
       await work();
       showToast({body: message, uniqueID: `task-${key}`});
     } catch (reason) {
-      setActionError(reason instanceof ApiError ? reason.message : 'Could not reach the server. Nothing was changed.');
+      setActionError(reason instanceof ApiError ? reason.message : 'Could not connect. Check your internet and try again; nothing was changed.');
     } finally {
       setBusy(undefined);
       list.reload();

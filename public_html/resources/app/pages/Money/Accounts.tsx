@@ -408,7 +408,7 @@ function LedgerTab({unitId, from, to, filters}: {unitId: number; from: string; t
         {!data ? (
           <PageLoading />
         ) : !data.account ? (
-          <EmptyState title="Choose an account" isCompact />
+          <EmptyState title="Choose an account" description="Pick an account above to see its entries." isCompact />
         ) : (
           <>
             <Heading level={2}>{`${data.account.code} · ${data.account.name}`}</Heading>
@@ -791,7 +791,7 @@ function JournalDrawer({unitId, timezone, isOpen, onOpenChange, onSaved}: {unitI
     } catch (reason) {
       if (reason instanceof ApiError) {
         setErrors(reason.fieldErrors);
-        setFormError(reason.fieldErrors.lines?.[0] ?? (Object.keys(reason.fieldErrors).length ? 'Fix the highlighted fields. Nothing was posted.' : reason.message));
+        setFormError(reason.fieldErrors.lines?.[0] ?? (Object.keys(reason.fieldErrors).length ? 'Please check the highlighted fields. Nothing has been posted yet.' : reason.message));
       } else {
         setFormError('Could not reach the server. Nothing was posted.');
       }

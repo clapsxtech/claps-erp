@@ -1,5 +1,6 @@
-// Role-aware start screen: every tile is a count the role may see, and tapping it opens
-// the filtered list it summarises, so daily work is one tap away.
+// Role-aware start screen. It greets the person, then leads with what needs them
+// today in plain sentences, each opening the list it describes; quick actions and
+// the figures the role may see follow, so daily work is one tap away.
 import {useParams} from 'react-router';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Card} from '@astryxdesign/core/Card';
@@ -8,6 +9,7 @@ import {Link} from '@astryxdesign/core/Link';
 import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
 import {List, ListItem} from '@astryxdesign/core/List';
+import {Banner} from '@astryxdesign/core/Banner';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Grid} from '@astryxdesign/core/Grid';
 import {
@@ -20,6 +22,9 @@ import {
   UsersIcon,
   ChartBarIcon,
   DocumentChartBarIcon,
+  ExclamationTriangleIcon,
+  DocumentDuplicateIcon,
+  ReceiptPercentIcon,
 } from '@heroicons/react/24/outline';
 import type {IconComponent} from '../../nav';
 import {Page, PageError, PageLoading} from '../../components/PageState';
@@ -27,7 +32,7 @@ import {Metric, MetricRow} from '../../components/Metric';
 import {Status} from '../../components/Status';
 import {useResource} from '../../lib/hooks';
 import {date, money, number, titleCase} from '../../lib/format';
-import {unitById, type UnitAccess} from '../../lib/session';
+import {session, unitById, type UnitAccess} from '../../lib/session';
 import {canAct, hasPage, timeIn} from './shared';
 
 interface HomeData {
@@ -82,6 +87,27 @@ function shortcuts(unit: UnitAccess, base: string): Shortcut[] {
   return list.slice(0, 6);
 }
 
+/** "Good morning" etc. for the hour in the team's time zone. */
+function greeting(timezone: string): string {
+  let hour = new Date().getHours();
+  try {
+    hour = Number(new Intl.DateTimeFormat('en-GB', {hour: 'numeric', hourCycle: 'h23', timeZone: timezone}).format(new Date()));
+  } catch {
+    // Unknown zone: use the device clock.
+  }
+  return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+const plural = (count: number, one: string, many: string) => `${number(count)} ${count === 1 ? one : many}`;
+
+interface Todo {
+  key: string;
+  label: string;
+  description: string;
+  href?: string;
+  icon: IconComponent;
+}
+
 export default function Home() {
   const unitId = Number(useParams().unit);
   const unit = unitById(unitId);
@@ -113,28 +139,28 @@ export default function Home() {
     />,
   );
   if (queues?.missingSubmission !== null && queues?.missingSubmission !== undefined) {
-    tiles.push(<Metric key="missing" label="Ended classes with no attendance" value={number(queues.missingSubmission)} tone={queues.missingSubmission ? 'warning' : undefined} href={`${base}/attendance?queue=missing`} />);
+    tiles.push(<Metric key="missing" label="Classes missing attendance" value={number(queues.missingSubmission)} tone={queues.missingSubmission ? 'warning' : undefined} href={`${base}/attendance?queue=missing`} />);
   }
   if (metrics.pendingApproval !== null) {
     tiles.push(<Metric
         key="approval"
-        label="Pending teacher approval"
+        label="Attendance to approve"
         value={number(metrics.pendingApproval)}
-        hint={queues?.teacherApproval ? `${number(queues.teacherApproval)} in the approval queue` : undefined}
+        hint={queues?.teacherApproval ? `${number(queues.teacherApproval)} ready now` : undefined}
         href={`${base}/attendance?queue=approval`}
       />);
   }
   if (queues?.studentImport !== null && queues?.studentImport !== undefined) {
-    tiles.push(<Metric key="import" label="Classes to charge" hint="Awaiting import" value={number(queues.studentImport)} href={`${base}/attendance?queue=import`} />);
+    tiles.push(<Metric key="import" label="Classes to bill" hint="Not billed to families yet" value={number(queues.studentImport)} href={`${base}/attendance?queue=import`} />);
   }
   if (metrics.duplicateReviews !== null) {
-    tiles.push(<Metric key="dupes" label="Duplicate reviews" value={number(metrics.duplicateReviews)} tone={metrics.duplicateReviews ? 'warning' : undefined} href={`${base}/attendance?queue=duplicates`} />);
+    tiles.push(<Metric key="dupes" label="Possible duplicates" value={number(metrics.duplicateReviews)} tone={metrics.duplicateReviews ? 'warning' : undefined} href={`${base}/attendance?queue=duplicates`} />);
   }
   if (dues) {
     // Dues open the list they summarise: Students for people roles, Payments for money-only roles; sales read the figure only.
     const duesHref = hasPage(unit, 'people') ? `${base}/students?due=1` : hasPage(unit, 'money') ? `${base}/payments` : undefined;
     tiles.push(<Metric key="dues" label="Families with dues" value={number(dues.count)} href={duesHref} />);
-    tiles.push(<Metric key="owed" label="Total outstanding" value={money(-dues.paise, {whole: true})} tone={dues.paise < 0 ? 'error' : undefined} href={duesHref} />);
+    tiles.push(<Metric key="owed" label="Fees still owed" value={money(-dues.paise, {whole: true})} tone={dues.paise < 0 ? 'error' : undefined} href={duesHref} />);
   }
   if (data.followupsDue !== null) {
     tiles.push(<Metric key="followups" label="Follow-ups due" value={number(data.followupsDue)} tone={data.followupsDue ? 'warning' : undefined} href={`${base}/followups`} />);
@@ -159,11 +185,48 @@ export default function Home() {
 
   const actions = shortcuts(unit, base);
 
+  // What needs this person today, most urgent first. Only counts above zero.
+  const todos: Todo[] = [];
+  const todo = (count: number | null | undefined, item: Omit<Todo, 'label'> & {label: (n: number) => string}) => {
+    if (count) todos.push({...item, label: item.label(count)});
+  };
+  todo(data.myTasks.overdue, {key: 'overdue', label: n => plural(n, 'of your tasks is overdue', 'of your tasks are overdue'), description: 'Finish them or move the due date.', href: `${base}/tasks`, icon: ExclamationTriangleIcon});
+  todo(data.followupsDue, {key: 'calls', label: n => plural(n, 'family to call today', 'families to call today'), description: 'See who to call and what was said last time.', href: `${base}/followups`, icon: PhoneArrowUpRightIcon});
+  todo(queues?.teacherApproval, {key: 'approve', label: n => plural(n, 'class is waiting for your approval', 'classes are waiting for your approval'), description: 'Teachers have sent their attendance. Check and approve it.', href: `${base}/attendance?queue=approval`, icon: CheckCircleIcon});
+  todo(queues?.missingSubmission, {key: 'missing', label: n => plural(n, 'class has no attendance yet', 'classes have no attendance yet'), description: 'The class has ended but the teacher has not recorded it.', href: `${base}/attendance?queue=missing`, icon: CalendarDaysIcon});
+  todo(metrics.duplicateReviews, {key: 'dupes', label: n => plural(n, 'class may be recorded twice', 'classes may be recorded twice'), description: 'Check with the teacher which record is right.', href: `${base}/attendance?queue=duplicates`, icon: DocumentDuplicateIcon});
+  todo(queues?.studentImport, {key: 'bill', label: n => plural(n, 'class is ready to bill', 'classes are ready to bill'), description: 'Add them to the family\'s account.', href: `${base}/attendance?queue=import`, icon: ReceiptPercentIcon});
+  todo(data.myTasks.count - data.myTasks.overdue, {key: 'tasks', label: n => plural(n, 'task assigned to you', 'tasks assigned to you'), description: 'Open your task list.', href: `${base}/tasks`, icon: ClipboardDocumentListIcon});
+
+  const firstName = session().user.name.split(/\s+/)[0];
+
   return (
-    <Page title={unit.name} description={`${unit.roleLabel} · ${date(data.today)}`}>
+    <Page title={`${greeting(data.timezone)}, ${firstName}`} description={`${new Intl.DateTimeFormat('en-GB', {weekday: 'long', day: 'numeric', month: 'long', timeZone: data.timezone}).format(new Date())} · ${unit.name}`}>
+      <Card padding={4}>
+        <VStack gap={2}>
+          <Heading level={2}>Needs you today</Heading>
+          {todos.length === 0 ? (
+            <Banner status="success" title="You're all caught up" description="Nothing is waiting for you. New work will show up here." collapsible={false} />
+          ) : (
+            <List hasDividers edge="flush">
+              {todos.map(item => (
+                <ListItem
+                  key={item.key}
+                  align="first-line"
+                  startContent={<Icon icon={item.icon} size="md" color="accent" />}
+                  label={<Text weight="semibold">{item.label}</Text>}
+                  description={<Text type="supporting">{item.description}</Text>}
+                  href={item.href}
+                />
+              ))}
+            </List>
+          )}
+        </VStack>
+      </Card>
+
       {actions.length > 0 && (
         <VStack gap={2}>
-          <Heading level={2}>Shortcuts</Heading>
+          <Heading level={2}>Quick actions</Heading>
           <HStack gap={2} wrap="wrap">
             {actions.map((action, i) => (
               <Button key={action.href} label={action.label} href={action.href} variant={i === 0 ? 'primary' : 'secondary'} icon={<Icon icon={action.icon} size="sm" />} />
@@ -172,7 +235,10 @@ export default function Home() {
         </VStack>
       )}
 
-      <MetricRow>{tiles}</MetricRow>
+      <VStack gap={2}>
+        <Heading level={2}>At a glance</Heading>
+        <MetricRow>{tiles}</MetricRow>
+      </VStack>
 
       <Grid columns={{minWidth: 320, repeat: 'fit'}} gap={4}>
         {data.todayLessons && (
@@ -183,7 +249,7 @@ export default function Home() {
                 <Link href={`${base}/timetable?date=${data.today}`}>Open timetable</Link>
               </HStack>
               {data.todayLessons.rows.length === 0 ? (
-                <EmptyState title="No lessons today" isCompact />
+                <EmptyState title="No lessons today" description="Enjoy the quiet. Upcoming lessons are on the timetable." isCompact />
               ) : (
                 <List hasDividers edge="flush">
                   {data.todayLessons.rows.map(lesson => (
@@ -209,7 +275,12 @@ export default function Home() {
               <Link href={`${base}/tasks`}>All my tasks</Link>
             </HStack>
             {data.myTasks.rows.length === 0 ? (
-              <EmptyState title="Nothing assigned to you" description="Tasks assigned to you in this team appear here." isCompact />
+              <EmptyState
+                title="Nothing assigned to you"
+                description="When someone gives you a task, it shows up here."
+                actions={canAct(unit, 'task') ? <Button label="Add a task" variant="secondary" href={`${base}/tasks?new=task`} /> : undefined}
+                isCompact
+              />
             ) : (
               <List hasDividers edge="flush">
                 {data.myTasks.rows.map(task => (

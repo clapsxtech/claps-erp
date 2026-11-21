@@ -129,7 +129,7 @@ export default function Exports() {
         <Metric label="Attendance minutes" value={number(data.attendanceMinutes)} hint="Not rejected" />
         <Metric label="Archived historical minutes" value={number(data.archivedHistoricalMinutes)} hint="No money posted" />
         <Metric
-          label="Pending duplicate reviews"
+          label="Possible duplicates to check"
           value={number(data.pendingDuplicateReviews)}
           tone={data.pendingDuplicateReviews ? 'warning' : undefined}
           href={hasPage(unit, 'attendance') ? `/app/u/${unitId}/attendance?queue=duplicates` : undefined}
@@ -155,7 +155,7 @@ export default function Exports() {
           <VStack gap={3}>
             <Heading level={2}>Ledger totals by type</Heading>
             {data.ledgerByKind.length === 0 ? (
-              <EmptyState title="No ledger entries yet" isCompact />
+              <EmptyState title="No ledger entries yet" description="Payments, charges and teacher pay will appear here once they are recorded." isCompact />
             ) : (
               <RowTable<LedgerRow> data={data.ledgerByKind as LedgerRow[]} columns={ledgerColumns} idKey={r => `${r.kind}-${r.currency}`} hasHover textOverflow="truncate" />
             )}

@@ -107,7 +107,7 @@ export default function TeacherDetail() {
             {canAssign && <Button label="Assign student" variant="secondary" onClick={() => setAssigning(true)} />}
           </HStack>
           {data.classes.length === 0 ? (
-            <EmptyState title="No classes assigned" isCompact />
+            <EmptyState title="No classes assigned" description="Use “Assign student” to give this teacher a class." isCompact />
           ) : (
             <RowTable
               data={data.classes}

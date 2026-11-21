@@ -192,7 +192,7 @@ class Finance
 
     private function positiveInteger($value, string $field): int
     {
-        if (is_bool($value) || filter_var($value, FILTER_VALIDATE_INT) === false || (int) $value < 1 || (int) $value > 1000000000) $this->fail($field, 'A positive whole number within the supported range is required.');
+        if (is_bool($value) || filter_var($value, FILTER_VALIDATE_INT) === false || (int) $value < 1 || (int) $value > 1000000000) $this->fail($field, str_contains($field, 'paise') ? 'Enter an amount above zero.' : 'Enter a whole number above zero.');
         return (int) $value;
     }
 

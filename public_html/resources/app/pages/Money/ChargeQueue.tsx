@@ -117,15 +117,15 @@ export function ChargeQueueTab({unitId, unit, onImported}: {unitId: number; unit
     <VStack gap={3}>
       <Card padding={3}>
         <Text color="secondary" size="sm">
-          Attended non-demo classes not yet charged to the student. Importing posts each class's charge at the agreed hourly rate; teacher approval stays separate. No money is transferred.
+          Classes that happened but are not on the family's bill yet. Billing adds each one at the agreed hourly rate. Free demos are never billed, and teacher pay is approved separately. No money is taken or sent.
         </Text>
       </Card>
-      {!canImport && <Banner status="info" title="View only for your current access" description="Importing for charge is a finance action." collapsible={false} />}
+      {!canImport && <Banner status="info" title="You can look but not bill" description="Only finance staff can bill classes to families." collapsible={false} />}
       {canImport && selectionState.hasSelection && (
         <TableSelectionToolbar
           selection={selectionState}
           renderSelectionLabel={count => `${number(count)} selected`}
-          startContent={<Button label={`Import selected (${selectionState.selectedCount})`} variant="primary" size="sm" onClick={importSelected} />}
+          startContent={<Button label={`Bill selected (${selectionState.selectedCount})`} variant="primary" size="sm" onClick={importSelected} />}
         />
       )}
       {body}
@@ -140,14 +140,14 @@ export function ChargeQueueTab({unitId, unit, onImported}: {unitId: number; unit
         onOpenChange={setDrawerOpen}
         unitId={unitId}
         action={workspaceAction(unitId, 'import-batch')}
-        title={`Import ${importIds.length} class${importIds.length === 1 ? '' : 'es'} for student charge`}
-        description="Posts the student consumption charge for each selected attended class. Teacher approval stays separate. No money is transferred."
-        submitLabel="Import for charge"
-        successMessage="Imported for student charge."
-        fields={[{kind: 'text', name: 'reference', label: 'Stable import reference', required: true, description: 'Unique reviewed batch reference. Re-using it with the same rows is safe; with other rows it is refused.'}]}
+        title={`Bill ${importIds.length} class${importIds.length === 1 ? '' : 'es'} to the family`}
+        description="Adds each selected class to the family's account at the agreed hourly rate. Teacher pay is approved separately. No money is taken or sent."
+        submitLabel="Bill classes"
+        successMessage="Classes billed to the family."
+        fields={[{kind: 'text', name: 'reference', label: 'Batch reference', required: true, description: 'Filled in for you. It stops the same classes being billed twice if you press the button again.'}]}
         fixed={{attendance_ids: importIds}}
         initial={{reference: newReference('import')}}
-        confirmText={`This charges ${importIds.length} student class${importIds.length === 1 ? '' : 'es'} at the agreed rates.`}
+        confirmText={`This bills ${importIds.length} class${importIds.length === 1 ? '' : 'es'} to the families at the agreed rates.`}
         onSaved={() => {
           setSelectedKeys(new Set());
           queue.reload();

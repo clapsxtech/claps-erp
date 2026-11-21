@@ -17,6 +17,11 @@
       "thing": "font",
       "value": "inter",
       "source": "dial"
+    },
+    {
+      "thing": "corners",
+      "value": "large",
+      "source": "dial"
     }
   ],
   "palette": "299e2eb795fc97d4f493bb7c3d8364b1570791a40e16efceadc295d39b2716e9",

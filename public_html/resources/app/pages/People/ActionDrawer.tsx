@@ -188,7 +188,7 @@ export function ActionDrawer({
         setErrors(reason.fieldErrors);
         const shown = Object.keys(reason.fieldErrors).filter(key => fields.some(f => key === f.name || key.startsWith(`${f.name}.`)));
         const hiddenErrors = Object.entries(reason.fieldErrors).filter(([key]) => !shown.includes(key)).map(([, messages]) => messages[0]);
-        setFormError(hiddenErrors.length ? hiddenErrors.join(' ') : shown.length ? 'Fix the highlighted fields. Nothing was saved.' : reason.message);
+        setFormError(hiddenErrors.length ? hiddenErrors.join(' ') : shown.length ? 'Please check the highlighted fields. Nothing has been saved yet.' : reason.message);
       } else {
         setFormError('Could not reach the server. Nothing was saved.');
       }

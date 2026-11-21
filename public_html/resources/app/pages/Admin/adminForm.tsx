@@ -55,7 +55,7 @@ export async function adminPost(url: string, body: Record<string, unknown>): Pro
     throw new ApiError(401, 'Your session has ended. Sign in again.');
   }
   const fallback: Record<number, string> = {
-    403: 'Your role does not allow this.',
+    403: "You don't have permission to do this. Ask an administrator if you need it.",
     404: 'That record no longer exists.',
     409: 'Sheets are authoritative right now; this change is blocked.',
     419: 'This page expired. Reload and try again; nothing was saved.',
@@ -161,7 +161,7 @@ export function AdminFormDrawer({
     } catch (reason) {
       if (reason instanceof ApiError) {
         setErrors(reason.fieldErrors);
-        setFormError(Object.keys(reason.fieldErrors).length ? 'Fix the highlighted fields. Nothing was saved.' : reason.message);
+        setFormError(Object.keys(reason.fieldErrors).length ? 'Please check the highlighted fields. Nothing has been saved yet.' : reason.message);
       } else {
         setFormError('Could not reach the server. Check the result before trying again.');
       }

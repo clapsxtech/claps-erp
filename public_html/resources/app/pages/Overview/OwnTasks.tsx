@@ -73,7 +73,7 @@ export function OwnTasks({status = 'all', showTeam = true, emptyDescription}: {s
       await postOwnTask(url);
       showToast({body: message, uniqueID: `own-task-${key}`});
     } catch (reason) {
-      setActionError(reason instanceof ApiError ? reason.message : 'Could not reach the server. Nothing was changed.');
+      setActionError(reason instanceof ApiError ? reason.message : 'Could not connect. Check your internet and try again; nothing was changed.');
     } finally {
       setBusy(undefined);
       list.reload();

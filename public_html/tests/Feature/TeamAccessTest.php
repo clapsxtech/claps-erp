@@ -66,8 +66,8 @@ class TeamAccessTest extends TestCase
     public function test_login_portals_enforce_account_role_and_active_organization(): void
     {
         $admin=$this->createMember(['user_type'=>'superadmin']); $staff=$this->createMember();
-        $this->assertSame(['kind'=>'guest','screen'=>'login','status'=>null,'portal'=>'superadmin'],$this->embedded($this->get('/superadmin/login')->assertOk()->assertSee('Superadmin login')));
-        $this->assertSame('staff',$this->embedded($this->get('/staff/login')->assertOk()->assertSee('Staff login'))['portal']);
+        $this->assertSame(['kind'=>'guest','screen'=>'login','status'=>null,'portal'=>'superadmin'],$this->embedded($this->get('/superadmin/login')->assertOk()->assertSee('Administrator sign-in')));
+        $this->assertSame('staff',$this->embedded($this->get('/staff/login')->assertOk()->assertSee('Staff sign-in'))['portal']);
         $credentials=['email'=>$staff->email,'password'=>'Local-Testing-Only-2026','portal'=>'superadmin'];
         $this->postJson('/login',$credentials)->assertUnprocessable(); $this->assertGuest();
         $this->postJson('/login',array_merge($credentials,['portal'=>'staff']))->assertOk()->assertJson(['redirect'=>url('/app')]); $this->assertAuthenticatedAs($staff);

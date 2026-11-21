@@ -349,7 +349,7 @@ export function ParentStatement() {
           </Text>
         </VStack>
         {data.rows.length === 0 ? (
-          <EmptyState title="No reported classes this month" isCompact />
+          <EmptyState title="No reported classes this month" description="Classes appear here once the teacher records them." isCompact />
         ) : isPhone ? (
           <List hasDividers edge="flush">
             {data.rows.map(row => (
@@ -370,9 +370,9 @@ export function ParentStatement() {
         ) : (
           <Table data={data.rows} columns={columns} idKey="id" density="compact" />
         )}
-        <Text>Total reported teaching: {data.totalMinutes} minutes. Please check the entries and report any discrepancy to your tuition administrator.</Text>
+        <Text>Your child had {data.totalMinutes} minutes of class in this period. If anything below looks wrong, please let the centre know.</Text>
         <Text color="secondary" size="sm">
-          Class charges shown are calculated from reported teaching and the agreed rate. Account posting is handled separately.
+          Charges are worked out from the class time and your agreed hourly rate.
         </Text>
         <Heading level={2}>Account summary for {data.monthLabel}</Heading>
         <VStack gap={2}>
@@ -400,7 +400,7 @@ export function ParentStatement() {
           </HStack>
         </VStack>
         <Text color="secondary" size="sm">
-          A credit is paid in advance; an amount due is still to be paid. Class charges here are those posted to the account, which can differ from the reported teaching above until every class is reviewed.
+          A credit means you have paid ahead; an amount due still needs paying. A class appears here once the centre has checked it, so this list can be a little behind the classes above.
         </Text>
       </VStack>
     </DocumentFrame>

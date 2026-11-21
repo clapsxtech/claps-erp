@@ -156,7 +156,7 @@ export function ActionDrawer({
         }
         setErrors(fieldErrors);
         if (general.length) setFormErrors(general);
-        else if (Object.keys(fieldErrors).length) setFormErrors(['Fix the highlighted fields. Nothing was saved.']);
+        else if (Object.keys(fieldErrors).length) setFormErrors(['Please check the highlighted fields. Nothing has been saved yet.']);
         else setFormErrors([reason.message]);
       } else {
         setFormErrors(['Could not reach the server. Nothing was saved.']);

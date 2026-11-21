@@ -25,14 +25,14 @@ linked teachers land in their portal at `/teacher`. Families use `/parent/login`
 
 | Area | What you do there |
 |---|---|
-| Home | Shortcuts for your role, figures that open the list behind them, today's lessons and your tasks |
+| Home | A greeting and "Needs you today": what is waiting for you, in plain sentences, each opening its list. Then quick actions for your role, figures that open the list behind them, today's lessons and your tasks |
 | Students | Search, filter and sort; balances (money and sales roles); add a student; open the profile (managers and read-only) |
 | Teachers | Levels, subjects, classes; earnings for money roles; add, classify, add eligibility |
 | Admissions | Lead pipeline by stage; one-tap follow-up; demos, reminders, transfers; register as a student; teacher directory with Send profile |
 | Follow-ups | Who to call today; log a follow-up in one tap |
 | Teacher hiring | Applications and candidate review (managers) |
 | Timetable | Week view; lesson actions (reschedule, cancel, no-show, extra class, unavailability, switch teacher, pause or stop); weekly slots (add availability, propose, confirm, generate lessons, end) |
-| Attendance | Approval queue with bulk approve; import for charge; missing attendance; duplicates |
+| Attendance | Approve teachers' attendance (in bulk too); bill classes to families ("Ready to bill"); missing attendance; possible duplicates |
 | Teacher matching | Find a teacher for a learner and slot; book a demo; allocate weekly classes |
 | Results | Assessment results and subject eligibility; CSV export |
 | Payments & dues | Collection queue; record payments; ledger with totals; payment requests; teacher pay; refunds and reversals (with confirmation) |

@@ -104,6 +104,16 @@ class ErpMoneyInputHttpTest extends TestCase
         $this->assertSame(0, DB::table('erp_enrollments')->count());
     }
 
+    public function test_a_missing_amount_is_reported_against_the_rupee_box_in_plain_words(): void
+    {
+        // Forms leave an empty box out of the request; the error must still land on that box and say how to fix it.
+        $this->postJson(route('erp.mutate', [$this->unit, 'payment']), ['student_id' => $this->student, 'reference' => 'INR-BLANK'])
+            ->assertUnprocessable()->assertJsonPath('errors.amount_inr.0', 'Enter the amount in rupees, like 1500 or 100.50.');
+        $this->postJson(route('erp.mutate', [$this->unit, 'payment']), ['student_id' => $this->student, 'amount_inr' => '1,500', 'reference' => 'INR-COMMA'])
+            ->assertUnprocessable()->assertJsonPath('errors.amount_inr.0', 'Enter the amount in rupees, like 1500 or 100.50, without commas or a minus sign.');
+        $this->assertSame(0, DB::table('erp_ledger')->count());
+    }
+
     public function test_signed_balances_reach_the_app_as_paise_and_exports_stay_paise(): void
     {
         DB::table('erp_ledger')->insert(['unit_id' => $this->unit, 'student_id' => $this->student, 'kind' => 'opening_balance', 'amount_paise' => -123429, 'currency' => 'INR', 'reference' => 'INR-DUE', 'event_key' => 'inr-due', 'occurred_at' => now(), 'created_by' => $this->admin->id]);

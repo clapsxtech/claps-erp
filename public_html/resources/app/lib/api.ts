@@ -28,6 +28,16 @@ export function withQuery(url: string, query?: Query): string {
   return qs ? `${url}${url.includes('?') ? '&' : '?'}${qs}` : url;
 }
 
+/** fetch() that turns a dropped connection into a plain message instead of "Failed to fetch". */
+async function send(url: string, init: RequestInit, offlineMessage: string): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (reason) {
+    if (reason instanceof DOMException && reason.name === 'AbortError') throw reason;
+    throw new ApiError(0, offlineMessage);
+  }
+}
+
 async function handle<T>(response: Response): Promise<T> {
   if (response.ok) {
     if (response.status === 204) return undefined as T;
@@ -47,7 +57,7 @@ async function handle<T>(response: Response): Promise<T> {
     throw new ApiError(419, 'This page expired. Reload and try again; nothing was saved.');
   }
   const fallback: Record<number, string> = {
-    403: 'Your role does not allow this.',
+    403: "You don't have permission to do this. Ask an administrator if you need it.",
     404: 'That record no longer exists.',
     422: 'Some details need fixing.',
     429: 'Too many attempts. Wait a minute and try again.',
@@ -60,16 +70,16 @@ async function handle<T>(response: Response): Promise<T> {
 }
 
 export async function getJson<T>(url: string, query?: Query, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(withQuery(url, query), {
-    credentials: 'same-origin',
-    headers: {Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
-    signal,
-  });
+  const response = await send(
+    withQuery(url, query),
+    {credentials: 'same-origin', headers: {Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest'}, signal},
+    "Couldn't load this. Check your internet connection and try again.",
+  );
   return handle<T>(response);
 }
 
 export async function postJson<T>(url: string, body: Record<string, unknown>): Promise<T> {
-  const response = await fetch(url, {
+  const response = await send(url, {
     method: 'POST',
     credentials: 'same-origin',
     headers: {
@@ -83,7 +93,7 @@ export async function postJson<T>(url: string, body: Record<string, unknown>): P
     // else answered (sign-in, two-factor, a read-only guard), so it is never
     // reported as saved.
     redirect: 'manual',
-  });
+  }, "Couldn't connect. Check your internet and try again; nothing was changed.");
   if (response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)) {
     throw new ApiError(0, 'The server did not confirm this change. Reload to check whether it was saved before trying again.');
   }

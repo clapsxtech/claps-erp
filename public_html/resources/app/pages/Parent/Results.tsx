@@ -20,7 +20,7 @@ export default function ParentResults() {
 
   if (error) return <PageError error={error} onRetry={reload} />;
   if (!data) return <PageLoading />;
-  if (data.data.length === 0) return <EmptyState title="No results recorded yet" isCompact />;
+  if (data.data.length === 0) return <EmptyState title="No results recorded yet" description="Test and assessment results will appear here when your child's teacher adds them." isCompact />;
 
   const go = (next: number) => setParams(next > 1 ? {page: String(next)} : {});
 

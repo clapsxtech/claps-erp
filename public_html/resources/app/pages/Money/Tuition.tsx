@@ -276,7 +276,7 @@ export default function Tuition() {
                 Notes stay private. “Try another teacher” records a fit preference, not a performance complaint.
               </Text>
               {data.notes.length === 0 ? (
-                <EmptyState title="No private notes yet" isCompact />
+                <EmptyState title="No private notes yet" description="Notes you add here are only seen by staff." isCompact />
               ) : (
                 <List hasDividers edge="flush">
                   {data.notes.map(note => (
@@ -339,7 +339,7 @@ export default function Tuition() {
               Record website applications, then interview candidates when subject demand arises. Ready candidates still need teacher onboarding and eligibility before assignment.
             </Text>
             {data.candidates.length === 0 ? (
-              <EmptyState title="No candidates yet" isCompact />
+              <EmptyState title="No candidates yet" description="Teacher applications will appear here." isCompact />
             ) : (
               <List hasDividers edge="flush">
                 {data.candidates.map(c => (
@@ -423,7 +423,7 @@ export default function Tuition() {
           fixed={{attendance_id: acting.row.id}}
           url={actionUrl(unitId, 'approve')}
           confirmTitle="Approve reviewed teaching for earnings?"
-          confirmDescription="The teacher's earnings for this class are accrued. Disputed entries cannot be approved. No money is transferred."
+          confirmDescription="The class is added to the teacher's pay. Classes a parent has disputed can't be approved. No money is sent."
           confirmLabel="Approve"
           successMessage="Attendance approved."
           isDestructive={false}

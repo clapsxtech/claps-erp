@@ -25,6 +25,10 @@ class MoneyInput
         if ($action === 'switch-teacher' && array_key_exists('student_rate_inr', $payload) && trim((string) $payload['student_rate_inr']) === '') unset($payload['student_rate_inr']);
         $inrFields = array_intersect_key($payload, $fields);
         if (!$inrFields) {
+            // A form left the rupee box empty: say so against that box, not with a paise error.
+            if (!$allowZero && !array_key_exists('amount_paise', $payload)) {
+                throw ValidationException::withMessages(['amount_inr' => 'Enter the amount in rupees, like 1500 or 100.50.']);
+            }
             // Existing API clients and integrations still supply paise; leave them unchanged.
             return $payload;
         }
@@ -48,7 +52,7 @@ class MoneyInput
         // JSON integers are exact; JSON floats are not accepted. HTML forms submit strings.
         if ((!is_string($value) && !is_int($value)) || !preg_match('/\A(?:0|[1-9][0-9]*)(?:\.[0-9]{1,2})?\z/', (string) $value)) {
             throw ValidationException::withMessages([
-                $field => 'Enter an INR amount such as 100 or 100.50, with at most two decimal places and no commas or signs.',
+                $field => 'Enter the amount in rupees, like 1500 or 100.50, without commas or a minus sign.',
             ]);
         }
         $parts = explode('.', (string) $value, 2);

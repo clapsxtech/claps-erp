@@ -374,7 +374,7 @@ function useSave(onSaved: () => void, onClose: () => void) {
           else other.push(...messages);
         }
         setErrors(placed);
-        setFormError(other.length ? other.join(' ') : Object.keys(placed).length ? 'Fix the highlighted fields. Nothing was saved.' : reason.message);
+        setFormError(other.length ? other.join(' ') : Object.keys(placed).length ? 'Please check the highlighted fields. Nothing has been saved yet.' : reason.message);
       } else {
         setFormError('Could not reach the server. Nothing was saved.');
       }

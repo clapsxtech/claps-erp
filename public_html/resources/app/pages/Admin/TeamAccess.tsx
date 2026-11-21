@@ -177,7 +177,7 @@ export default function TeamAccess() {
           <Heading level={2}>Teacher logins</Heading>
           <Text color="secondary">Give the account the Teacher role in this team first, then link it. Identity is never guessed from names.</Text>
           {data.teachers.length === 0 ? (
-            <EmptyState title="No teachers in this team" isCompact />
+            <EmptyState title="No teachers in this team" description="Teachers appear here once they are linked to this team." isCompact />
           ) : (
             <RowTable<Teacher> data={data.teachers} columns={teacherColumns} idKey="id" hasHover textOverflow="truncate" />
           )}

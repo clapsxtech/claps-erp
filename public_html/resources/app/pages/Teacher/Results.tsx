@@ -81,7 +81,7 @@ function ResultForm({data, onSaved}: {data: Workspace; onSaved: () => void}) {
           else other.push(...messages);
         }
         setErrors(placed);
-        setFormError(other.length ? other.join(' ') : Object.keys(placed).length ? 'Fix the highlighted fields. Nothing was saved.' : reason.message);
+        setFormError(other.length ? other.join(' ') : Object.keys(placed).length ? 'Please check the highlighted fields. Nothing has been saved yet.' : reason.message);
         // The key was already used for a different result: the earlier one is
         // saved. Refresh the history and start a new submission.
         if (reason.status === 409) {

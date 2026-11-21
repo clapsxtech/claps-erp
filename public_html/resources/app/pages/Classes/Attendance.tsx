@@ -17,6 +17,7 @@ import {ProgressBar} from '@astryxdesign/core/ProgressBar';
 import {Banner} from '@astryxdesign/core/Banner';
 import {useToast} from '@astryxdesign/core/Toast';
 import {MagnifyingGlassIcon} from '@heroicons/react/24/outline';
+import {financeLabel} from '../../lib/plain';
 import {Page, PageError} from '../../components/PageState';
 import {Status} from '../../components/Status';
 import {Metric, MetricRow} from '../../components/Metric';
@@ -99,7 +100,7 @@ function errorText(reason: unknown): string {
 
 function FinanceState({value}: {value: string}) {
   const tone = value === 'Imported' || value === 'Accrued' ? 'success' : value.startsWith('Rejected') ? 'error' : value.startsWith('Pending') || value.startsWith('Approved,') ? 'warning' : undefined;
-  return <Toned tone={tone}>{value}</Toned>;
+  return <Toned tone={tone}>{financeLabel(value)}</Toned>;
 }
 
 export default function Attendance() {
@@ -189,7 +190,7 @@ export default function Attendance() {
     setBulk({...progress});
     setSelectedKeys(new Set());
     const ok = progress.total - progress.failures.length;
-    showToast({body: `${number(ok)} of ${number(progress.total)} approved. No money was transferred.`, uniqueID: 'bulk-approve'});
+    showToast({body: `${number(ok)} of ${number(progress.total)} approved and added to teacher pay. No money was sent.`, uniqueID: 'bulk-approve'});
     reloadAll();
   }
 
@@ -199,14 +200,14 @@ export default function Attendance() {
     openDrawer({
       action: workspaceAction(unitId, 'import-batch'),
       permission: 'import-batch',
-      title: `Import ${ids.length} class${ids.length === 1 ? '' : 'es'} for student charge`,
-      description: 'Posts the student consumption charge for each selected attended class. Teacher approval stays separate. No money is transferred.',
-      submitLabel: 'Import for charge',
-      successMessage: 'Imported for student charge.',
-      fields: [{kind: 'text', name: 'reference', label: 'Stable import reference', required: true, description: 'Unique reviewed batch reference. Re-using it with the same rows is safe; with other rows it is refused.'}],
+      title: `Bill ${ids.length} class${ids.length === 1 ? '' : 'es'} to the family`,
+      description: "Adds each selected class to the family's account at the agreed hourly rate. Teacher pay is approved separately. No money is taken or sent.",
+      submitLabel: 'Bill classes',
+      successMessage: 'Classes billed to the family.',
+      fields: [{kind: 'text', name: 'reference', label: 'Batch reference', required: true, description: 'Filled in for you. It stops the same classes being billed twice if you press the button again.'}],
       fixed: {attendance_ids: ids},
       initial: {reference: newReference('import')},
-      confirmText: `This charges ${ids.length} student class${ids.length === 1 ? '' : 'es'} at the agreed rates.`,
+      confirmText: `This bills ${ids.length} class${ids.length === 1 ? '' : 'es'} to the families at the agreed rates.`,
     });
   }
 
@@ -215,7 +216,7 @@ export default function Attendance() {
       action: workspaceAction(unitId, 'correct'),
       permission: 'correct',
       title: 'Correct attended minutes',
-      description: `${row.studentName} · ${row.subjectName} · ${dayLabel(row.localDate)} ${row.startTime}. Reverses any posted charge and accrual; the row goes back to submitted and needs import and approval again.`,
+      description: `${row.studentName} · ${row.subjectName} · ${dayLabel(row.localDate)} ${row.startTime}. Any bill and teacher pay for this class are undone, and it needs billing and approval again.`,
       submitLabel: 'Correct minutes',
       successMessage: 'Attendance corrected.',
       fields: [
@@ -224,7 +225,7 @@ export default function Attendance() {
       ],
       fixed: {attendance_id: row.id},
       initial: {actual_minutes: String(row.actualMinutes)},
-      confirmText: 'Posted student charges and teacher accruals for this class are reversed until it is imported and approved again.',
+      confirmText: 'The family bill and teacher pay for this class are undone until it is billed and approved again.',
       isDestructive: true,
     });
   }
@@ -233,18 +234,18 @@ export default function Attendance() {
     openDrawer({
       action: workspaceAction(unitId, 'duplicate'),
       permission: 'duplicate',
-      title: 'Resolve duplicate review',
+      title: 'Was this class recorded twice?',
       description: 'Record the teacher reply from Gallabox and decide whether both classes happened.',
       submitLabel: 'Resolve review',
       successMessage: 'Review resolved.',
       fields: [
-        {kind: 'select', name: 'decision', label: 'Decision', required: true, options: [{value: 'genuine', label: 'Genuine: both classes happened'}, {value: 'duplicate', label: 'Duplicate: one record is wrong'}]},
-        {kind: 'select', name: 'duplicate_attendance_id', label: 'Which record is the duplicate', description: 'Only for a duplicate decision.', options: [review.attendance, review.other].map(r => ({value: String(r.id), label: r.label}))},
+        {kind: 'select', name: 'decision', label: 'What happened', required: true, options: [{value: 'genuine', label: 'Both classes really happened'}, {value: 'duplicate', label: 'It is the same class twice'}]},
+        {kind: 'select', name: 'duplicate_attendance_id', label: 'Which record is the extra one', description: 'Only when it is the same class twice.', options: [review.attendance, review.other].map(r => ({value: String(r.id), label: r.label}))},
         {kind: 'textarea', name: 'teacher_reply', label: 'Teacher reply', required: true},
         {kind: 'textarea', name: 'reason', label: 'Reason', required: true},
       ],
       fixed: {review_id: review.id},
-      confirmText: 'A duplicate decision rejects the chosen record and reverses its charge and accrual.',
+      confirmText: 'The extra record is rejected, and its family bill and teacher pay are undone.',
       isDestructive: true,
     });
   }
@@ -255,9 +256,9 @@ export default function Attendance() {
   const rowActions = (row: AttendanceRow) => {
     const buttons = [];
     if (row.pendingReviews > 0) {
-      buttons.push(<Button key="review" label="Resolve duplicate first" size="sm" variant="secondary" onClick={() => setQueue('duplicates')} />);
+      buttons.push(<Button key="review" label="Check for duplicate first" size="sm" variant="secondary" onClick={() => setQueue('duplicates')} />);
     } else if (canApprove && (row.status === 'submitted' || (queue === 'approval' && row.status === 'approved'))) {
-      const label = row.kind === 'demo' ? 'Approve free demo' : row.status === 'approved' ? 'Recheck accrual' : 'Approve';
+      const label = row.kind === 'demo' ? 'Approve free demo' : row.status === 'approved' ? 'Recheck teacher pay' : 'Approve';
       buttons.push(<Button key="approve" label={label} size="sm" variant="primary" isLoading={rowBusy === row.id} isDisabled={bulk?.running} onClick={() => approveOne(row)} />);
     }
     if (canCorrect && row.status !== 'rejected') buttons.push(<Button key="correct" label="Correct" size="sm" variant="ghost" onClick={() => correct(row)} />);
@@ -307,7 +308,7 @@ export default function Attendance() {
           queue === 'approval' ? (
             <Button label={`Approve selected (${selectionState.selectedCount})`} variant="primary" size="sm" isLoading={bulk?.running} onClick={approveSelected} />
           ) : (
-            <Button label={`Import selected (${selectionState.selectedCount})`} variant="primary" size="sm" onClick={importSelected} />
+            <Button label={`Bill selected (${selectionState.selectedCount})`} variant="primary" size="sm" onClick={importSelected} />
           )
         }
       />
@@ -338,7 +339,7 @@ export default function Attendance() {
             description={
               <VStack gap={1}>
                 <Text size="sm" color="secondary">{`${dayLabel(row.localDate)} ${row.startTime} · ${row.subjectName} · ${row.teacherName}`}</Text>
-                <Text size="sm">{`Student: ${row.studentFinanceState} · Teacher: ${row.teacherFinanceState}`}</Text>
+                <Text size="sm">{`Family bill: ${financeLabel(row.studentFinanceState)} · Teacher pay: ${financeLabel(row.teacherFinanceState)}`}</Text>
                 {queue !== 'import' && rowActions(row)}
               </VStack>
             }
@@ -370,16 +371,16 @@ export default function Attendance() {
   if (queue === 'approval') {
     content = (
       <VStack gap={3}>
-        <Text color="secondary">Approving accrues the teacher's earnings for attended classes. Demos are free and unpaid. Rows with a pending duplicate review must be resolved first. No money is transferred.</Text>
+        <Text color="secondary">Teachers send their attendance after each class. Approving it adds the class to the teacher's pay (free demos are unpaid). If a class might be recorded twice, check that first. No money is sent from here.</Text>
         {attendanceList(current?.meta, queueLoading, 'Nothing waiting for approval', canApprove)}
       </VStack>
     );
   } else if (queue === 'import') {
     content = (
       <VStack gap={3}>
-        <Text color="secondary">Importing posts the student's charge for attended non-demo classes. It is separate from teacher approval.</Text>
-        {!canImport && <Banner status="info" title="View only for your current access" description="Importing for charge is a finance administrator action." collapsible={false} />}
-        {attendanceList(current?.meta, queueLoading, 'Nothing waiting for import', canImport)}
+        <Text color="secondary">Classes that happened but are not on the family's bill yet. Billing adds each one at the agreed hourly rate. Free demos are never billed, and teacher pay is approved separately.</Text>
+        {!canImport && <Banner status="info" title="You can look but not bill" description="Only finance staff can bill classes to families." collapsible={false} />}
+        {attendanceList(current?.meta, queueLoading, 'Every class is billed', canImport)}
       </VStack>
     );
   } else if (queue === 'missing') {
@@ -393,7 +394,7 @@ export default function Attendance() {
         {queueLoading ? (
           loading
         ) : missing.length === 0 ? (
-          <EmptyState title="Every ended class has attendance or a no-show" />
+          <EmptyState title="Every ended class has attendance or a no-show" description="Nice work, nothing is missing." />
         ) : (
           <List hasDividers edge="flush">
             {missing.map(row => (
@@ -422,24 +423,24 @@ export default function Attendance() {
     const canResolve = canAct(unit, 'duplicate');
     content = (
       <VStack gap={3}>
-        <Text color="secondary">Two attendance records for the same student and teacher on one day. Ask the teacher on Gallabox, then record the reply.</Text>
+        <Text color="secondary">The same student and teacher have two attendance records on one day. Ask the teacher on Gallabox whether both classes happened, then record the answer.</Text>
         {reviews.isLoading ? (
           loading
         ) : (reviews.data?.data ?? []).length === 0 ? (
-          <EmptyState title="No pending duplicate reviews" />
+          <EmptyState title="No possible duplicates" description="Nothing looks recorded twice." />
         ) : (
           <List hasDividers edge="flush">
             {(reviews.data?.data ?? []).map(review => (
               <ListItem
                 key={review.id}
-                label={`Review #${review.id}`}
+                label={`Possible duplicate #${review.id}`}
                 description={
                   <VStack gap={1}>
                     <Text size="sm">{review.attendance.label}</Text>
                     <Text size="sm">{review.other.label}</Text>
                   </VStack>
                 }
-                endContent={canResolve ? <Button label="Resolve" size="sm" variant="primary" onClick={() => resolve(review)} /> : <Status value={review.status} />}
+                endContent={canResolve ? <Button label="Record answer" size="sm" variant="primary" onClick={() => resolve(review)} /> : <Status value={review.status} />}
               />
             ))}
           </List>
@@ -493,9 +494,9 @@ export default function Attendance() {
       {counts && (
         <MetricRow>
           <Metric label="Waiting for approval" value={number(counts.approval)} onClick={() => setQueue('approval')} isActive={queue === 'approval'} />
-          <Metric label="Waiting for import" value={number(counts.import)} onClick={() => setQueue('import')} isActive={queue === 'import'} />
-          <Metric label="Ended without attendance" value={number(counts.missing)} tone={counts.missing > 0 ? 'warning' : undefined} onClick={() => setQueue('missing')} isActive={queue === 'missing'} />
-          <Metric label="Duplicate reviews" value={number(counts.reviews)} tone={counts.reviews > 0 ? 'error' : undefined} onClick={() => setQueue('duplicates')} isActive={queue === 'duplicates'} />
+          <Metric label="Ready to bill" value={number(counts.import)} onClick={() => setQueue('import')} isActive={queue === 'import'} />
+          <Metric label="Missing attendance" value={number(counts.missing)} tone={counts.missing > 0 ? 'warning' : undefined} onClick={() => setQueue('missing')} isActive={queue === 'missing'} />
+          <Metric label="Possible duplicates" value={number(counts.reviews)} tone={counts.reviews > 0 ? 'error' : undefined} onClick={() => setQueue('duplicates')} isActive={queue === 'duplicates'} />
         </MetricRow>
       )}
       {bulk && (
@@ -526,9 +527,9 @@ export default function Attendance() {
             onChange={setQueue}
             tabs={[
               {value: 'approval', label: 'Approve', count: counts?.approval},
-              {value: 'import', label: 'Import for charge', count: counts?.import},
+              {value: 'import', label: 'Ready to bill', count: counts?.import},
               {value: 'missing', label: 'Missing', count: counts?.missing, tone: 'warning'},
-              {value: 'duplicates', label: 'Duplicates', count: counts?.reviews, tone: 'error'},
+              {value: 'duplicates', label: 'Possible duplicates', count: counts?.reviews, tone: 'error'},
               {value: 'all', label: 'All attendance'},
             ]}
           />

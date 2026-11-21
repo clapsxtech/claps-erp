@@ -123,7 +123,7 @@ export default function ParentClasses() {
       <VStack gap={2}>
         <Heading level={2}>Upcoming</Heading>
         {data.upcoming.length === 0 ? (
-          <EmptyState title="No upcoming classes in the next 60 days" isCompact />
+          <EmptyState title="No upcoming classes in the next 60 days" description="If you were expecting classes, please contact the centre." isCompact />
         ) : (
           <Card padding={0}>
             <List hasDividers>
@@ -151,7 +151,7 @@ export default function ParentClasses() {
         <Heading level={2}>Past 60 days</Heading>
         <Text color="secondary">If a class record looks wrong, tell us here. It won't be billed until the centre has checked it.</Text>
         {data.past.length === 0 ? (
-          <EmptyState title="No classes in the last 60 days" isCompact />
+          <EmptyState title="No classes in the last 60 days" description="Past classes will be listed here." isCompact />
         ) : (
           <Card padding={0}>
             <List hasDividers>
