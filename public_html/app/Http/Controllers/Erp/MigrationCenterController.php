@@ -19,18 +19,12 @@ class MigrationCenterController extends Controller
         if(!is_array($data)||!isset($data['rows'],$data['references'])||!is_array($data['rows'])||!is_array($data['references'])||count($data['rows'])>5000) throw ValidationException::withMessages(['source'=>'Expected rows and references, with at most 5,000 rows.']);
         return $data;
     }
-    public function index(Request $request)
-    {
-        (new SiteAccessPolicy())->assertAdministrator($request->user());
-        $report=null;return view('erp.migration-center',compact('report'));
-    }
     public function preview(Request $request)
     {
         $data=$this->document($request);$report=(new MigrationImporter())->preview($data['rows'],$data['references']);
         $request->session()->forget('migration_preview');
         if($report['valid'])$request->session()->put('migration_preview',['digest'=>$report['digest'],'actor'=>$request->user()->id,'expires'=>time()+1800,'cutoff'=>$data['references']['cutoff_date'],'database'=>$data['references']['target_database']]);
-        if($request->expectsJson())return response()->json($report)->header('Cache-Control','no-store');
-        return response()->view('erp.migration-center',compact('report'))->header('Cache-Control','no-store');
+        return response()->json($report)->header('Cache-Control','no-store');
     }
     public function execute(Request $request)
     {
@@ -49,7 +43,6 @@ class MigrationCenterController extends Controller
             });
         } finally {config(['erp.migration_import_enabled'=>$previous]);}
         $request->session()->forget('migration_preview');
-        if($request->expectsJson())return response()->json($result);
-        return redirect()->route('erp.migration.center')->with('status','Import completed and reconciled. Batch #'.$result['batch_id'].'. Historical attendance was not charged again.');
+        return response()->json($result + ['message'=>'Import completed and reconciled. Batch #'.$result['batch_id'].'. Historical attendance was not charged again.']);
     }
 }

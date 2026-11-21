@@ -19,9 +19,9 @@ class SheetAuthority
         // Explicit read/auth/account-management allowlist. New mutation routes fail closed.
         // Laravel UI names GET /login, but its POST /login route is unnamed.
         $loginSubmission = $request->isMethod('post') && $request->path() === 'login';
-        $allowed = $loginSubmission || $request->routeIs('login','logout','password.*','two-factor.*','erp.accounts.update','erp.teams.*','erp.onboard','erp.migration.preview','users.*','roles.*','maintenance.*',
-            'get-teacher-dob','get-teachers','get-teacher','get-students','get-student','get-students-mark','student-attendance-report','attendanceReport','markreport','studentinfom','studentinforesult');
-        if (!$allowed && !$request->is('admin/update-settings')) abort(409,'Sheets are authoritative during the transition. Make operational changes in the original Sheet.');
+        $allowed = $loginSubmission || $request->routeIs('login','logout','password.*','two-factor.*','erp.accounts.update','erp.accounts.profile','erp.teams.*','erp.onboard','erp.migration.preview',
+            'get-teacher-dob','studentinfom','studentinforesult');
+        if (!$allowed) abort(409,'Sheets are authoritative during the transition. Make operational changes in the original Sheet.');
         return $next($request);
     }
 }

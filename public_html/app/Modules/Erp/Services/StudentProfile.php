@@ -16,7 +16,7 @@ class StudentProfile
         $admissionHandoffs = DB::table('erp_leads')->where('unit_id', $unitId)->where('student_id', $studentId)->select('id', 'source', 'joined_on', 'learning_requirement', 'concern', 'about_student', 'about_parent')->orderByDesc('id')->get();
 
         $assignments = $this->parties('erp_enrollments', $unitId, $studentId)
-            ->select('p.id', 'p.starts_on', 'p.ends_on', 'p.status', 't.name as teacher_name', 'subject.name as subject_name')
+            ->select('p.id', 'p.starts_on', 'p.ends_on', 'p.status', 'p.student_rate_paise', 't.name as teacher_name', 'subject.name as subject_name')
             ->orderByDesc('p.id')->paginate(10, ['*'], 'assignments_page')->withQueryString();
         $agreements = $this->parties('erp_enrollments', $unitId, $studentId)
             ->join('erp_agreements as a', function ($join) { $join->on('a.enrollment_id', '=', 'p.id')->on('a.unit_id', '=', 'p.unit_id'); })

@@ -26,7 +26,7 @@ Each step is labelled:
 
 Regression tests: `tests/Feature/ErpJourneyGapsTest.php`.
 
-See also: [features and pages](FEATURES_AND_PAGES.md) (feature catalogue, page crawl, click-path audit, functional test) and the [user guide](ERP_USER_GUIDE.md).
+See also: [the guide](APP_GUIDE.md) for the current app and its screens. This simulation predates the switch to the React app; its findings are about business rules, which the new app reuses unchanged.
 
 ## Dummy cast
 
@@ -164,7 +164,7 @@ A third pass created "Calicut Centre" and took it from an empty team to its firs
 | Finding | Type | Detail |
 |---|---|---|
 | Typing "maths" created a second subject next to "Maths" | **Bug, fixed** | Subject matching was case-sensitive, and subjects are shared by every team, so matching and reports would split. `People::eligibility` now matches ignoring case and extra spaces. Test: `AdminJourneyTest::test_a_new_team_reuses_shared_subjects_whatever_the_case` |
-| 26. An empty team's Overview has no setup checklist | Gap | Added a go-live checklist to the [user guide](ERP_USER_GUIDE.md) (section 5) |
+| 26. An empty team's Overview has no setup checklist | Gap | Added a go-live checklist to the user guide (since replaced by [the guide](APP_GUIDE.md)) (section 5) |
 | 27. Existing records for a new team can only be bulk-imported in the operator JSON format, which is off by default | Gap | Otherwise records are entered one by one |
 
 Existing duplicate subjects (if any were created before the fix) aren't merged automatically.

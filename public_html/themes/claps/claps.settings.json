@@ -1,0 +1,51 @@
+{
+  "name": "claps",
+  "like": "neutral",
+  "mode": "both",
+  "settings": [
+    {
+      "thing": "spacing",
+      "value": "compact",
+      "source": "dial"
+    },
+    {
+      "thing": "accent",
+      "value": "#117c66",
+      "source": "dial"
+    },
+    {
+      "thing": "font",
+      "value": "inter",
+      "source": "dial"
+    },
+    {
+      "thing": "corners",
+      "value": "large",
+      "source": "dial"
+    },
+    {
+      "thing": "vibrancy",
+      "value": "60",
+      "source": "dial"
+    },
+    {
+      "thing": "neutral",
+      "value": "#5b7a70",
+      "source": "dial"
+    },
+    {
+      "thing": "--color-background-body",
+      "value": "#f2f7f4",
+      "source": "token",
+      "mode": "light"
+    },
+    {
+      "thing": "--color-background-body",
+      "value": "#111815",
+      "source": "token",
+      "mode": "dark"
+    }
+  ],
+  "palette": "f2b9d984669180d8d849a4c80a214ddcff15f5afc239e902796348b87f3e6b18",
+  "lifted": []
+}

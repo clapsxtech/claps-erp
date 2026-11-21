@@ -47,8 +47,16 @@ class ErpSalesReportingTest extends TestCase
         $this->assertCount(0,$this->report($this->sales)['staff']);
         $adminReport=$this->report($this->admin);
         $this->assertSame(2,(int)$adminReport['staff']->firstWhere('actor_id',$this->sales->id)->demos);
-        $this->actingAs($this->admin)->get(route('erp.business',[$this->unit,'admissions','report'=>1,'report_from'=>'2026-10-27','report_to'=>'2026-10-27']))->assertOk()->assertSee('Campaign outcomes')->assertSee('Reporting Counselor');
-        $this->get(route('erp.business',[$this->unit,'admissions','report'=>1,'report_from'=>'2026-01-01','report_to'=>'2026-10-27']))->assertStatus(422);
+        $url='/app-api/units/'.$this->unit.'/overview/sales-report';
+        $json=$this->actingAs($this->admin)->getJson($url.'?from=2026-10-27&to=2026-10-27')->assertOk()->assertJsonPath('from','2026-10-27')->assertJsonPath('timezone','Asia/Kolkata')->json();
+        $this->assertSame(2,collect($json['staff'])->firstWhere('name','Reporting Counselor')['demos']);
+        $this->assertEqualsCanonicalizing(['Campaign A','Private campaign'],array_column($json['campaigns'],'source'));
+        $this->assertNotNull($json['collections']);
+        // The sales member's own report through the same read: only what they may see, and no money.
+        DB::table('erp_leads')->where('id',$lead->id)->update(['assigned_to'=>$this->sales->id]);
+        $own=$this->actingAs($this->sales)->getJson($url.'?from=2026-10-27&to=2026-10-27')->assertOk()->assertJsonPath('collections',null)->json();
+        $this->assertSame(['Campaign A'],array_column($own['campaigns'],'source'));
+        $this->actingAs($this->admin)->getJson($url.'?from=2026-01-01&to=2026-10-27')->assertStatus(422);
     }
     public function test_receipts_are_not_multiplied_and_reversals_use_their_own_date(): void
     {
@@ -66,9 +74,20 @@ class ErpSalesReportingTest extends TestCase
     {
         $lead=$this->lead('Handoff child',$this->sales->id);
         $this->actingAs($this->sales)->postJson(route('erp.business.mutate',[$this->unit,'admission-update-lead']),['lead_id'=>$lead->id,'learning_requirement'=>'Practice fractions','concern'=>'Needs patient explanations'])->assertOk();
-        $this->get(route('erp.business',[$this->unit,'allocation','lead_id'=>$lead->id]))->assertOk()->assertSee('Practice fractions')->assertSee('Needs patient explanations');
+        $this->getJson('/app-api/units/'.$this->unit.'/matching?lead_id='.$lead->id)->assertOk()->assertJsonPath('handoff.learningRequirement','Practice fractions')->assertJsonPath('handoff.concern','Needs patient explanations');
         $student=(new Admissions())->convertLead($this->unit,$this->sales->id,['lead_id'=>$lead->id]);
-        $this->actingAs($this->admin)->get(route('erp.student-profile',[$this->unit,$student->id]))->assertOk()->assertSee('Practice fractions')->assertSee('Needs patient explanations');
+        $this->assertDatabaseHas('erp_leads',['id'=>$lead->id,'student_id'=>$student->id,'learning_requirement'=>'Practice fractions','concern'=>'Needs patient explanations']);
+        // After conversion the handoff still reaches the people who place the student.
+        $this->actingAs($this->admin)->getJson('/app-api/units/'.$this->unit.'/matching?student_id='.$student->id)->assertOk()->assertJsonPath('handoff.learningRequirement','Practice fractions')->assertJsonPath('handoff.concern','Needs patient explanations');
         $this->assertDatabaseHas('erp_lead_activities',['lead_id'=>$lead->id,'kind'=>'edited']);
+    }
+    public function test_handoff_is_visible_on_the_student_profile_after_conversion(): void
+    {
+        $lead=$this->lead('Handoff child',$this->sales->id);
+        $this->actingAs($this->sales)->postJson(route('erp.business.mutate',[$this->unit,'admission-update-lead']),['lead_id'=>$lead->id,'learning_requirement'=>'Practice fractions','concern'=>'Needs patient explanations'])->assertOk();
+        $student=(new Admissions())->convertLead($this->unit,$this->sales->id,['lead_id'=>$lead->id]);
+        $this->actingAs($this->admin)->getJson('/app-api/units/'.$this->unit.'/students/'.$student->id)->assertOk()
+            ->assertJsonPath('admissionHandoffs.0.id',$lead->id)->assertJsonPath('admissionHandoffs.0.source','Campaign A')
+            ->assertJsonPath('admissionHandoffs.0.learningRequirement','Practice fractions')->assertJsonPath('admissionHandoffs.0.concern','Needs patient explanations');
     }
 }

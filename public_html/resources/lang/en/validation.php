@@ -31,7 +31,7 @@ return [
     ],
     'boolean' => 'The :attribute field must be true or false.',
     'confirmed' => 'The :attribute confirmation does not match.',
-    'date' => 'The :attribute is not a valid date.',
+    'date' => 'Enter :attribute as a date.',
     'date_equals' => 'The :attribute must be a date equal to :date.',
     'date_format' => 'The :attribute does not match the format :format.',
     'different' => 'The :attribute and :other must be different.',
@@ -39,9 +39,9 @@ return [
     'digits_between' => 'The :attribute must be between :min and :max digits.',
     'dimensions' => 'The :attribute has invalid image dimensions.',
     'distinct' => 'The :attribute field has a duplicate value.',
-    'email' => 'The :attribute must be a valid email address.',
+    'email' => 'Enter a full email address, like name@example.com.',
     'ends_with' => 'The :attribute must end with one of the following: :values.',
-    'exists' => 'The selected :attribute is invalid.',
+    'exists' => 'Choose :attribute from the list.',
     'file' => 'The :attribute must be a file.',
     'filled' => 'The :attribute field must have a value.',
     'gt' => [
@@ -57,7 +57,7 @@ return [
         'array' => 'The :attribute must have :value items or more.',
     ],
     'image' => 'The :attribute must be an image.',
-    'in' => 'The selected :attribute is invalid.',
+    'in' => 'Choose :attribute from the list.',
     'in_array' => 'The :attribute field does not exist in :other.',
     'integer' => 'The :attribute must be an integer.',
     'ip' => 'The :attribute must be a valid IP address.',
@@ -97,7 +97,7 @@ return [
     'password' => 'The password is incorrect.',
     'present' => 'The :attribute field must be present.',
     'regex' => 'The :attribute format is invalid.',
-    'required' => 'The :attribute field is required.',
+    'required' => 'Please fill in :attribute.',
     'required_if' => 'The :attribute field is required when :other is :value.',
     'required_unless' => 'The :attribute field is required unless :other is in :values.',
     'required_with' => 'The :attribute field is required when :values is present.',
@@ -114,7 +114,7 @@ return [
     'starts_with' => 'The :attribute must start with one of the following: :values.',
     'string' => 'The :attribute must be a string.',
     'timezone' => 'The :attribute must be a valid zone.',
-    'unique' => 'The :attribute has already been taken.',
+    'unique' => ':Attribute is already in use. Try a different one.',
     'uploaded' => 'The :attribute failed to upload.',
     'url' => 'The :attribute format is invalid.',
     'uuid' => 'The :attribute must be a valid UUID.',
@@ -131,9 +131,14 @@ return [
     */
 
     'custom' => [
-        'attribute-name' => [
-            'rule-name' => 'custom-message',
-        ],
+        // Fields picked from a list: "choose", not "fill in".
+        'student_id' => ['required' => 'Please choose the student.'],
+        'teacher_id' => ['required' => 'Please choose the teacher.'],
+        'subject_id' => ['required' => 'Please choose the subject.'],
+        'lead_id' => ['required' => 'Please choose the lead.'],
+        'assignee_id' => ['required' => 'Please choose who it is for.'],
+        'timezone' => ['required' => 'Please choose the time zone.'],
+        'outcome' => ['required' => 'Please choose how the call went.'],
     ],
 
     /*
@@ -147,6 +152,32 @@ return [
     |
     */
 
-    'attributes' => [],
+    'attributes' => [
+        // Plain names for the fields people fill in, used by the messages above.
+        'name' => 'the name',
+        'code' => 'the code',
+        'grade' => 'the grade',
+        'syllabus' => 'the syllabus',
+        'registered_on' => 'the joining date',
+        'timezone' => 'the time zone',
+        'title' => 'what the task is',
+        'phone' => 'the phone number',
+        'email' => 'the email address',
+        'password' => 'the password',
+        'student_id' => 'the student',
+        'teacher_id' => 'the teacher',
+        'subject_id' => 'the subject',
+        'lead_id' => 'the lead',
+        'outcome' => 'how the call went',
+        'note' => 'a short note',
+        'reference' => 'the reference',
+        'due_on' => 'the due date',
+        'requested_on' => 'the request date',
+        'enquiry_date' => 'the enquiry date',
+        'starts_at' => 'the start time',
+        'actual_minutes' => 'the minutes taught',
+        'assignee_id' => 'who it is for',
+        'reason' => 'the reason',
+    ],
 
 ];

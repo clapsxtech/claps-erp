@@ -1,6 +1,8 @@
 <?php
 namespace Tests\Feature;
 
+use App\Http\Controllers\App\TeacherPortalController;
+use App\Http\Controllers\App\TeacherPortalIdentity;
 use App\Http\Controllers\Erp\TeacherController;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -24,6 +26,8 @@ class ErpTeacherAccessTest extends TestCase
         $capsule=new Capsule($this->container); $capsule->addConnection(['driver'=>'sqlite','database'=>':memory:','prefix'=>'']); $capsule->setAsGlobal();
         $this->container->instance('db',$capsule->getDatabaseManager()); $this->container->instance('db.schema',$capsule->schema());
         $this->container->instance('validator',new Factory(new Translator(new ArrayLoader(),'en'),$this->container));
+        // The teacher endpoints answer JSON through response()->json().
+        $this->container->instance(\Illuminate\Contracts\Routing\ResponseFactory::class,new \Illuminate\Routing\ResponseFactory(\Mockery::mock(\Illuminate\Contracts\View\Factory::class),\Mockery::mock(\Illuminate\Routing\Redirector::class)));
         Facade::clearResolvedInstances(); Facade::setFacadeApplication($this->container);
         require_once __DIR__.'/../../database/migrations/2026_10_23_130000_create_erp_core_tables.php'; (new \CreateErpCoreTables())->up();
         require_once __DIR__.'/../../database/migrations/2026_10_23_150000_create_erp_business_workflows.php'; (new \CreateErpBusinessWorkflows())->up();
@@ -48,24 +52,35 @@ class ErpTeacherAccessTest extends TestCase
         $r=Request::create('/erp/teacher','POST',$payload); $r->setUserResolver(fn()=> $user); return $r;
     }
     private function denied(callable $call): void { try { $call(); $this->fail('Expected teacher authorization denial.'); } catch (AuthorizationException $e) { $this->assertNotEmpty($e->getMessage()); } }
+    /** The base Controller constructor reads the settings table, which this bare container does not have. */
+    private function portal(): TeacherPortalController { return (new \ReflectionClass(TeacherPortalController::class))->newInstanceWithoutConstructor(); }
+    private function user(array $attributes=[]): User { return $this->request([],$attributes)->user(); }
     public function test_unlinked_users_wrong_site_inactive_and_wrong_role_are_denied(): void {
-        $c=new TeacherController();
-        $guest=Request::create('/erp/teacher'); $guest->setUserResolver(fn()=> null);
-        $this->denied(fn()=> $c->index($guest));
-        $this->denied(fn()=> $c->index($this->request([],['id'=>99])));
-        $this->denied(fn()=> $c->index($this->request([],['business_id'=>2])));
-        $this->denied(fn()=> $c->index($this->request([],['status'=>0])));
+        $guest=Request::create('/erp/teacher/attendance','POST',['lesson_id'=>1,'actual_minutes'=>60]); $guest->setUserResolver(fn()=> null);
+        $this->denied(fn()=> (new TeacherController())->submit($guest));
+        $portal=$this->portal();
+        foreach ([['id'=>99],['business_id'=>2],['status'=>0]] as $attributes) {
+            $this->denied(fn()=> TeacherPortalIdentity::resolve($this->user($attributes)));
+            $this->denied(fn()=> $portal->workspace($this->request([],$attributes)));
+        }
         DB::table('erp_memberships')->where('user_id',11)->update(['role'=>'admin']);
-        $this->denied(fn()=> $c->index($this->request()));
+        $this->denied(fn()=> TeacherPortalIdentity::resolve($this->user()));
+        $this->denied(fn()=> $portal->workspace($this->request()));
+        $this->denied(fn()=> (new TeacherController())->submit($this->request(['lesson_id'=>1,'actual_minutes'=>60])));
+        $this->assertSame(0,DB::table('erp_attendance')->count());
     }
     public function test_listing_contains_only_own_lessons_and_no_financial_or_contact_fields(): void {
-        $data=null; $view=\Mockery::mock(\Illuminate\Contracts\View\View::class);
-        $factory=\Mockery::mock(\Illuminate\Contracts\View\Factory::class);
-        $factory->shouldReceive('make')->once()->withArgs(function($name,$values) use (&$data) { $data=$values; return $name==='erp.teacher'; })->andReturn($view);
-        $this->container->instance(\Illuminate\Contracts\View\Factory::class,$factory);
-        (new TeacherController())->index($this->request(['from'=>'2026-01-01','through'=>'2026-01-31']));
-        $this->assertCount(1,$data['lessons']); $lesson=$data['lessons']->first(); $this->assertSame('Own Student',$lesson->student_name);
-        foreach (['student_rate_paise','teacher_rate_paise','guardian_contact','meeting_url'] as $field) $this->assertFalse(property_exists($lesson,$field));
+        $response=$this->portal()->workspace($this->request(['from'=>'2026-01-01','through'=>'2026-01-31']));
+        $data=$response->getData(true);
+        $this->assertCount(1,$data['lessons']); $lesson=$data['lessons'][0]; $this->assertSame('Own Student',$lesson['studentName']);
+        $this->assertSame(['Own Student'],array_column($data['students'],'name'));
+        $this->assertStringNotContainsString('Private Other Student',$response->getContent());
+        foreach (['student_rate_paise','teacher_rate_paise','guardian_contact','meeting_url','studentRatePaise','teacherRatePaise','guardianContact','meetingUrl'] as $field) {
+            $this->assertArrayNotHasKey($field,$lesson);
+            $this->assertStringNotContainsString($field,$response->getContent());
+        }
+        $this->assertStringNotContainsString('12000',$response->getContent());
+        $this->assertStringNotContainsString('6000',$response->getContent());
     }
     public function test_other_teacher_or_crossunit_lessons_cannot_be_submitted(): void {
         $c=new TeacherController(); $this->denied(fn()=> $c->submit($this->request(['lesson_id'=>2,'actual_minutes'=>60])));
@@ -79,9 +94,8 @@ class ErpTeacherAccessTest extends TestCase
         $this->denied(fn()=> $c->submit($this->request(['lesson_id'=>1,'actual_minutes'=>60])));
     }
     public function test_teacher_can_submit_own_attendance_without_financial_side_effects(): void {
-        $redirect=\Mockery::mock(\Illuminate\Routing\Redirector::class); $response=\Mockery::mock(\Illuminate\Http\RedirectResponse::class);
-        $redirect->shouldReceive('route')->once()->with('erp.teacher.index')->andReturn($response); $response->shouldReceive('with')->once()->andReturnSelf(); $this->container->instance('redirect',$redirect);
-        (new TeacherController())->submit($this->request(['lesson_id'=>1,'actual_minutes'=>45,'unit_id'=>2,'teacher_id'=>2]));
+        $response=(new TeacherController())->submit($this->request(['lesson_id'=>1,'actual_minutes'=>45,'unit_id'=>2,'teacher_id'=>2]));
+        $this->assertSame('submitted',$response->getData(true)['result']['status']);
         $row=DB::table('erp_attendance')->first(); $this->assertSame(1,(int)$row->lesson_id); $this->assertSame(1,(int)$row->unit_id); $this->assertSame(11,(int)$row->submitted_by); $this->assertSame(45,(int)$row->actual_minutes); $this->assertSame('submitted',$row->status);
         $this->assertSame(0,DB::table('erp_ledger')->count());
     }

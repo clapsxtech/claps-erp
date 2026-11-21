@@ -11,6 +11,7 @@ storage/app/teacher-imports
 storage/app/teacher-release-backups
 storage/app/erp-imports
 src
+!src/themes
 tests
 docs
 wrangler.jsonc

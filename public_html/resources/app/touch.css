@@ -1,0 +1,98 @@
+/*
+ * Touch sizing. The ClapsLearn theme is compact so desktop tables stay dense, but
+ * fingers need bigger targets. The Astryx theme editor has no device conditions
+ * ("a media query needs your own CSS"), so this file applies only to touch
+ * screens: every control is at least 44px tall (Apple HIG / WCAG 2.5.5), and
+ * text fields use 16px text so iPhones do not zoom the page when one is tapped.
+ * Unlayered rules win over Astryx's layered component styles.
+ */
+@media (pointer: coarse) {
+  .astryx-button,
+  .astryx-tab,
+  .astryx-pagination-item,
+  .astryx-toggle-button,
+  .astryx-selector button,
+  .astryx-input-clear-button,
+  .astryx-segmented-control-item,
+  /* Touch tablets get the desktop layout: sidebar, top bar and sortable headers. */
+  .astryx-side-nav-item,
+  .astryx-side-nav-heading,
+  .astryx-top-nav-item,
+  th button,
+  /* List rows, and rows inside menus, pickers' option sheets and the search palette. */
+  .astryx-item,
+  .astryx-list-item > a,
+  .astryx-dropdown-menu-item,
+  .astryx-selector-option-row,
+  .astryx-command-palette-item,
+  .astryx-command-palette-input input {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .astryx-text-input input,
+  .astryx-text-area textarea,
+  .astryx-selector button,
+  .astryx-date-input input,
+  .astryx-number-input input,
+  input[type='text'],
+  input[type='email'],
+  input[type='tel'],
+  input[type='url'],
+  input[type='password'],
+  input[type='search'],
+  input[type='number'],
+  input[type='date'],
+  input[type='time'],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /*
+   * Field boxes have a fixed compact height; let them grow with the taller
+   * input (36px plus the box padding and border is about 44px) instead of the input
+   * spilling out of the box. Date fields get room for "November 21, 2026".
+   */
+  .astryx-text-input,
+  .astryx-date-input,
+  .astryx-number-input,
+  .astryx-typeahead,
+  .astryx-date-time-input-date-segment,
+  .astryx-date-time-input-time-segment {
+    height: auto;
+    min-height: 44px;
+  }
+
+  /* The palette's search box: the 44px input fills it instead of adding to its padding. */
+  .astryx-command-palette-input {
+    padding-block: 0;
+  }
+
+  .astryx-text-input input,
+  .astryx-date-input input,
+  .astryx-number-input input,
+  .astryx-typeahead input,
+  .astryx-date-time-input input {
+    min-height: 36px;
+  }
+
+  .astryx-date-input {
+    min-width: 14rem;
+  }
+
+  /*
+   * Text links ("All my tasks", a phone number, breadcrumbs, the portal title)
+   * keep their look but get a 44px tall hit area: the padding (44px minus
+   * the line height, split top and bottom; 10px where `lh` is unsupported)
+   * grows the tappable box and the equal negative margin keeps the layout.
+   */
+  .astryx-link,
+  .astryx-breadcrumbs a,
+  .astryx-top-nav-heading {
+    --touch-pad: 10px;
+    --touch-pad: max(0px, calc((44px - 1lh) / 2));
+    padding-block: var(--touch-pad);
+    margin-block: calc(-1 * var(--touch-pad));
+  }
+}

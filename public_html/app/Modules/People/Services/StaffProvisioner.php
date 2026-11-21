@@ -22,7 +22,7 @@ class StaffProvisioner
         'alternate_number', 'emergency_contact_number', 'service_expiry',
     ];
 
-    private const BANK_FIELDS = [
+    public const BANK_FIELDS = [
         'account_holder_name', 'account_number', 'bank_name', 'bank_code', 'branch', 'tax_payer_id',
     ];
 

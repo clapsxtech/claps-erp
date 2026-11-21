@@ -17,7 +17,7 @@ class ReportAccess
         $this->identities = $identities;
     }
 
-    /** Scope before DataTables counts, filtering or pagination can expose rows. */
+    /** Scope before counts, filtering or pagination can expose rows. */
     public function scopeTeacherReport(Builder $query, Request $request): Builder
     {
         $this->siteAccess->assertSiteMember($request->user());

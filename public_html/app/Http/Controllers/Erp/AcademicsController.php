@@ -35,23 +35,6 @@ class AcademicsController extends Controller
         return $query->orderByDesc('m.assessed_on')->orderByDesc('m.id');
     }
 
-    public function index(Request $request, int $unit)
-    {
-        (new Access())->unit($request->user(), $unit, false);
-        $filters = $this->filters($request);
-        $business = DB::table('erp_units')->find($unit);
-        $results = $this->results($unit, $filters)->paginate(25, ['*'], 'results_page')->withQueryString();
-        $eligibilities = DB::table('erp_eligibilities as e')
-            ->join('erp_teacher_units as pool','pool.teacher_id','=','e.teacher_id')
-            ->join('erp_teachers as t','t.id','=','e.teacher_id')
-            ->join('erp_subjects as subject','subject.id','=','e.subject_id')
-            ->where('pool.unit_id',$unit)
-            ->select('e.grade','e.syllabus','t.name as teacher_name','subject.name as subject_name')
-            ->orderBy('subject.name')->orderBy('t.name')->orderBy('e.id')
-            ->paginate(25, ['*'], 'subjects_page')->withQueryString();
-        return view('erp.academics', compact('business','results','eligibilities','filters'));
-    }
-
     public function export(Request $request, int $unit)
     {
         (new Access())->unit($request->user(), $unit, false);

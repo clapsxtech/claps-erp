@@ -4,17 +4,32 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Modules\People\Services\StaffProvisioner;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Mockery;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
+/**
+ * Staff account rules. Accounts are created through POST /erp/administration/onboard (Teams & accounts),
+ * listed through GET /app-api/admin/accounts and changed through POST /erp/administration/accounts/{id}.
+ * No HTTP route edits a staff profile any more (the old /admin/users edit screen was removed), so the
+ * profile-edit rules of StaffProvisioner::update() are exercised at service level here.
+ */
 class StaffProvisioningTest extends TestCase
 {
+    private ?int $team = null;
+
+    private function team(): int
+    {
+        return $this->team ??= DB::table('erp_units')->insertGetId(['code' => 'STAFF', 'name' => 'Staff team', 'timezone' => 'UTC']);
+    }
+
     private function payload(array $overrides = []): array
     {
         return array_merge([
@@ -24,9 +39,26 @@ class StaffProvisioningTest extends TestCase
         ], $overrides);
     }
 
+    /** Onboarding payload: the staff profile plus the team assignment the Teams & accounts form sends. */
+    private function onboard(array $overrides = []): array
+    {
+        return array_merge($this->payload(), ['team_ids' => [$this->team()], 'initial_role' => 'read_only'], $overrides);
+    }
+
+    /** StaffProvisioner::update() has no HTTP caller; returns the validation errors (or [] on success). */
+    private function updateProfile(User $actor, $id, array $input): array
+    {
+        try {
+            app(StaffProvisioner::class)->update($actor, $id, $input);
+            return [];
+        } catch (ValidationException $exception) {
+            return $exception->errors();
+        }
+    }
+
     public function test_creation_works_against_the_bundled_schema_and_current_form_fields(): void
     {
-        $this->actingAs($this->createAdmin())->postJson(route('users.store'), $this->payload([
+        $this->actingAs($this->createAdmin())->postJson(route('erp.onboard'), $this->onboard([
             'dob' => '1990-01-02', 'position' => 'Teacher', 'language' => 'English',
             'custom_fields' => 'Test metadata', 'is_commission_agent' => '1',
             'commission_type' => 'sale_amount', 'blood_group' => 'O+',
@@ -35,7 +67,7 @@ class StaffProvisioningTest extends TestCase
             'current_address' => '456 Test Road',
             'bank_details' => ['account_holder_name' => 'Test Staff', 'account_number' => 'TEST-ONLY',
                 'bank_name' => 'Test Bank', 'bank_code' => 'TEST', 'branch' => 'Test Branch', 'tax_payer_id' => 'TEST-ID'],
-        ]))->assertOk()->assertJson(['success' => true]);
+        ]))->assertOk()->assertJsonStructure(['message']);
 
         $user = User::where('email', 'new-staff@example.invalid')->firstOrFail();
         $this->assertSame('FEMALE', $user->gender);
@@ -55,6 +87,7 @@ class StaffProvisioningTest extends TestCase
         $this->assertTrue(Hash::check('Staff-Testing-Only-2026', $user->password));
         $this->assertFalse(Schema::hasColumn('users', 'employee_code'));
         $this->assertCount(0, $user->roles);
+        $this->assertDatabaseHas('erp_memberships', ['user_id' => $user->id, 'unit_id' => $this->team(), 'role' => 'read_only']);
     }
 
     public function test_create_requires_a_nonempty_confirmed_strong_password(): void
@@ -67,16 +100,17 @@ class StaffProvisioningTest extends TestCase
             ['password' => 'Staff-Testing-Only-2026', 'confirm_password' => 'Different-Password'],
             ['password' => str_repeat('é', 40), 'confirm_password' => str_repeat('é', 40)],
         ] as $password) {
-            $this->postJson(route('users.store'), $this->payload($password))
-                ->assertStatus(422)->assertJson(['success' => false])->assertJsonValidationErrors('password');
+            $this->postJson(route('erp.onboard'), $this->onboard($password))
+                ->assertStatus(422)->assertJsonValidationErrors('password');
         }
         $this->assertSame(1, User::count());
+        $this->assertSame(0, DB::table('erp_memberships')->count());
     }
 
     public function test_legacy_gender_values_are_normalized_to_the_enum(): void
     {
-        $this->actingAs($this->createAdmin())->postJson(route('users.store'), $this->payload(['gender' => 'Others']))
-            ->assertOk()->assertJson(['success' => true]);
+        $this->actingAs($this->createAdmin())->postJson(route('erp.onboard'), $this->onboard(['gender' => 'Others']))
+            ->assertOk();
         $this->assertDatabaseHas('users', ['email' => 'new-staff@example.invalid', 'gender' => 'OTHER']);
     }
 
@@ -92,13 +126,14 @@ class StaffProvisioningTest extends TestCase
             'bank_details' => ['account_number' => ['invalid']],
         ];
         foreach ($invalid as $field => $value) {
-            $this->postJson(route('users.store'), $this->payload([$field => $value]))
-                ->assertStatus(422)->assertJson(['success' => false]);
+            $this->postJson(route('erp.onboard'), $this->onboard([$field => $value]))
+                ->assertStatus(422)->assertJsonValidationErrors($field === 'bank_details' ? 'bank_details.account_number' : $field);
         }
-        $this->postJson(route('users.store'), $this->payload([
+        $this->postJson(route('erp.onboard'), $this->onboard([
             'permanent_address' => str_repeat('a', 150), 'current_address' => str_repeat('b', 150),
         ]))->assertStatus(422)->assertJsonValidationErrors('permanent_address');
         $this->assertSame(1, User::count());
+        $this->assertSame(0, DB::table('erp_memberships')->count());
     }
 
     public function test_privilege_and_organization_fields_are_rejected(): void
@@ -106,12 +141,14 @@ class StaffProvisioningTest extends TestCase
         $this->actingAs($this->createAdmin());
         foreach (['business_id' => 2, 'user_type' => 'admin', 'role' => 'Admin', 'roles' => ['Admin'],
             'permissions' => ['administration'], 'status' => 0, 'employee_code' => '1', 'id' => 1] as $field => $value) {
-            $this->postJson(route('users.store'), $this->payload([$field => $value]))
+            $this->postJson(route('erp.onboard'), $this->onboard([$field => $value]))
                 ->assertStatus(422)->assertJsonValidationErrors($field);
         }
         $this->assertSame(1, User::count());
+        $this->assertSame(0, DB::table('erp_memberships')->count());
     }
 
+    /** Service level: no route edits a staff profile (see the class comment). */
     public function test_edits_preserve_privileges_business_password_and_absent_optional_metadata(): void
     {
         $admin = $this->createAdmin();
@@ -119,9 +156,9 @@ class StaffProvisioningTest extends TestCase
         $role = Role::create(['name' => 'Existing Role', 'guard_name' => 'web']);
         $user->assignRole($role);
         $hash = $user->password;
-        $this->actingAs($admin)->putJson(route('users.update', $user), $this->payload([
+        $this->assertSame([], $this->updateProfile($admin, $user->id, $this->payload([
             'email' => $user->email, 'phone' => $user->phone, 'password' => null, 'confirm_password' => null,
-        ]))->assertOk()->assertJson(['success' => true]);
+        ])));
         $user->refresh();
         $this->assertSame('admin', $user->user_type);
         $this->assertSame(1, (int) $user->business_id);
@@ -131,26 +168,45 @@ class StaffProvisioningTest extends TestCase
         $this->assertTrue($user->hasRole('Existing Role'));
     }
 
+    /** Service level: no route edits a staff profile (see the class comment). */
     public function test_privilege_fields_are_also_rejected_on_updates_without_mutation(): void
     {
         $admin = $this->createAdmin();
         $user = $this->createMember(['user_type' => 'admin']);
         $before = $user->fresh()->getAttributes();
-        $this->actingAs($admin)->putJson(route('users.update', $user), $this->payload([
+        $errors = $this->updateProfile($admin, $user->id, $this->payload([
             'business_id' => 2, 'user_type' => 'user', 'roles' => ['Admin'], 'permissions' => ['administration'],
-        ]))->assertStatus(422)->assertJsonValidationErrors(['business_id', 'user_type', 'roles', 'permissions']);
+        ]));
+        foreach (['business_id', 'user_type', 'roles', 'permissions'] as $field) {
+            $this->assertArrayHasKey($field, $errors);
+        }
         $this->assertSame($before, $user->fresh()->getAttributes());
     }
 
+    /**
+     * Service level for profile edits; the account screen's password reset (the only HTTP way to change
+     * another account's password now) is checked for the same confirmation rule.
+     */
     public function test_edits_can_change_password_only_with_matching_confirmation(): void
     {
         $admin = $this->createAdmin();
         $user = $this->createMember();
-        $this->actingAs($admin)->putJson(route('users.update', $user), $this->payload(['confirm_password' => 'Wrong-Confirmation']))
-            ->assertStatus(422)->assertJsonValidationErrors('password');
-        $this->putJson(route('users.update', $user), $this->payload())
-            ->assertOk()->assertJson(['success' => true]);
+        $hash = $user->password;
+        $this->assertArrayHasKey('password', $this->updateProfile($admin, $user->id, $this->payload(['confirm_password' => 'Wrong-Confirmation'])));
+        $this->assertSame($hash, $user->fresh()->password);
+        $this->assertSame([], $this->updateProfile($admin, $user->id, $this->payload()));
         $this->assertTrue(Hash::check('Staff-Testing-Only-2026', $user->fresh()->password));
+
+        $this->actingAs($admin)->postJson(route('erp.accounts.update', $user->id), [
+            'action' => 'reset_password', 'current_password' => 'Local-Testing-Only-2026',
+            'password' => 'Another-Strong-Password', 'password_confirmation' => 'Wrong-Confirmation',
+        ])->assertStatus(422)->assertJsonValidationErrors('password');
+        $this->assertTrue(Hash::check('Staff-Testing-Only-2026', $user->fresh()->password));
+        $this->postJson(route('erp.accounts.update', $user->id), [
+            'action' => 'reset_password', 'current_password' => 'Local-Testing-Only-2026',
+            'password' => 'Another-Strong-Password', 'password_confirmation' => 'Another-Strong-Password',
+        ])->assertOk();
+        $this->assertTrue(Hash::check('Another-Strong-Password', $user->fresh()->password));
     }
 
     public function test_cross_organization_staff_are_never_listed_read_or_edited(): void
@@ -158,39 +214,54 @@ class StaffProvisioningTest extends TestCase
         $admin = $this->createAdmin();
         $foreign = $this->createMember(['business_id' => 2, 'name' => 'Foreign Staff']);
         $before = $foreign->fresh()->getAttributes();
-        $this->actingAs($admin)->getJson(route('users.index'), ['X-Requested-With' => 'XMLHttpRequest'])
-            ->assertOk()->assertJsonCount(1, 'data')->assertDontSee('Foreign Staff');
-        $this->get(route('users.edit', $foreign))->assertNotFound();
-        $this->putJson(route('users.update', $foreign), $this->payload())->assertNotFound();
+        $this->actingAs($admin)->getJson('/app-api/admin/accounts')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.total', 1)->assertDontSee('Foreign Staff');
+        $this->getJson('/app-api/admin/accounts?q=Foreign')->assertOk()->assertJsonCount(0, 'data');
+        // The read-only records list of user accounts uses the same StaffProvisioner::staffQuery boundary.
+        $this->getJson('/app-api/records/users')->assertOk()->assertSee('QA Admin')->assertDontSee('Foreign Staff');
+        foreach (['suspend', 'activate', 'revoke_sessions', 'promote', 'demote'] as $action) {
+            $this->postJson(route('erp.accounts.update', $foreign->id), ['action' => $action, 'current_password' => 'Local-Testing-Only-2026'])->assertNotFound();
+        }
+        $this->postJson(route('erp.accounts.update', $foreign->id), ['action' => 'reset_password', 'current_password' => 'Local-Testing-Only-2026',
+            'password' => 'Foreign-Strong-Password', 'password_confirmation' => 'Foreign-Strong-Password'])->assertNotFound();
+        try {
+            app(StaffProvisioner::class)->update($admin, $foreign->id, $this->payload());
+            $this->fail('A foreign account must not be editable.');
+        } catch (ModelNotFoundException $expected) {
+        }
         $this->assertSame($before, $foreign->fresh()->getAttributes());
     }
 
     public function test_nonadministrators_and_foreign_administrators_cannot_provision_staff(): void
     {
         $member = $this->createMember();
-        $this->actingAs($member)->postJson(route('users.store'), $this->payload())->assertForbidden();
+        $this->actingAs($member)->postJson(route('erp.onboard'), $this->onboard())->assertForbidden();
         $foreignAdmin = $this->createMember(['business_id' => 2, 'user_type' => 'admin']);
-        $this->actingAs($foreignAdmin)->postJson(route('users.store'), $this->payload())->assertForbidden();
+        $this->actingAs($foreignAdmin)->postJson(route('erp.onboard'), $this->onboard())->assertForbidden();
+        $this->actingAs($foreignAdmin)->getJson('/app-api/admin/accounts')->assertForbidden();
         $this->assertSame(2, User::count());
+        $this->assertSame(0, DB::table('erp_memberships')->count());
     }
 
-    public function test_create_edit_and_profile_forms_render_with_null_legacy_metadata(): void
+    /** Accounts with null legacy metadata still list and still sign in to the staff app. */
+    public function test_accounts_with_null_legacy_metadata_are_listed_and_open_the_app(): void
     {
         $admin = $this->createAdmin(['address' => null, 'bank_details' => null, 'gender' => 'OTHER']);
-        $this->actingAs($admin)->get(route('users.create'))->assertOk()->assertSee('multipart/form-data', false);
-        $this->get(route('users.edit', $admin))->assertOk()->assertSee('value="OTHER"  selected', false);
-        $this->get(route('profile'))->assertOk();
-        $this->get(route('users.index'))->assertOk()->assertSee(route('users.create'), false);
+        $this->actingAs($admin)->getJson('/app-api/admin/accounts')->assertOk()->assertJsonPath('data.0.name', 'QA Admin');
+        $this->get('/app')->assertOk();
+        $this->assertSame([], $this->updateProfile($admin, $admin->id, $this->payload(['email' => $admin->email, 'phone' => $admin->phone, 'gender' => 'OTHER', 'password' => null, 'confirm_password' => null])));
+        $this->assertSame('OTHER', $admin->fresh()->gender);
     }
 
     public function test_invalid_files_are_rejected(): void
     {
-        $this->actingAs($this->createAdmin())->postJson(route('users.store'), $this->payload([
+        $this->actingAs($this->createAdmin())->postJson(route('erp.onboard'), $this->onboard([
             'profile_photo' => UploadedFile::fake()->createWithContent('profile.php', '<?php echo "bad";'),
         ]))->assertStatus(422)->assertJsonValidationErrors('profile_photo');
         $this->assertSame(1, User::count());
     }
 
+    /** Service level: no route replaces a staff photo (see the class comment). */
     public function test_photo_replacement_cannot_delete_an_arbitrary_legacy_path(): void
     {
         $directory = storage_path('framework/testing/staff-public-'.uniqid());
@@ -202,12 +273,30 @@ class StaffProvisioningTest extends TestCase
             $admin = $this->createAdmin();
             $user = $this->createMember(['profile_photo' => '/do-not-delete.txt']);
             $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1uoAAAAASUVORK5CYII=');
-            $this->actingAs($admin)->putJson(route('users.update', $user), $this->payload([
+            $this->assertSame([], $this->updateProfile($admin, $user->id, $this->payload([
                 'profile_photo' => UploadedFile::fake()->createWithContent('photo.png', $png),
-            ]))->assertOk()->assertJson(['success' => true]);
+            ])));
             $this->assertFileExists($sentinel);
             $this->assertMatchesRegularExpression('#^/uploads/profile_photo/[a-f0-9-]{36}\.png$#', $user->fresh()->profile_photo);
             $this->assertFileExists($directory.$user->fresh()->profile_photo);
+        } finally {
+            File::deleteDirectory($directory);
+        }
+    }
+
+    public function test_onboarding_with_a_photo_stores_it_under_a_generated_name(): void
+    {
+        $directory = storage_path('framework/testing/staff-public-'.uniqid());
+        File::ensureDirectoryExists($directory);
+        $this->app->usePublicPath($directory);
+        try {
+            $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1uoAAAAASUVORK5CYII=');
+            $this->actingAs($this->createAdmin())->postJson(route('erp.onboard'), $this->onboard([
+                'profile_photo' => UploadedFile::fake()->createWithContent('photo.png', $png),
+            ]))->assertOk();
+            $photo = User::where('email', 'new-staff@example.invalid')->value('profile_photo');
+            $this->assertMatchesRegularExpression('#^/uploads/profile_photo/[a-f0-9-]{36}\.png$#', $photo);
+            $this->assertFileExists($directory.$photo);
         } finally {
             File::deleteDirectory($directory);
         }
@@ -219,15 +308,17 @@ class StaffProvisioningTest extends TestCase
         File::ensureDirectoryExists($directory);
         $this->app->usePublicPath($directory);
         $admin = $this->createAdmin();
+        $team = $this->team();
         $dispatcher = User::getEventDispatcher();
         User::setEventDispatcher(new \Illuminate\Events\Dispatcher($this->app));
         User::saving(function () { throw new \RuntimeException('Simulated database failure.'); });
         try {
             $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1uoAAAAASUVORK5CYII=');
-            $this->actingAs($admin)->postJson(route('users.store'), $this->payload([
+            $this->actingAs($admin)->postJson(route('erp.onboard'), $this->onboard([
                 'profile_photo' => UploadedFile::fake()->createWithContent('photo.png', $png),
-            ]))->assertStatus(500)->assertJson(['success' => false]);
+            ]))->assertStatus(500)->assertDontSee('Simulated database failure.');
             $this->assertSame(1, User::count());
+            $this->assertSame(0, DB::table('erp_memberships')->where('unit_id', $team)->count());
             $this->assertCount(0, File::allFiles($directory));
         } finally {
             User::setEventDispatcher($dispatcher);
@@ -239,23 +330,33 @@ class StaffProvisioningTest extends TestCase
     {
         $admin = $this->createAdmin();
         $user = $this->createMember();
-        $this->actingAs($admin)->postJson(route('users.store'), $this->payload(['email' => $user->email, 'phone' => $user->phone]))
+        $this->actingAs($admin)->postJson(route('erp.onboard'), $this->onboard(['email' => $user->email, 'phone' => $user->phone]))
             ->assertStatus(422)->assertJsonValidationErrors(['email', 'phone']);
-        $deleted = $this->createMember(['deleted_at' => now()]);
-        $this->get(route('users.edit', $deleted))->assertNotFound();
-        $this->putJson(route('users.update', $deleted), $this->payload())->assertNotFound();
+        $deleted = $this->createMember(['deleted_at' => now(), 'name' => 'Deleted Staff']);
+        $before = $deleted->fresh()->getAttributes();
+        $this->getJson('/app-api/admin/accounts')->assertOk()->assertDontSee('Deleted Staff');
+        $this->postJson(route('erp.accounts.update', $deleted->id), ['action' => 'activate', 'current_password' => 'Local-Testing-Only-2026'])->assertNotFound();
+        try {
+            app(StaffProvisioner::class)->update($admin, $deleted->id, $this->payload());
+            $this->fail('A deleted account must not be editable.');
+        } catch (ModelNotFoundException $expected) {
+        }
+        $this->assertSame($before, $deleted->fresh()->getAttributes());
     }
 
-    public function test_persistence_failures_return_generic_errors_without_logging_payloads(): void
+    /** Database exceptions can carry password hashes and bank details: only a fixed message is logged. */
+    public function test_persistence_failures_return_generic_errors_without_partial_accounts_or_logged_payloads(): void
     {
         $admin = $this->createAdmin();
         $service = Mockery::mock(StaffProvisioner::class)->makePartial();
-        $service->shouldReceive('staffQuery')->once()->andReturn(User::query());
         $service->shouldReceive('create')->once()->andThrow(new \RuntimeException('Sensitive request payload must not be logged.'));
         $this->app->instance(StaffProvisioner::class, $service);
-        Log::shouldReceive('error')->once()->with('Unable to create a staff profile.');
-        $this->actingAs($admin)->postJson(route('users.store'), $this->payload())
-            ->assertStatus(500)->assertExactJson(['success' => false, 'msg' => 'Unable to create the user.']);
+        \Illuminate\Support\Facades\Log::spy();
+        $this->actingAs($admin)->postJson(route('erp.onboard'), $this->onboard())
+            ->assertStatus(500)->assertExactJson(['message' => 'The change could not be saved. Nothing was changed.']);
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('error')->once()->with('Unable to create a staff profile.');
+        $this->assertSame(1, User::count());
+        $this->assertSame(0, DB::table('erp_memberships')->count());
     }
 
     public function test_additive_migration_can_reapply_and_rollback_without_removing_preexisting_columns(): void

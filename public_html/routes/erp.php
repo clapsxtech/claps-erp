@@ -1,49 +1,63 @@
 <?php
-use Illuminate\Support\Facades\Route;
+
+use App\Http\Controllers\App\AppShellController;
+use App\Http\Controllers\Erp\AcademicsController;
+use App\Http\Controllers\Erp\AdministrationController;
+use App\Http\Controllers\Erp\BusinessController;
+use App\Http\Controllers\Erp\MigrationCenterController;
+use App\Http\Controllers\Erp\OwnTasksController;
+use App\Http\Controllers\Erp\SheetTransitionController;
+use App\Http\Controllers\Erp\TeacherController;
+use App\Http\Controllers\Erp\TuitionController;
 use App\Http\Controllers\Erp\WorkspaceController;
-Route::get('/erp/from-sheets', [\App\Http\Controllers\Erp\SheetTransitionController::class,'index'])->middleware('auth')->name('erp.sheets');
-Route::get('/teacher',[\App\Http\Controllers\Erp\TeacherController::class,'entry'])->middleware('auth')->name('teacher.portal');
-Route::permanentRedirect('/erp', '/')->name('erp.compatibility');
-Route::middleware(['auth', \App\Http\Middleware\TeamAuthorization::class])->prefix('erp')->name('erp.')->group(function () {
-    Route::get('/my-tasks',[\App\Http\Controllers\Erp\OwnTasksController::class,'index'])->name('tasks.mine');
-    Route::post('/my-tasks/{task}/complete',[\App\Http\Controllers\Erp\OwnTasksController::class,'complete'])->whereNumber('task')->name('tasks.complete');
-    Route::post('/my-tasks/{task}/items/{item}/complete',[\App\Http\Controllers\Erp\OwnTasksController::class,'completeItem'])->whereNumber('task')->whereNumber('item')->name('tasks.item.complete');
-    Route::post('/teacher/results',[\App\Http\Controllers\Erp\TeacherController::class,'result'])->name('teacher.result');
-    Route::get('/teacher',[\App\Http\Controllers\Erp\TeacherController::class,'index'])->name('teacher.index');
-    Route::post('/teacher/attendance',[\App\Http\Controllers\Erp\TeacherController::class,'submit'])->name('teacher.submit');
-    Route::get('/units/{unit}/academics/export',[\App\Http\Controllers\Erp\AcademicsController::class,'export'])->whereNumber('unit')->name('academics.export');
-    Route::get('/units/{unit}/students/{student}',[\App\Http\Controllers\Erp\StudentProfileController::class,'show'])->whereNumber('unit')->whereNumber('student')->name('student-profile');
-    Route::get('/units/{unit}/business/{page?}',[\App\Http\Controllers\Erp\BusinessController::class,'page'])->whereNumber('unit')->name('business');
-    Route::post('/units/{unit}/business-actions/{action}',[\App\Http\Controllers\Erp\BusinessController::class,'mutate'])->whereNumber('unit')->name('business.mutate');
-    Route::get('/units/{unit}/exports/{dataset}',[\App\Http\Controllers\Erp\BusinessController::class,'export'])->whereNumber('unit')->name('export');
-    Route::get('/units/{unit}/reconciliation',[\App\Http\Controllers\Erp\BusinessController::class,'reconciliation'])->whereNumber('unit')->name('reconciliation');
-    Route::get('/units/{unit}/lookup',[\App\Http\Controllers\Erp\BusinessController::class,'lookup'])->whereNumber('unit')->name('lookup');
-    Route::get('/units/{unit}/invoices/{id}',[\App\Http\Controllers\Erp\AccountsController::class,'invoice'])->whereNumber('unit')->whereNumber('id')->name('invoice');
-    Route::get('/units/{unit}/payment-requests/{id}',[\App\Http\Controllers\Erp\BusinessController::class,'requestPrint'])->whereNumber('unit')->whereNumber('id')->name('request.print');
-    Route::get('/units/{unit}',[WorkspaceController::class,'workspace'])->whereNumber('unit')->name('workspace');
-    Route::post('/units/{unit}/{action}',[WorkspaceController::class,'mutate'])->whereNumber('unit')->name('mutate');
-    Route::get('/units/{unit}/receipts/{entry}',[WorkspaceController::class,'receipt'])->whereNumber('unit')->whereNumber('entry')->name('receipt');
-});
+use App\Http\Middleware\TeamAuthorization;
+use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth','admin'])->prefix('erp/administration')->name('erp.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Erp\AdministrationController::class,'index'])->name('administration');
-    Route::post('/teams', [\App\Http\Controllers\Erp\AdministrationController::class,'team'])->name('teams.create');
-    Route::post('/teams/{id}', [\App\Http\Controllers\Erp\AdministrationController::class,'team'])->whereNumber('id')->name('teams.update');
-    Route::post('/teams/{id}/archive', [\App\Http\Controllers\Erp\AdministrationController::class,'archive'])->whereNumber('id')->name('teams.archive');
-    Route::post('/onboard', [\App\Http\Controllers\Erp\AdministrationController::class,'onboard'])->name('onboard');
-    Route::post('/accounts/{id}', [\App\Http\Controllers\Erp\AdministrationController::class,'account'])->whereNumber('id')->middleware('throttle:20,1,admin-accounts')->name('accounts.update');
-    Route::get('/operations', [\App\Http\Controllers\Erp\AdministrationController::class,'operations'])->name('operations');
-});
+/*
+| The staff app. /app/* serves the React host page; everything else here is the
+| JSON backend it calls. Writes under /erp are the business actions (validation,
+| permissions, audit and money rules live in their services); reads are under
+| /app-api. TeamAuthorization applies the role matrix to every unit route.
+*/
 
-Route::middleware(['auth','admin'])->prefix('erp/migration-center')->name('erp.migration.')->group(function () {
-    Route::get('/',[\App\Http\Controllers\Erp\MigrationCenterController::class,'index'])->name('center');
-    Route::post('/preview',[\App\Http\Controllers\Erp\MigrationCenterController::class,'preview'])->middleware('throttle:10,1,migration-preview')->name('preview');
-    Route::post('/execute',[\App\Http\Controllers\Erp\MigrationCenterController::class,'execute'])->middleware('throttle:5,1,migration-execute')->name('execute');
+Route::get('/app/{path?}', [AppShellController::class, 'show'])->where('path', '.*')->middleware('auth')->name('app.shell');
+
+Route::middleware(['auth', TeamAuthorization::class])->prefix('erp')->name('erp.')->group(function () {
+    Route::post('/my-tasks/{task}/complete', [OwnTasksController::class, 'complete'])->whereNumber('task')->name('tasks.complete');
+    Route::post('/my-tasks/{task}/items/{item}/complete', [OwnTasksController::class, 'completeItem'])->whereNumber('task')->whereNumber('item')->name('tasks.item.complete');
+    Route::post('/teacher/attendance', [TeacherController::class, 'submit'])->name('teacher.submit');
+    Route::post('/teacher/results', [TeacherController::class, 'result'])->name('teacher.result');
+    Route::get('/units/{unit}/academics/export', [AcademicsController::class, 'export'])->whereNumber('unit')->name('academics.export');
+    Route::post('/units/{unit}/business-actions/{action}', [BusinessController::class, 'mutate'])->whereNumber('unit')->name('business.mutate');
+    Route::get('/units/{unit}/exports/{dataset}', [BusinessController::class, 'export'])->whereNumber('unit')->name('export');
+    Route::get('/units/{unit}/reconciliation', [BusinessController::class, 'reconciliation'])->whereNumber('unit')->name('reconciliation');
+    Route::get('/units/{unit}/lookup', [BusinessController::class, 'lookup'])->whereNumber('unit')->name('lookup');
+    Route::post('/units/{unit}/{action}', [WorkspaceController::class, 'mutate'])->whereNumber('unit')->name('mutate');
 });
 
 // Private records have their own explicit role check and must never enter teacher exports.
-Route::middleware('auth')->prefix('erp/units/{unit}/tuition')->whereNumber('unit')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Erp\TuitionController::class,'index'])->name('erp.tuition');
-    Route::get('/statement', [\App\Http\Controllers\Erp\TuitionController::class,'statement'])->name('erp.tuition.statement');
-    Route::post('/{operation}', [\App\Http\Controllers\Erp\TuitionController::class,'mutate'])->name('erp.tuition.mutate');
+Route::middleware('auth')->post('/erp/units/{unit}/tuition/{operation}', [TuitionController::class, 'mutate'])->whereNumber('unit')->name('erp.tuition.mutate');
+
+Route::get('/erp/from-sheets', [SheetTransitionController::class, 'index'])->middleware('auth')->name('erp.sheets');
+
+Route::middleware(['auth', 'admin'])->prefix('erp/administration')->name('erp.')->group(function () {
+    Route::post('/teams', [AdministrationController::class, 'team'])->name('teams.create');
+    Route::post('/teams/{id}', [AdministrationController::class, 'team'])->whereNumber('id')->name('teams.update');
+    Route::post('/teams/{id}/archive', [AdministrationController::class, 'archive'])->whereNumber('id')->name('teams.archive');
+    Route::post('/onboard', [AdministrationController::class, 'onboard'])->name('onboard');
+    Route::post('/accounts/{id}/profile', [AdministrationController::class, 'profile'])->whereNumber('id')->middleware('throttle:20,1,admin-accounts')->name('accounts.profile');
+    Route::post('/accounts/{id}', [AdministrationController::class, 'account'])->whereNumber('id')->middleware('throttle:20,1,admin-accounts')->name('accounts.update');
 });
+
+Route::middleware(['auth', 'admin'])->prefix('erp/migration-center')->name('erp.migration.')->group(function () {
+    Route::post('/preview', [MigrationCenterController::class, 'preview'])->middleware('throttle:10,1,migration-preview')->name('preview');
+    Route::post('/execute', [MigrationCenterController::class, 'execute'])->middleware('throttle:5,1,migration-execute')->name('execute');
+});
+
+Route::middleware(['auth', TeamAuthorization::class])->prefix('app-api/units/{unit}')->whereNumber('unit')->name('app.api.')->group(function () {
+    // Each module keeps its JSON routes in routes/app/<module>.php. Every route
+    // must declare ->defaults('erp_permission', [kind, value]); see TeamAuthorization.
+    foreach (glob(__DIR__.'/app/*.php') as $moduleRoutes) require $moduleRoutes;
+});
+require __DIR__.'/app-global/me.php';
+Route::middleware(['auth', 'admin'])->prefix('app-api/admin')->name('app.api.admin.')->group(fn () => require __DIR__.'/app-global/admin.php');

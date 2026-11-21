@@ -212,8 +212,13 @@ class ErpSheetTransitionTest extends TestCase
         $this->post('/erp/units/'.$this->unit.'/payment',[])->assertStatus(409);
         $this->post('/upload-workhour',[])->assertStatus(409);
         $this->post('/erp/migration-center/execute',[])->assertStatus(409);
-        $this->get('/admin/delete/workhour/1')->assertStatus(409);
-        $this->get(route('erp.sheets'))->assertOk()->assertSee('temporary source of truth');
+        // The old records delete dialog is gone (404); the remaining legacy public writes are still blocked.
+        $this->post('/upload-result',[])->assertStatus(409);
+        $this->postJson('/performnce-upload',[])->assertStatus(409);
+        $this->assertDatabaseCount('work_hours',0); $this->assertDatabaseCount('marklists',0);
+        $this->getJson(route('erp.sheets'))->assertOk()->assertJsonPath('source','students');
+        // The "Sheets are the temporary source of truth" notice is driven by the app session flag.
+        $this->get('/app')->assertOk()->assertSee('"sheetsAuthority":true',false);
         $this->get(route('account.security'))->assertOk();
     }
 
@@ -228,7 +233,7 @@ class ErpSheetTransitionTest extends TestCase
     {
         config(['sheet_transition.authority'=>'sheets']);
         $admin=$this->createAdmin();
-        $this->post('/login',['email'=>$admin->email,'password'=>'Local-Testing-Only-2026','portal'=>'superadmin'])->assertRedirect('/');
+        $this->post('/login',['email'=>$admin->email,'password'=>'Local-Testing-Only-2026','portal'=>'superadmin'])->assertRedirect('/app');
         $this->assertAuthenticatedAs($admin);
     }
 

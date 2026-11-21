@@ -34,6 +34,11 @@ class ErpTeacherAllocationTest extends TestCase
     {
         return array_replace(['lead_id'=>$this->lead,'teacher_id'=>$this->teacher,'subject_id'=>$this->subject,'date'=>'2026-10-28','time'=>'10:00','timezone'=>'Asia/Qatar','duration_minutes'=>60,'medium'=>'English','grade'=>'8','syllabus'=>'CBSE','reference'=>'MATCH-DEMO-1','teacher_confirmed'=>1,'student_confirmed'=>1,'confirmation_channel'=>'whatsapp','confirmation_note'=>'Teacher and parent confirmed the slot.'],$extra);
     }
+    /** Teacher matching reads (classic allocation page) now come from these JSON endpoints. */
+    private function matching(array $query=[],string $path='')
+    {
+        return $this->getJson('/app-api/units/'.$this->unit.'/matching'.$path.($query?'?'.http_build_query($query):''));
+    }
     private function prepare():void
     {
         $this->postJson($this->url('qualify'),['teacher_id'=>$this->teacher,'subject_id'=>$this->subject,'grade'=>'8','syllabus'=>'CBSE','mediums'=>['English'],'note'=>'Teaching details verified by call.'])->assertOk();
@@ -41,14 +46,15 @@ class ErpTeacherAllocationTest extends TestCase
     }
     public function test_matching_requires_structured_eligibility_and_media_and_shows_local_time():void
     {
-        $this->get(route('erp.business',[$this->unit,'allocation']))->assertOk()->assertSee('Teacher matching &amp; allocation',false);
+        $this->matching()->assertOk()->assertJsonPath('timezone','Asia/Kolkata')->assertJsonPath('leads.0.name','Matching Learner');
         $this->postJson($this->url('demo'),$this->slot())->assertStatus(422);
         $this->assertDatabaseCount('erp_demos',0);
         $this->prepare();
-        $response=$this->get(route('erp.business',[$this->unit,'allocation']+$this->slot(['search'=>1])))->assertOk()->assertSee('Matching Teacher')->assertSee('Confirmed details match this slot.')->assertSee('10:00');
-        $matching=$response->viewData('matching');
-        $this->assertSame('2026-10-28 07:00:00',$matching['slot']['starts_at']);
-        $this->assertSame([],$matching['teachers']->first()->blockers);
+        $query=array_intersect_key($this->slot(),array_flip(['lead_id','subject_id','date','time','timezone','duration_minutes','medium','grade','syllabus']));
+        $this->matching($query,'/teachers')->assertOk()->assertJsonPath('slot.time','10:00')->assertJsonPath('slot.timezone','Asia/Qatar')->assertJsonPath('weekday','Wednesday')
+            ->assertJsonPath('data.0.name','Matching Teacher')->assertJsonPath('data.0.blockers',[])->assertJsonPath('data.0.localTime',fn($t)=>str_contains((string)$t,'10:00'))->assertJsonPath('data.0.can.demo',true);
+        // The UTC instant behind the slot is internal; read it from the same service the endpoint uses.
+        $this->assertSame('2026-10-28 07:00:00',(new TeacherAllocation())->matches($this->unit,$this->admin,$query)['slot']['starts_at']);
         $this->postJson($this->url('demo'),$this->slot(['medium'=>'Malayalam']))->assertStatus(422);
         $this->postJson($this->url('demo'),$this->slot(['time'=>'14:00']))->assertStatus(422);
     }
@@ -69,8 +75,9 @@ class ErpTeacherAllocationTest extends TestCase
         Carbon::setTestNow('2026-10-29 08:00:00');CarbonImmutable::setTestNow('2026-10-29 08:00:00');
         $this->postJson($this->url('feedback'),$feedback)->assertOk();
         $this->assertDatabaseHas('erp_lead_activities',['lead_id'=>$this->lead,'kind'=>'demo_feedback','outcome'=>'CONTINUE']);
-        $handoff=$this->get(route('erp.business',[$this->unit,'allocation','lead_id'=>$this->lead]))->assertOk()->assertSee('Allocate weekly class with');
-        $this->assertStringContainsString('date=2026-11-04',html_entity_decode($handoff->getContent()));
+        $this->matching()->assertOk()->assertJsonPath('handoffs.0.leadId',$this->lead)->assertJsonPath('handoffs.0.teacherName','Matching Teacher');
+        $this->matching(['lead_id'=>$this->lead])->assertOk()->assertJsonPath('demos.0.next','allocate')->assertJsonPath('demos.0.allocate.date','2026-11-04')
+            ->assertJsonPath('demos.0.allocate.time','10:00')->assertJsonPath('demos.0.allocate.teacher_q','Matching Teacher');
         $regular=$this->slot(['date'=>'2026-11-04','ends_on'=>'2026-11-25','reference'=>'MATCH-REGULAR-1','demo_id'=>$demo->id,'student_rate_inr'=>'250.50','teacher_rate_inr'=>'100.25']);
         $this->postJson($this->url('regular'),$regular)->assertOk();
         $this->postJson($this->url('regular'),$regular)->assertOk();
@@ -79,7 +86,8 @@ class ErpTeacherAllocationTest extends TestCase
         $this->assertDatabaseHas('erp_enrollments',['student_id'=>$student,'teacher_id'=>$this->teacher,'student_rate_paise'=>25050,'teacher_rate_paise'=>10025]);
         $this->assertDatabaseHas('erp_demos',['id'=>$demo->id,'status'=>'JOINED','student_id'=>$student]);
         $this->assertDatabaseHas('erp_agreements',['status'=>'confirmed']);
-        $this->get(route('erp.business',[$this->unit,'allocation','lead_id'=>$this->lead]))->assertOk()->assertSee('Open allocated timetable');
+        $this->matching(['lead_id'=>$this->lead])->assertOk()->assertJsonPath('demos.0.next','timetable')->assertJsonPath('demos.0.allocate',null);
+        $this->matching()->assertOk()->assertJsonPath('handoffs',[]);
     }
     public function test_failed_regular_handoff_rolls_back_conversion_and_all_scheduling_writes():void
     {
@@ -96,11 +104,16 @@ class ErpTeacherAllocationTest extends TestCase
     public function test_sales_and_read_only_permissions_and_cross_owner_lead_protection():void
     {
         $this->prepare();$other=(new Admissions())->createLead($this->unit,$this->admin->id,['name'=>'Private Enquiry','phone'=>'9000012346','enquiry_date'=>'2026-10-26']);
-        $this->actingAs($this->sales)->get(route('erp.business',[$this->unit,'allocation','lead_id'=>$other->id]))->assertNotFound();
+        $this->actingAs($this->sales)->matching(['lead_id'=>$this->lead])->assertOk()->assertJsonPath('context.name','Matching Learner');
+        $this->matching(['lead_id'=>$other->id])->assertNotFound();
+        $this->matching(['lead_id'=>$other->id],'/teachers')->assertNotFound();
         $this->postJson($this->url('qualify'),['teacher_id'=>$this->teacher])->assertForbidden();
         $this->postJson($this->url('regular'),$this->slot())->assertForbidden();
         $readonly=$this->createMember(['id'=>23]);DB::table('erp_memberships')->insert(['unit_id'=>$this->unit,'user_id'=>$readonly->id,'role'=>'read_only']);
-        $this->actingAs($readonly)->get(route('erp.business',[$this->unit,'allocation','lead_id'=>$this->lead]))->assertOk()->assertDontSee('Teacher hourly rate');
+        $this->actingAs($readonly)->matching(['lead_id'=>$this->lead])->assertOk()->assertJsonPath('context.name','Matching Learner')->assertJsonPath('handoffs',[]);
+        $query=array_intersect_key($this->slot(),array_flip(['lead_id','subject_id','date','time','timezone','duration_minutes','medium','grade','syllabus']));
+        // Read-only may look but is offered no booking or allocation (the classic rate fields).
+        $this->matching($query,'/teachers')->assertOk()->assertJsonPath('data.0.can',['prepare'=>false,'demo'=>false,'regular'=>false,'needsFeedback'=>false]);
         $this->postJson($this->url('demo'),$this->slot())->assertForbidden();
     }
     public function test_matched_demo_cannot_be_rescheduled_or_converted_through_legacy_status_form():void
