@@ -18,7 +18,14 @@
   .astryx-side-nav-item,
   .astryx-side-nav-heading,
   .astryx-top-nav-item,
-  th button {
+  th button,
+  /* List rows, and rows inside menus, pickers' option sheets and the search palette. */
+  .astryx-item,
+  .astryx-list-item > a,
+  .astryx-dropdown-menu-item,
+  .astryx-selector-option-row,
+  .astryx-command-palette-item,
+  .astryx-command-palette-input input {
     min-height: 44px;
     min-width: 44px;
   }
@@ -50,15 +57,23 @@
   .astryx-text-input,
   .astryx-date-input,
   .astryx-number-input,
-  .astryx-typeahead {
+  .astryx-typeahead,
+  .astryx-date-time-input-date-segment,
+  .astryx-date-time-input-time-segment {
     height: auto;
     min-height: 44px;
+  }
+
+  /* The palette's search box: the 44px input fills it instead of adding to its padding. */
+  .astryx-command-palette-input {
+    padding-block: 0;
   }
 
   .astryx-text-input input,
   .astryx-date-input input,
   .astryx-number-input input,
-  .astryx-typeahead input {
+  .astryx-typeahead input,
+  .astryx-date-time-input input {
     min-height: 36px;
   }
 
@@ -68,13 +83,16 @@
 
   /*
    * Text links ("All my tasks", a phone number, breadcrumbs, the portal title)
-   * keep their look but get a 44px tall hit area: the padding grows the
-   * tappable box and the equal negative margin keeps the layout unchanged.
+   * keep their look but get a 44px tall hit area: the padding (44px minus
+   * the line height, split top and bottom; 10px where `lh` is unsupported)
+   * grows the tappable box and the equal negative margin keeps the layout.
    */
   .astryx-link,
   .astryx-breadcrumbs a,
   .astryx-top-nav-heading {
-    padding-block: 10px;
-    margin-block: -10px;
+    --touch-pad: 10px;
+    --touch-pad: max(0px, calc((44px - 1lh) / 2));
+    padding-block: var(--touch-pad);
+    margin-block: calc(-1 * var(--touch-pad));
   }
 }
