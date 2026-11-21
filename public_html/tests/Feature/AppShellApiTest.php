@@ -43,6 +43,23 @@ class AppShellApiTest extends TestCase
         $this->assertStringNotContainsString('Private Unit B', $response->getContent());
     }
 
+    public function test_pages_can_be_installed_to_a_phone_home_screen(): void
+    {
+        // Staff and teachers install the operations app; parents get their own that opens on their portal.
+        $this->get('/login')->assertOk()->assertSee('<link rel="manifest" href="/manifest.webmanifest">', false)->assertSee('apple-touch-icon', false);
+        $this->get('/parent/login')->assertOk()->assertSee('<link rel="manifest" href="/parent.webmanifest">', false);
+
+        foreach (['manifest.webmanifest' => '/', 'parent.webmanifest' => '/parent'] as $file => $start) {
+            $manifest = json_decode(file_get_contents(public_path($file)), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertSame($start, $manifest['start_url']);
+            $this->assertSame('standalone', $manifest['display']);
+            foreach ($manifest['icons'] as $icon) {
+                $this->assertFileExists(public_path(ltrim($icon['src'], '/')));
+            }
+        }
+        $this->assertGreaterThan(0, filesize(public_path('favicon.ico')));
+    }
+
     public function test_host_page_requires_sign_in(): void
     {
         $this->get('/app/u/'.$this->unit.'/students')->assertRedirect('/login');

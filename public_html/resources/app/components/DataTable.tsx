@@ -12,12 +12,14 @@ import {Pagination} from '@astryxdesign/core/Pagination';
 import {List, ListItem} from '@astryxdesign/core/List';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Button} from '@astryxdesign/core/Button';
+import {IconButton} from '@astryxdesign/core/IconButton';
+import {Selector} from '@astryxdesign/core/Selector';
 import {Icon} from '@astryxdesign/core/Icon';
 import {Skeleton} from '@astryxdesign/core/Skeleton';
 import {Card} from '@astryxdesign/core/Card';
 import {ProgressBar} from '@astryxdesign/core/ProgressBar';
-import {ArrowDownTrayIcon, MagnifyingGlassIcon} from '@heroicons/react/24/outline';
-import {useIsPhone} from '../lib/hooks';
+import {ArrowDownTrayIcon, ArrowsUpDownIcon, MagnifyingGlassIcon} from '@heroicons/react/24/outline';
+import {useIsCompact, useIsPhone} from '../lib/hooks';
 import {number} from '../lib/format';
 
 export interface DataColumn<T extends Record<string, unknown>> extends TableColumn<T> {
@@ -92,6 +94,7 @@ export function DataTable<T extends Record<string, unknown>>({
   summary?: ReactNode;
 }) {
   const isPhone = useIsPhone();
+  const isCompact = useIsCompact();
 
   const tableColumns = useMemo(
     () => columns.map(column => ({...column, sortable: column.sortKey ? {sortKey: column.sortKey} : false})),
@@ -107,6 +110,40 @@ export function DataTable<T extends Record<string, unknown>>({
     allowUnsortedState: false,
   });
 
+  // Cards have no column headers to tap, so sorting is a picker instead.
+  const sortOptions = useMemo(
+    () =>
+      columns.flatMap(column => {
+        if (!column.sortKey || typeof column.header !== 'string' || !column.header) return [];
+        const name = column.header;
+        const isDate = /(_on|_at|_date|next_follow_up)$/.test(column.sortKey);
+        const [up, down] = isDate ? ['oldest first', 'newest first'] : column.align === 'end' ? ['low to high', 'high to low'] : ['A to Z', 'Z to A'];
+        return [
+          {value: `${column.sortKey}:asc`, label: `${name}, ${up}`},
+          {value: `${column.sortKey}:desc`, label: `${name}, ${down}`},
+        ];
+      }),
+    [columns],
+  );
+  const phoneSort =
+    isCompact && sortOptions.length > 0 && meta ? (
+      <Selector
+        label="Sort by"
+        isLabelHidden
+        variant="secondary"
+        startIcon={<Icon icon={ArrowsUpDownIcon} size="sm" />}
+        value={sortOptions.some(o => o.value === `${meta.sort}:${meta.dir}`) ? `${meta.sort}:${meta.dir}` : undefined}
+        placeholder="Sort"
+        options={sortOptions}
+        presentation="adaptive"
+        onChange={value => {
+          if (!value) return;
+          const [key, dir] = value.split(':');
+          onSort(key, dir === 'desc' ? 'desc' : 'asc');
+        }}
+      />
+    ) : null;
+
   const toolbar = (
     <HStack gap={2} vAlign="center" wrap="wrap">
       <StackItem size="fill">
@@ -121,6 +158,10 @@ export function DataTable<T extends Record<string, unknown>>({
         />
       </StackItem>
       {filters}
+      {phoneSort}
+      {exportHref && isPhone && (
+        <IconButton label="Export CSV" variant="secondary" icon={<Icon icon={ArrowDownTrayIcon} size="sm" />} href={exportHref} {...{download: true}} />
+      )}
       {exportHref && !isPhone && (
         <Button
           label="Export CSV"
@@ -152,7 +193,7 @@ export function DataTable<T extends Record<string, unknown>>({
     );
   } else if (rows.length === 0) {
     body = empty;
-  } else if (isPhone) {
+  } else if (isCompact) {
     body = (
       <List hasDividers edge="flush">
         {rows.map(row => (

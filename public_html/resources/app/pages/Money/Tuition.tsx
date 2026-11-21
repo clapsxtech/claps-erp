@@ -10,8 +10,8 @@ import {Heading, Text} from '@astryxdesign/core/Text';
 import {Link} from '@astryxdesign/core/Link';
 import {Button} from '@astryxdesign/core/Button';
 import {Selector} from '@astryxdesign/core/Selector';
-import {TabList, Tab} from '@astryxdesign/core/TabList';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Pagination} from '@astryxdesign/core/Pagination';
 import {List, ListItem} from '@astryxdesign/core/List';
@@ -25,6 +25,7 @@ import {session, unitById} from '../../lib/session';
 import {actionUrl, ConfirmActionDialog, monthOptions, today} from './shared';
 import {RecordSharingDialog} from '../Print/RecordSharing';
 import type {StatementData} from '../Print/Statement';
+import {ViewTabs} from '../../components/ViewTabs';
 
 type Row = Record<string, unknown>;
 
@@ -88,7 +89,7 @@ function utc(value: string | null | undefined): string {
 
 function Rows<T extends Row>({rows, columns, empty}: {rows: T[]; columns: TableColumn<T>[]; empty: string}) {
   if (rows.length === 0) return <EmptyState title={empty} isCompact />;
-  return <Table<T> data={rows} columns={columns} idKey={row => String(row.id ?? row.lessonId)} hasHover textOverflow="truncate" density="balanced" />;
+  return <RowTable<T> data={rows} columns={columns} idKey={row => String(row.id ?? row.lessonId)} hasHover textOverflow="truncate" density="balanced" />;
 }
 
 type Acting = {kind: 'resolve'; row: ParentRequest} | {kind: 'review' | 'approve'; row: Pending} | null;
@@ -142,11 +143,15 @@ export default function Tuition() {
         <Metric label="Classes to follow up" value={number(followUps.length)} onClick={() => setParams({tab: 'notes'})} />
         <Metric label="Candidates" value={number(data.candidates.length)} onClick={() => setParams({tab: 'hr'})} />
       </MetricRow>
-      <TabList value={tab} onChange={value => setParams(value === 'review' ? {} : {tab: value})}>
-        <Tab value="review" label="Parent review" />
-        <Tab value="notes" label="Notes & follow-up" />
-        <Tab value="hr" label="Teacher recruitment" />
-      </TabList>
+      <ViewTabs
+        value={tab}
+        onChange={value => setParams(value === 'review' ? {} : {tab: value})}
+        tabs={[
+          {value: 'review', label: 'Parent review'},
+          {value: 'notes', label: 'Notes & follow-up'},
+          {value: 'hr', label: 'Teacher recruitment'},
+        ]}
+      />
 
       {tab === 'review' && (
         <VStack gap={4}>

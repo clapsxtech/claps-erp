@@ -8,7 +8,6 @@ import {Icon} from '@astryxdesign/core/Icon';
 import {Selector} from '@astryxdesign/core/Selector';
 import {ToggleButton} from '@astryxdesign/core/ToggleButton';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
-import {TabList, Tab} from '@astryxdesign/core/TabList';
 import {MoreMenu} from '@astryxdesign/core/MoreMenu';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {pixel} from '@astryxdesign/core/Table';
@@ -26,6 +25,7 @@ import {date, dateTime, number, titleCase} from '../../lib/format';
 import {unitById} from '../../lib/session';
 import {LeadForms, type DemoTarget, type LeadFormKind, type LeadFormTarget} from './LeadForms';
 import {businessAction, canAct, withParam} from './access';
+import {ViewTabs} from '../../components/ViewTabs';
 
 export interface LeadRow extends Record<string, unknown> {
   id: number;
@@ -234,12 +234,16 @@ export default function Admissions() {
         </MetricRow>
       )}
       <HStack gap={2} vAlign="center">
-        <TabList value={query.tab} onChange={switchTab}>
-          <Tab value="pipeline" label="Pipeline" />
-          <Tab value="demos" label="Demos" />
-          <Tab value="reminders" label={totals?.remindersDue ? `Reminders (${totals.remindersDue})` : 'Reminders'} />
-          <Tab value="transfers" label={totals?.pendingTransfers ? `Transfers (${totals.pendingTransfers})` : 'Transfers'} />
-        </TabList>
+        <ViewTabs
+          value={query.tab}
+          onChange={switchTab}
+          tabs={[
+            {value: 'pipeline', label: 'Pipeline'},
+            {value: 'demos', label: 'Demos'},
+            {value: 'reminders', label: 'Reminders', count: totals?.remindersDue},
+            {value: 'transfers', label: 'Transfers', count: totals?.pendingTransfers},
+          ]}
+        />
       </HStack>
       {query.tab === 'pipeline' && <Pipeline {...shared} list={list} />}
       {query.tab === 'demos' && <Demos {...shared} />}

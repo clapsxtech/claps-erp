@@ -17,7 +17,7 @@ async function stage(relative) {
         }
     }
 }
-for (const directory of ['ui']) await stage(directory);
-for (const file of ['favicon.ico','robots.txt']) await copyFile(path.join('public', file), path.join(destination, file));
+for (const directory of ['ui', 'icons']) await stage(directory);
+for (const file of ['favicon.ico','robots.txt','manifest.webmanifest','parent.webmanifest']) await copyFile(path.join('public', file), path.join(destination, file));
 await writeFile(path.join(destination, '_headers'), '/*\n  X-Content-Type-Options: nosniff\n  Cache-Control: public, max-age=0, must-revalidate\n');
 console.log('Staged public assets; application pages and uploads remain outside static delivery.');

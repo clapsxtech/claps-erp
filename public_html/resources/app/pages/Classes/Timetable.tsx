@@ -18,7 +18,7 @@ import {Skeleton} from '@astryxdesign/core/Skeleton';
 import {ProgressBar} from '@astryxdesign/core/ProgressBar';
 import {Drawer, DrawerHeader} from '@astryxdesign/core/Drawer';
 import {MetadataList, MetadataListItem} from '@astryxdesign/core/MetadataList';
-import {Table} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {TabList, Tab} from '@astryxdesign/core/TabList';
 import {ChevronLeftIcon, ChevronRightIcon, PlusIcon} from '@heroicons/react/24/outline';
 import type {ComponentProps} from 'react';
@@ -404,7 +404,7 @@ function PlansView({
               ))}
             </VStack>
           ) : (
-            <Table<Row>
+            <RowTable<Row>
               data={plans.agreements.data}
               idKey={row => Number(row.id)}
               textOverflow="wrap"
@@ -432,7 +432,7 @@ function PlansView({
               ))}
             </List>
           ) : (
-            <Table<Row>
+            <RowTable<Row>
               data={availability.data as unknown as Row[]}
               idKey={row => Number(row.id)}
               textOverflow="truncate"
@@ -452,7 +452,7 @@ function PlansView({
           {plans.exceptions.data.length === 0 ? (
             <EmptyState title="No unavailability recorded" isCompact />
           ) : (
-            <Table<Row>
+            <RowTable<Row>
               data={plans.exceptions.data}
               idKey={row => Number(row.id)}
               textOverflow="wrap"

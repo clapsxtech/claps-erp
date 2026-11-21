@@ -10,7 +10,8 @@ import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
 import {Selector} from '@astryxdesign/core/Selector';
 import {TabList, Tab} from '@astryxdesign/core/TabList';
-import {Table, pixel, type TableColumn} from '@astryxdesign/core/Table';
+import {pixel, type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {PlusIcon} from '@heroicons/react/24/outline';
 import {Page, PageError} from '../../components/PageState';
@@ -268,7 +269,7 @@ export default function Teams() {
           ) : teams.data.data.length === 0 ? (
             <EmptyState title="No teams yet" actions={<Button label="New team" variant="secondary" onClick={() => setDialog({kind: 'team'})} />} />
           ) : (
-            <Table<Team> data={teams.data.data} columns={teamColumns} idKey="id" hasHover textOverflow="truncate" />
+            <RowTable<Team> data={teams.data.data} columns={teamColumns} idKey="id" hasHover textOverflow="truncate" />
           )}
         </Card>
       )}

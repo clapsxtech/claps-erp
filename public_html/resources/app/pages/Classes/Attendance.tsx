@@ -5,10 +5,8 @@ import {Card} from '@astryxdesign/core/Card';
 import {Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
-import {Badge} from '@astryxdesign/core/Badge';
 import {TextInput} from '@astryxdesign/core/TextInput';
 import {Selector} from '@astryxdesign/core/Selector';
-import {TabList, Tab} from '@astryxdesign/core/TabList';
 import {Table, TableSelectionToolbar, useTableSelection, useTableSelectionState, type TableColumn} from '@astryxdesign/core/Table';
 import {List, ListItem} from '@astryxdesign/core/List';
 import {CheckboxInput} from '@astryxdesign/core/CheckboxInput';
@@ -24,12 +22,13 @@ import {Status} from '../../components/Status';
 import {Metric, MetricRow} from '../../components/Metric';
 import {Toned} from '../../components/Amount';
 import {ApiError, postJson} from '../../lib/api';
-import {useDebounced, useIsPhone, useListQuery, useResource} from '../../lib/hooks';
+import {useDebounced, useIsCompact, useIsPhone, useListQuery, useResource} from '../../lib/hooks';
 import {number, titleCase} from '../../lib/format';
 import {unitById} from '../../lib/session';
 import {ActionDrawer} from './ActionDrawer';
 import {lessonAction, type ActionConfig} from './lessonActions';
 import {canAct, dayLabel, newReference, workspaceAction} from './shared';
+import {ViewTabs} from '../../components/ViewTabs';
 
 interface AttendanceRow extends Record<string, unknown> {
   id: number;
@@ -107,6 +106,7 @@ export default function Attendance() {
   const unitId = Number(useParams().unit);
   const unit = unitById(unitId);
   const isPhone = useIsPhone();
+  const isCompact = useIsCompact();
   const showToast = useToast();
   const [query, setQuery] = useListQuery(DEFAULTS);
   const queue: Queue = QUEUES.includes(query.queue as Queue) ? (query.queue as Queue) : 'approval';
@@ -261,7 +261,7 @@ export default function Attendance() {
       buttons.push(<Button key="approve" label={label} size="sm" variant="primary" isLoading={rowBusy === row.id} isDisabled={bulk?.running} onClick={() => approveOne(row)} />);
     }
     if (canCorrect && row.status !== 'rejected') buttons.push(<Button key="correct" label="Correct" size="sm" variant="ghost" onClick={() => correct(row)} />);
-    return buttons.length ? <HStack gap={1} hAlign="end">{buttons}</HStack> : <Text color="secondary" size="sm">View only</Text>;
+    return buttons.length ? <HStack gap={1} hAlign={isCompact ? "start" : "end"} wrap="wrap">{buttons}</HStack> : <Text color="secondary" size="sm">View only</Text>;
   };
 
   const columns = useMemo<TableColumn<AttendanceRow>[]>(
@@ -312,7 +312,7 @@ export default function Attendance() {
         }
       />
     );
-    const body = isPhone ? (
+    const body = isCompact ? (
       <List hasDividers edge="flush">
         {rows.map(row => (
           <ListItem
@@ -339,9 +339,10 @@ export default function Attendance() {
               <VStack gap={1}>
                 <Text size="sm" color="secondary">{`${dayLabel(row.localDate)} ${row.startTime} · ${row.subjectName} · ${row.teacherName}`}</Text>
                 <Text size="sm">{`Student: ${row.studentFinanceState} · Teacher: ${row.teacherFinanceState}`}</Text>
+                {queue !== 'import' && rowActions(row)}
               </VStack>
             }
-            endContent={queue === 'import' ? <Status value={row.status} /> : rowActions(row)}
+            endContent={<Status value={row.status} />}
           />
         ))}
       </List>
@@ -520,13 +521,17 @@ export default function Attendance() {
       )}
       <Card padding={4}>
         <VStack gap={3}>
-          <TabList value={queue} onChange={setQueue} overflow="auto">
-            <Tab value="approval" label="Approve" endContent={counts?.approval ? <Badge label={number(counts.approval)} /> : undefined} />
-            <Tab value="import" label="Import for charge" endContent={counts?.import ? <Badge label={number(counts.import)} /> : undefined} />
-            <Tab value="missing" label="Missing" endContent={counts?.missing ? <Badge variant="warning" label={number(counts.missing)} /> : undefined} />
-            <Tab value="duplicates" label="Duplicates" endContent={counts?.reviews ? <Badge variant="error" label={number(counts.reviews)} /> : undefined} />
-            <Tab value="all" label="All attendance" />
-          </TabList>
+          <ViewTabs
+            value={queue}
+            onChange={setQueue}
+            tabs={[
+              {value: 'approval', label: 'Approve', count: counts?.approval},
+              {value: 'import', label: 'Import for charge', count: counts?.import},
+              {value: 'missing', label: 'Missing', count: counts?.missing, tone: 'warning'},
+              {value: 'duplicates', label: 'Duplicates', count: counts?.reviews, tone: 'error'},
+              {value: 'all', label: 'All attendance'},
+            ]}
+          />
           {queueData.isRefreshing && queue !== 'all' && <ProgressBar label="Updating" isIndeterminate />}
           {content}
         </VStack>

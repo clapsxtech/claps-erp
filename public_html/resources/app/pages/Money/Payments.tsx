@@ -11,7 +11,6 @@ import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
 import {Selector} from '@astryxdesign/core/Selector';
 import {DateInput} from '@astryxdesign/core/DateInput';
-import {TabList, Tab} from '@astryxdesign/core/TabList';
 import {MoreMenu} from '@astryxdesign/core/MoreMenu';
 import {Banner} from '@astryxdesign/core/Banner';
 import type {DropdownMenuOption} from '@astryxdesign/core/DropdownMenu';
@@ -28,6 +27,7 @@ import {date, money, number, titleCase} from '../../lib/format';
 import {unitById, type UnitAccess} from '../../lib/session';
 import {actionUrl, canAct, ConfirmActionDialog, paiseToInput, StudentPicker, today, type StudentOption} from './shared';
 import {ChargeQueueTab} from './ChargeQueue';
+import {ViewTabs} from '../../components/ViewTabs';
 
 type TabKey = 'dues' | 'ledger' | 'requests' | 'teachers' | 'charges';
 
@@ -247,13 +247,17 @@ export default function Payments() {
       <Text color="secondary" size="sm">
         {NOTICE}
       </Text>
-      <TabList value={tab} onChange={value => setTab(value as TabKey)}>
-        <Tab value="dues" label="Dues" />
-        <Tab value="ledger" label="Ledger" />
-        <Tab value="requests" label="Payment requests" />
-        <Tab value="teachers" label="Teacher pay" />
-        <Tab value="charges" label="Classes to charge" />
-      </TabList>
+      <ViewTabs
+        value={tab}
+        onChange={value => setTab(value as TabKey)}
+        tabs={[
+          {value: 'dues', label: 'Dues'},
+          {value: 'ledger', label: 'Ledger'},
+          {value: 'requests', label: 'Payment requests'},
+          {value: 'teachers', label: 'Teacher pay'},
+          {value: 'charges', label: 'Classes to charge'},
+        ]}
+      />
       {tab === 'dues' && (
         <DuesTab
           key={`dues-${nonce}`}

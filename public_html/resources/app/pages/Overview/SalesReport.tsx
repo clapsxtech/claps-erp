@@ -7,7 +7,8 @@ import {Card} from '@astryxdesign/core/Card';
 import {Heading, Text} from '@astryxdesign/core/Text';
 import {DateInput} from '@astryxdesign/core/DateInput';
 import {Button} from '@astryxdesign/core/Button';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Page, PageError, PageLoading} from '../../components/PageState';
 import {Metric, MetricRow} from '../../components/Metric';
@@ -75,7 +76,7 @@ function Section({title, description, rows, columns, idKey, empty}: {title: stri
           <Heading level={2}>{title}</Heading>
           <Text color="secondary">{description}</Text>
         </VStack>
-        {rows.length === 0 ? <EmptyState title={empty} isCompact /> : <Table<Row> data={rows} columns={columns} idKey={r => String(r[idKey] ?? 'none')} hasHover textOverflow="truncate" />}
+        {rows.length === 0 ? <EmptyState title={empty} isCompact /> : <RowTable<Row> data={rows} columns={columns} idKey={r => String(r[idKey] ?? 'none')} hasHover textOverflow="truncate" />}
       </VStack>
     </Card>
   );

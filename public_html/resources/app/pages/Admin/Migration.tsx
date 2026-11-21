@@ -9,7 +9,8 @@ import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Card} from '@astryxdesign/core/Card';
 import {Heading, Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {TabList, Tab} from '@astryxdesign/core/TabList';
 import {FileInput} from '@astryxdesign/core/FileInput';
@@ -310,7 +311,7 @@ function MigrationCenter() {
         <VStack gap={3}>
           <Heading level={2}>Completed imports</Heading>
           <Text color="secondary">Take and verify a database backup before every import. Web imports are limited to 100 rows per reviewed snapshot.</Text>
-          {data.batches.length === 0 ? <EmptyState title="No imports yet" isCompact /> : <Table<Batch> data={data.batches} columns={columns} idKey="id" hasHover textOverflow="truncate" />}
+          {data.batches.length === 0 ? <EmptyState title="No imports yet" isCompact /> : <RowTable<Batch> data={data.batches} columns={columns} idKey="id" hasHover textOverflow="truncate" />}
         </VStack>
       </Card>
     </VStack>

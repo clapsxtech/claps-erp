@@ -7,7 +7,8 @@ import {Card} from '@astryxdesign/core/Card';
 import {Grid} from '@astryxdesign/core/Grid';
 import {Heading, Text} from '@astryxdesign/core/Text';
 import {ProgressBar} from '@astryxdesign/core/ProgressBar';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {Page, PageError, PageLoading} from '../../components/PageState';
 import {Toned} from '../../components/Amount';
 import {useResource} from '../../lib/hooks';
@@ -178,7 +179,7 @@ export default function Insights() {
       <Card padding={4}>
         <VStack gap={3}>
           <Heading level={2}>All figures</Heading>
-          <Table<TableRow> data={tableRows} columns={columns} idKey="id" hasHover textOverflow="truncate" />
+          <RowTable<TableRow> data={tableRows} columns={columns} idKey="id" hasHover textOverflow="truncate" />
           <Text color="secondary" size="sm">
             Billed counts class charges posted in the month; collected counts payments received, net of reversals. Reversals count against the month of the entry they undo.
           </Text>

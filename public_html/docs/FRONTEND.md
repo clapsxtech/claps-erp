@@ -40,3 +40,16 @@ npm test                  # type-check, build test, deployment tests
   The session holds only what that visitor may see: the user, their teams, and per team the pages, actions
   and exports their role allows.
 - **Server-enforced:** the session only decides what to show. Every JSON route is checked again on the server.
+
+## Phones and tablets
+
+The app is meant to be run from a phone, so every screen is built phone-first:
+
+- **Breakpoints.** `useIsPhone()` (under 768px) switches to the phone shell: a bottom tab bar with the role's four main places plus "More" (the searchable list of everything). `useIsCompact()` (under 1024px, so portrait tablets too) switches lists to cards.
+- **Lists and tables.** Registers use `DataTable`; on compact screens rows become cards, sorting becomes a "Sort" picker and CSV export stays available. Small fixed tables use `RowTable` (never Astryx `Table` directly): on compact screens each row is a card whose first column is the title, titled columns are label/value lines and untitled columns (row actions) sit underneath at full width. Printable documents (`pages/Print/*`, parent invoices and statements) keep real tables.
+- **Tabs.** Use `ViewTabs`. A strip that would not fit becomes a full-width "View" picker that opens as a bottom sheet, so no view is hidden off screen.
+- **Touch sizes.** `resources/app/touch.css` applies on touch screens only (`pointer: coarse`): controls, fields, nav items and sortable headers are at least 44px tall, and text fields use 16px text so iPhones do not zoom when one is tapped. Desktop density is unchanged.
+- **Contact.** Phone numbers are `tel:` links; international numbers also get a WhatsApp link (`lib/contact.ts`).
+- **Install.** `public/manifest.webmanifest` (staff and teachers, opens `/`) and `public/parent.webmanifest` (parents, opens `/parent`) with the icons in `public/icons` let people add the app to their home screen, where it opens full screen. There is no service worker: the app needs a connection, and nothing is cached offline.
+
+To check a change on a phone, run the app and look at it at 360px wide with touch emulation (Chrome DevTools device mode, or Playwright with `isMobile: true, hasTouch: true`): nothing may scroll sideways and every control must be at least 44px tall.

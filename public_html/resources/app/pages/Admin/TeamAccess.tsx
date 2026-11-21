@@ -9,7 +9,8 @@ import {Heading, Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
 import {Banner} from '@astryxdesign/core/Banner';
 import {Icon} from '@astryxdesign/core/Icon';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {PlusIcon} from '@heroicons/react/24/outline';
 import {Page, PageError, PageLoading} from '../../components/PageState';
@@ -166,7 +167,7 @@ export default function TeamAccess() {
           {data.members.length === 0 ? (
             <EmptyState title="Nobody has access yet" isCompact actions={!readOnly ? <Button label="Give access" variant="secondary" onClick={() => setDialog({kind: 'grant'})} /> : undefined} />
           ) : (
-            <Table<Member> data={data.members} columns={memberColumns} idKey="userId" hasHover textOverflow="truncate" />
+            <RowTable<Member> data={data.members} columns={memberColumns} idKey="userId" hasHover textOverflow="truncate" />
           )}
         </VStack>
       </Card>
@@ -178,7 +179,7 @@ export default function TeamAccess() {
           {data.teachers.length === 0 ? (
             <EmptyState title="No teachers in this team" isCompact />
           ) : (
-            <Table<Teacher> data={data.teachers} columns={teacherColumns} idKey="id" hasHover textOverflow="truncate" />
+            <RowTable<Teacher> data={data.teachers} columns={teacherColumns} idKey="id" hasHover textOverflow="truncate" />
           )}
         </VStack>
       </Card>

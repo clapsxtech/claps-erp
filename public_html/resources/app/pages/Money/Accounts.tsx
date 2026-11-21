@@ -14,8 +14,8 @@ import {Icon} from '@astryxdesign/core/Icon';
 import {Selector} from '@astryxdesign/core/Selector';
 import {DateInput} from '@astryxdesign/core/DateInput';
 import {TextInput} from '@astryxdesign/core/TextInput';
-import {TabList, Tab} from '@astryxdesign/core/TabList';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {Banner} from '@astryxdesign/core/Banner';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Pagination} from '@astryxdesign/core/Pagination';
@@ -33,6 +33,7 @@ import {ApiError, postJson} from '../../lib/api';
 import {date, money, number, titleCase} from '../../lib/format';
 import {session, unitById} from '../../lib/session';
 import {actionUrl, ConfirmActionDialog, monthOptions, today} from './shared';
+import {ViewTabs} from '../../components/ViewTabs';
 
 type View = 'overview' | 'journals' | 'ledger' | 'reports' | 'invoices' | 'tax' | 'chart';
 type ISODate = `${number}${number}${number}${number}-${number}${number}-${number}${number}`;
@@ -83,7 +84,7 @@ function Amount({paise}: {paise: number}) {
 
 function SimpleTable<T extends Row>({rows, columns, idKey, empty}: {rows: T[]; columns: TableColumn<T>[]; idKey: (row: T) => string | number; empty: string}) {
   if (rows.length === 0) return <EmptyState title={empty} isCompact />;
-  return <Table<T> data={rows} columns={columns} idKey={idKey} hasHover textOverflow="truncate" density="balanced" />;
+  return <RowTable<T> data={rows} columns={columns} idKey={idKey} hasHover textOverflow="truncate" density="balanced" />;
 }
 
 function Pager({meta, onPage, label}: {meta: Meta | undefined; onPage: (page: number) => void; label: string}) {
@@ -176,15 +177,19 @@ export default function Accounts() {
         <Metric label={data.pnl.netPaise >= 0 ? 'Surplus' : 'Deficit'} value={money(data.pnl.netPaise, {whole: true})} tone={data.pnl.netPaise < 0 ? 'error' : undefined} />
         <Metric label={`Trial balance at ${date(data.to)}`} value={data.trial.isBalanced ? 'Balanced' : 'Out of balance'} tone={data.trial.isBalanced ? 'success' : 'error'} onClick={() => setParam({view: 'overview'})} />
       </MetricRow>
-      <TabList value={view} onChange={value => setParams(value === 'overview' ? {} : {view: value}, {replace: false})}>
-        <Tab value="overview" label="Trial balance" />
-        <Tab value="journals" label="Journals" />
-        <Tab value="ledger" label="General ledger" />
-        <Tab value="reports" label="P&L and balance sheet" />
-        <Tab value="invoices" label="Invoices" />
-        <Tab value="tax" label={gst ? 'GST summary' : 'Tax summary'} />
-        <Tab value="chart" label="Chart of accounts" />
-      </TabList>
+      <ViewTabs
+        value={view}
+        onChange={value => setParams(value === 'overview' ? {} : {view: value}, {replace: false})}
+        tabs={[
+          {value: 'overview', label: 'Trial balance'},
+          {value: 'journals', label: 'Journals'},
+          {value: 'ledger', label: 'General ledger'},
+          {value: 'reports', label: 'P&L and balance sheet'},
+          {value: 'invoices', label: 'Invoices'},
+          {value: 'tax', label: gst ? 'GST summary' : 'Tax summary'},
+          {value: 'chart', label: 'Chart of accounts'},
+        ]}
+      />
       {view === 'overview' && (
         <Card padding={4}>
           <VStack gap={3}>
@@ -448,7 +453,7 @@ function StatementTable({sections}: {sections: {title: string; rows: {label: str
     section.rows.forEach((row, i) => rows.push({key: `r${s}-${i}`, label: row.label, paise: row.paise, strong: row.strong}));
   });
   return (
-    <Table<Row>
+    <RowTable<Row>
       data={rows}
       idKey={row => String(row.key)}
       density="balanced"

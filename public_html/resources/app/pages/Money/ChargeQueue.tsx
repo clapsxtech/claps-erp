@@ -17,7 +17,7 @@ import {Banner} from '@astryxdesign/core/Banner';
 import {PageError} from '../../components/PageState';
 import {Status} from '../../components/Status';
 import {Toned} from '../../components/Amount';
-import {useIsPhone, useResource} from '../../lib/hooks';
+import {useIsCompact, useIsPhone, useResource} from '../../lib/hooks';
 import {number} from '../../lib/format';
 import type {UnitAccess} from '../../lib/session';
 import {ActionDrawer} from '../Classes/ActionDrawer';
@@ -48,6 +48,7 @@ interface Queue {
 
 export function ChargeQueueTab({unitId, unit, onImported}: {unitId: number; unit: UnitAccess | undefined; onImported: () => void}) {
   const isPhone = useIsPhone();
+  const isCompact = useIsCompact();
   const [page, setPage] = useState(1);
   const queue = useResource<Queue>(`/app-api/units/${unitId}/money/charge-queue`, {import_queue_page: page});
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -95,7 +96,7 @@ export function ChargeQueueTab({unitId, unit, onImported}: {unitId: number; unit
   let body;
   if (queue.isLoading) body = <VStack gap={2}>{Array.from({length: 4}, (_, i) => <Skeleton key={i} height={36} width="100%" />)}</VStack>;
   else if (rows.length === 0) body = <EmptyState title="No classes waiting to be charged" description="Attended classes appear here until they are imported for the student charge." />;
-  else if (isPhone)
+  else if (isCompact)
     body = (
       <List hasDividers edge="flush">
         {rows.map(row => (

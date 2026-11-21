@@ -12,7 +12,8 @@ import {Selector} from '@astryxdesign/core/Selector';
 import {TextInput} from '@astryxdesign/core/TextInput';
 import {CheckboxInput} from '@astryxdesign/core/CheckboxInput';
 import {Banner} from '@astryxdesign/core/Banner';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Pagination} from '@astryxdesign/core/Pagination';
 import {MetadataList, MetadataListItem} from '@astryxdesign/core/MetadataList';
@@ -124,7 +125,7 @@ export default function MigrationSheets() {
           {data.rows.length === 0 ? (
             <EmptyState title="No records to show for this selection." isCompact />
           ) : (
-            <Table<SheetRow> data={data.rows} columns={columns} idKey={r => r.sourceRow} density="compact" textOverflow="truncate" />
+            <RowTable<SheetRow> data={data.rows} columns={columns} idKey={r => r.sourceRow} density="compact" textOverflow="truncate" />
           )}
           {isRefreshing && <Text color="secondary" size="sm">Updating…</Text>}
           {data.meta.total > data.meta.perPage && (

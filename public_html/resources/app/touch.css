@@ -12,8 +12,13 @@
   .astryx-pagination-item,
   .astryx-toggle-button,
   .astryx-selector button,
-  .astryx-date-input button,
-  .astryx-input-clear-button {
+  .astryx-input-clear-button,
+  .astryx-segmented-control-item,
+  /* Touch tablets get the desktop layout: sidebar, top bar and sortable headers. */
+  .astryx-side-nav-item,
+  .astryx-side-nav-heading,
+  .astryx-top-nav-item,
+  th button {
     min-height: 44px;
     min-width: 44px;
   }
@@ -37,9 +42,39 @@
     font-size: 16px;
   }
 
+  /*
+   * Field boxes have a fixed compact height; let them grow with the taller
+   * input (36px plus the box padding and border is about 44px) instead of the input
+   * spilling out of the box. Date fields get room for "November 21, 2026".
+   */
+  .astryx-text-input,
+  .astryx-date-input,
+  .astryx-number-input,
+  .astryx-typeahead {
+    height: auto;
+    min-height: 44px;
+  }
+
   .astryx-text-input input,
   .astryx-date-input input,
-  .astryx-number-input input {
-    min-height: 44px;
+  .astryx-number-input input,
+  .astryx-typeahead input {
+    min-height: 36px;
+  }
+
+  .astryx-date-input {
+    min-width: 14rem;
+  }
+
+  /*
+   * Text links ("All my tasks", a phone number, breadcrumbs, the portal title)
+   * keep their look but get a 44px tall hit area: the padding grows the
+   * tappable box and the equal negative margin keeps the layout unchanged.
+   */
+  .astryx-link,
+  .astryx-breadcrumbs a,
+  .astryx-top-nav-heading {
+    padding-block: 10px;
+    margin-block: -10px;
   }
 }

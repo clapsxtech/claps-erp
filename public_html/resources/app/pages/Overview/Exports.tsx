@@ -9,7 +9,8 @@ import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
 import {Banner} from '@astryxdesign/core/Banner';
 import {Selector} from '@astryxdesign/core/Selector';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {ArrowDownTrayIcon, DocumentChartBarIcon} from '@heroicons/react/24/outline';
 import {Page, PageError, PageLoading} from '../../components/PageState';
@@ -144,7 +145,7 @@ export default function Exports() {
           {exportable.length === 0 ? (
             <EmptyState title="No exports for your role" isCompact />
           ) : (
-            <Table<DatasetRow> data={exportable as DatasetRow[]} columns={datasetColumns} idKey="dataset" hasHover textOverflow="truncate" />
+            <RowTable<DatasetRow> data={exportable as DatasetRow[]} columns={datasetColumns} idKey="dataset" hasHover textOverflow="truncate" />
           )}
         </VStack>
       </Card>
@@ -156,7 +157,7 @@ export default function Exports() {
             {data.ledgerByKind.length === 0 ? (
               <EmptyState title="No ledger entries yet" isCompact />
             ) : (
-              <Table<LedgerRow> data={data.ledgerByKind as LedgerRow[]} columns={ledgerColumns} idKey={r => `${r.kind}-${r.currency}`} hasHover textOverflow="truncate" />
+              <RowTable<LedgerRow> data={data.ledgerByKind as LedgerRow[]} columns={ledgerColumns} idKey={r => `${r.kind}-${r.currency}`} hasHover textOverflow="truncate" />
             )}
           </VStack>
         </Card>

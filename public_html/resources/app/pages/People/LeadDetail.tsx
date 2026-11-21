@@ -9,10 +9,11 @@ import {MoreMenu} from '@astryxdesign/core/MoreMenu';
 import {Token} from '@astryxdesign/core/Token';
 import {Banner} from '@astryxdesign/core/Banner';
 import {MetadataList, MetadataListItem} from '@astryxdesign/core/MetadataList';
-import {Table} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {List, ListItem} from '@astryxdesign/core/List';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {useToast} from '@astryxdesign/core/Toast';
+import {whatsappHref} from '../../lib/contact';
 import {Page, PageError, PageLoading} from '../../components/PageState';
 import {Status} from '../../components/Status';
 import {Toned} from '../../components/Amount';
@@ -111,6 +112,7 @@ export default function LeadDetail() {
       actions={
         <>
           <Button label="Call" variant="secondary" href={`tel:${lead.dial}`} />
+          {whatsappHref(lead.dial) && <Button label="WhatsApp" variant="secondary" href={whatsappHref(lead.dial)} target="_blank" rel="noopener noreferrer" />}
           {can.followup && <Button label="Log follow-up" variant="primary" onClick={() => open('followup')} />}
           {active && can.scheduleDemo && <Button label="Schedule demo" variant="secondary" onClick={() => open('demo')} />}
           {active && can.convert && <Button label="Register student" variant="secondary" onClick={() => open('convert')} />}
@@ -201,7 +203,7 @@ export default function LeadDetail() {
             <EmptyState title="No demos yet" description="Schedule a demo when the family is ready." isCompact
               actions={active && can.scheduleDemo ? <Button label="Schedule demo" variant="secondary" onClick={() => open('demo')} /> : undefined} />
           ) : (
-            <Table
+            <RowTable
               data={data.demos}
               idKey="id"
               textOverflow="truncate"

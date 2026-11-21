@@ -6,7 +6,7 @@ import {Heading, Text} from '@astryxdesign/core/Text';
 import {Link} from '@astryxdesign/core/Link';
 import {Button} from '@astryxdesign/core/Button';
 import {MetadataList, MetadataListItem} from '@astryxdesign/core/MetadataList';
-import {Table} from '@astryxdesign/core/Table';
+import {RowTable} from '../../components/RowTable';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Page, PageError, PageLoading} from '../../components/PageState';
 import {Status} from '../../components/Status';
@@ -87,7 +87,7 @@ export default function TeacherDetail() {
             <EmptyState title="No subjects yet" description="Add a subject, grade and syllabus before assigning classes." isCompact
               actions={canEligibility ? <Button label="Add subject" variant="secondary" onClick={() => setForm('eligibility')} /> : undefined} />
           ) : (
-            <Table
+            <RowTable
               data={eligibilityRows}
               idKey="id"
               columns={[
@@ -109,7 +109,7 @@ export default function TeacherDetail() {
           {data.classes.length === 0 ? (
             <EmptyState title="No classes assigned" isCompact />
           ) : (
-            <Table
+            <RowTable
               data={data.classes}
               idKey="id"
               hasHover

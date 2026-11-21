@@ -6,10 +6,11 @@ import {Heading, Text} from '@astryxdesign/core/Text';
 import {Link} from '@astryxdesign/core/Link';
 import {Button} from '@astryxdesign/core/Button';
 import {MetadataList, MetadataListItem} from '@astryxdesign/core/MetadataList';
-import {TabList, Tab} from '@astryxdesign/core/TabList';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {type TableColumn} from '@astryxdesign/core/Table';
+import {RowTable} from '../components/RowTable';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {Pagination} from '@astryxdesign/core/Pagination';
+import {telHref, whatsappHref} from '../lib/contact';
 import {Page, PageError, PageLoading} from '../components/PageState';
 import {Status} from '../components/Status';
 import {Balance, Toned} from '../components/Amount';
@@ -20,6 +21,7 @@ import {date, dateTime, money, number, titleCase} from '../lib/format';
 import {unitById} from '../lib/session';
 import {canAct, todayIn} from './Classes/shared';
 import {AssignTeacherDrawer, EndAssignmentDialog, isEndable, type EndableAssignment} from './Classes/assignmentActions';
+import {ViewTabs} from '../components/ViewTabs';
 
 type Row = Record<string, string | number | null>;
 
@@ -96,7 +98,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function Section<T extends Row>({rows, columns, empty}: {rows: T[]; columns: TableColumn<T>[]; empty: string}) {
   if (rows.length === 0) return <EmptyState title={empty} isCompact />;
-  return <Table<T> data={rows} columns={columns} idKey={row => Number(row.id)} hasHover textOverflow="truncate" />;
+  return <RowTable<T> data={rows} columns={columns} idKey={row => Number(row.id)} hasHover textOverflow="truncate" />;
 }
 
 /** One pager per profile section; each section pages on its own (`<section>_page`). */
@@ -167,7 +169,18 @@ export default function StudentDetail() {
             <MetadataListItem label="Joined">{date(student.registeredOn)}</MetadataListItem>
             <MetadataListItem label="Time zone">{student.timezone}</MetadataListItem>
             <MetadataListItem label="Parent contact">
-              {student.guardianContact ? <Link href={student.guardianContact.includes('@') ? `mailto:${student.guardianContact}` : `tel:${student.guardianContact}`}>{student.guardianContact}</Link> : '—'}
+              {student.guardianContact ? (
+                <HStack gap={3} wrap="wrap" vAlign="center">
+                  <Link href={student.guardianContact.includes('@') ? `mailto:${student.guardianContact}` : telHref(student.guardianContact)}>{student.guardianContact}</Link>
+                  {whatsappHref(student.guardianContact) && (
+                    <Link href={whatsappHref(student.guardianContact) ?? ''} target="_blank" rel="noopener noreferrer">
+                      WhatsApp
+                    </Link>
+                  )}
+                </HStack>
+              ) : (
+                '—'
+              )}
             </MetadataListItem>
             <MetadataListItem label="Class link">
               {student.meetingUrl ? <Link href={student.meetingUrl} target="_blank">Open meeting</Link> : '—'}
@@ -208,13 +221,17 @@ export default function StudentDetail() {
 
       <Card padding={4}>
         <VStack gap={3}>
-          <TabList value={tab} onChange={setTab}>
-            <Tab value="classes" label="Classes" />
-            <Tab value="lessons" label="Lessons" />
-            <Tab value="money" label="Payments" />
-            <Tab value="followups" label="Follow-ups" />
-            <Tab value="tasks" label="Tasks" />
-          </TabList>
+          <ViewTabs
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              {value: 'classes', label: 'Classes'},
+              {value: 'lessons', label: 'Lessons'},
+              {value: 'money', label: 'Payments'},
+              {value: 'followups', label: 'Follow-ups'},
+              {value: 'tasks', label: 'Tasks'},
+            ]}
+          />
           {tab === 'classes' && (
             <VStack gap={4}>
               {canAssign && (

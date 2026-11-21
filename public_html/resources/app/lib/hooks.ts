@@ -102,15 +102,28 @@ export function useDebounced<T>(value: T, ms = 250): T {
   return debounced;
 }
 
-/** Matches the phone layout breakpoint used by the tab bar. */
-export function useIsPhone(): boolean {
-  const query = '(max-width: 767px)';
-  const [phone, setPhone] = useState(() => window.matchMedia(query).matches);
+function useMedia(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
   useEffect(() => {
     const media = window.matchMedia(query);
-    const listener = () => setPhone(media.matches);
+    const listener = () => setMatches(media.matches);
+    listener();
     media.addEventListener('change', listener);
     return () => media.removeEventListener('change', listener);
-  }, []);
-  return phone;
+  }, [query]);
+  return matches;
+}
+
+/** Matches the phone layout breakpoint used by the tab bar. */
+export function useIsPhone(): boolean {
+  return useMedia('(max-width: 767px)');
+}
+
+/**
+ * Phones and portrait tablets. Below 1024px the content area (beside the
+ * sidebar on a tablet) is too narrow for a multi-column table, so lists show
+ * as cards and long tab strips as a picker.
+ */
+export function useIsCompact(): boolean {
+  return useMedia('(max-width: 1023px)');
 }
