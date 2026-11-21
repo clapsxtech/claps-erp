@@ -224,4 +224,19 @@ class AppOverviewApiTest extends TestCase
         $this->actingAs($this->createMember(['name' => 'Synthetic No Team']))->getJson('/app-api/me/tasks')->assertForbidden();
         $this->actingAs($this->createMember(['user_type' => 'superadmin']))->getJson('/app-api/me/tasks')->assertOk()->assertJsonPath('meta.total', 0);
     }
+
+    public function test_checklist_items_are_added_through_task_item(): void
+    {
+        $sales = $this->member('sales_followups');
+        $task = $this->task(['title' => 'Synthetic call parent', 'assigned_to' => $sales->id]);
+        $this->actingAs($sales)->postJson('/erp/units/'.$this->unit.'/business-actions/task-item', ['task_id' => $task, 'title' => 'Share the demo link'])->assertOk()->assertJsonPath('result.title', 'Share the demo link');
+        $row = $this->getJson('/app-api/units/'.$this->unit.'/overview/tasks')->assertOk()->json('data.0');
+        $this->assertSame([$task, 1, 'Share the demo link'], [$row['id'], $row['remainingItems'], $row['items'][0]['title']]);
+        // The open item now blocks completion; a completed task takes no new items.
+        $this->postJson('/erp/units/'.$this->unit.'/business-actions/task-update', ['task_id' => $task, 'status' => 'completed'])->assertStatus(422);
+        $done = $this->task(['title' => 'Synthetic done task', 'status' => 'completed']);
+        $this->postJson('/erp/units/'.$this->unit.'/business-actions/task-item', ['task_id' => $done, 'title' => 'Too late'])->assertStatus(422);
+        $this->actingAs($this->member('academics'))->postJson('/erp/units/'.$this->unit.'/business-actions/task-item', ['task_id' => $task, 'title' => 'Not mine'])->assertForbidden();
+        $this->actingAs($this->member('sales_followups', $this->other))->postJson('/erp/units/'.$this->unit.'/business-actions/task-item', ['task_id' => $task, 'title' => 'Other team'])->assertForbidden();
+    }
 }

@@ -14,11 +14,12 @@ import {Page, PageError, PageLoading} from '../components/PageState';
 import {Status} from '../components/Status';
 import {Balance, Toned} from '../components/Amount';
 import {Metric, MetricRow} from '../components/Metric';
-import {FormDrawer, type Field} from '../components/FormDrawer';
+import {EditStudentDrawer} from '../components/EditStudentDrawer';
 import {useResource} from '../lib/hooks';
 import {date, dateTime, money, number, titleCase} from '../lib/format';
 import {unitById} from '../lib/session';
-import {canAct} from './Classes/shared';
+import {canAct, todayIn} from './Classes/shared';
+import {AssignTeacherDrawer, EndAssignmentDialog, isEndable, type EndableAssignment} from './Classes/assignmentActions';
 
 type Row = Record<string, string | number | null>;
 
@@ -119,6 +120,8 @@ export default function StudentDetail() {
   const {data, error, isLoading, reload} = useResource<Profile>(`/app-api/units/${unitId}/students/${params.student}`, pages);
   const [tab, setTab] = useState('classes');
   const [editing, setEditing] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [ending, setEnding] = useState<EndableAssignment | null>(null);
   const pageTo = (section: SectionKey) => (page: number) => setPages(current => ({...current, [`${section}_page`]: page}));
 
   if (isLoading) return <PageLoading />;
@@ -130,19 +133,11 @@ export default function StudentDetail() {
   const canRequest = Boolean(unit && !unit.isArchived && (unit.role === 'superadmin' || unit.actions.includes('request-create')));
   const canFollowUp = Boolean(unit && !unit.isArchived && (unit.role === 'superadmin' || unit.actions.includes('followup')));
   const canEdit = data.can.updateStudent && canAct(unit, 'student-update');
+  const canAssign = canAct(unit, 'assign');
+  const canEndAssignment = canAct(unit, 'end-assignment');
+  const today = unit ? todayIn(unit.timezone) : '';
   const sheet = data.sheetProfile;
   const sheetItems = sheet ? (Object.keys(SHEET_LABELS) as SheetKey[]).filter(key => sheet[key]) : [];
-  const editFields: Field[] = [
-    {kind: 'text', name: 'name', label: 'Name', required: true},
-    {kind: 'select', name: 'status', label: 'Status', options: ['active', 'paused', 'stopped'].map(value => ({value, label: titleCase(value)})), description: 'Cancel future classes before pausing or stopping.'},
-    {kind: 'date', name: 'registered_on', label: 'Joined'},
-    {kind: 'text', name: 'grade', label: 'Grade', required: true},
-    {kind: 'text', name: 'syllabus', label: 'Syllabus', required: true},
-    {kind: 'tel', name: 'guardian_contact', label: 'Parent contact', description: 'Phone or email.'},
-    {kind: 'url', name: 'meeting_url', label: 'Class link', placeholder: 'https://'},
-    {kind: 'date', name: 'date_of_birth', label: 'Date of birth (parent portal sign-in)', description: 'Leave blank to keep the saved date.'},
-    {kind: 'select', name: 'billing_state', label: 'Billing state (GST place of supply)', description: "Only if it differs from the team's state.", options: (data.states ?? []).map(value => ({value, label: value}))},
-  ];
 
   return (
     <Page
@@ -222,6 +217,11 @@ export default function StudentDetail() {
           </TabList>
           {tab === 'classes' && (
             <VStack gap={4}>
+              {canAssign && (
+                <HStack hAlign="end">
+                  <Button label="Assign teacher" variant="secondary" onClick={() => setAssigning(true)} />
+                </HStack>
+              )}
               <Section
                 rows={data.assignments}
                 empty="No teacher assigned yet"
@@ -233,6 +233,26 @@ export default function StudentDetail() {
                   // The student's hourly rate, for roles with the money page only.
                   ...(data.can.seeMoney ? [{key: 'studentRatePaise', header: 'Rate / hr', align: 'end' as const, renderCell: (r: Row) => <Text hasTabularNumbers>{money(r.studentRatePaise as number | null)}</Text>}] : []),
                   {key: 'status', header: 'Status', renderCell: r => <Status value={r.status as string} />},
+                  ...(canEndAssignment
+                    ? [
+                        {
+                          key: 'id',
+                          header: '',
+                          align: 'end' as const,
+                          renderCell: (r: Row) =>
+                            isEndable({status: String(r.status), endsOn: (r.ends_on as string | null) ?? null}, today) ? (
+                              <Button
+                                label="End"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEnding({id: Number(r.id), label: `${r.subject_name ?? 'Class'} with ${r.teacher_name ?? 'teacher'}`, startsOn: String(r.starts_on), endsOn: (r.ends_on as string | null) ?? null})}
+                              />
+                            ) : (
+                              <Text> </Text>
+                            ),
+                        },
+                      ]
+                    : []),
                 ]}
               />
               <Pager meta={data.pages.assignments} onPage={pageTo('assignments')} label="Assignment pages" />
@@ -345,29 +365,32 @@ export default function StudentDetail() {
         <Toned>{' '}</Toned>
       </HStack>
       {canEdit && (
-        <FormDrawer
+        <EditStudentDrawer
+          unitId={unitId}
+          student={student}
+          states={data.states ?? []}
           isOpen={editing}
           onOpenChange={setEditing}
-          title="Edit student"
-          description="Only changed fields are saved; blank fields keep their saved values. Changes are audited."
-          sendChangedOnly
-          clearable={['guardian_contact', 'meeting_url']}
-          fields={editFields}
-          initial={{
-            name: student.name,
-            status: student.status,
-            registered_on: student.registeredOn,
-            grade: student.grade,
-            syllabus: student.syllabus,
-            guardian_contact: student.guardianContact ?? '',
-            meeting_url: student.meetingUrl ?? '',
-            billing_state: student.billingState ?? '',
-          }}
-          hidden={{student_id: student.id}}
-          action={`/erp/units/${unitId}/business-actions/student-update`}
-          submitLabel="Save student"
-          successMessage="Student updated."
           onSaved={reload}
+        />
+      )}
+      {unit && canAssign && (
+        <AssignTeacherDrawer
+          isOpen={assigning}
+          onOpenChange={setAssigning}
+          unitId={unitId}
+          timezone={unit.timezone}
+          student={{id: student.id, name: student.name}}
+          onSaved={reload}
+        />
+      )}
+      {unit && canEndAssignment && (
+        <EndAssignmentDialog
+          unitId={unitId}
+          timezone={unit.timezone}
+          assignment={ending}
+          onClose={() => setEnding(null)}
+          onDone={reload}
         />
       )}
     </Page>

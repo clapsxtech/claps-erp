@@ -1,20 +1,24 @@
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {useParams, useSearchParams} from 'react-router';
 import {HStack} from '@astryxdesign/core/Layout';
 import {Text} from '@astryxdesign/core/Text';
 import {Link} from '@astryxdesign/core/Link';
 import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
+import {Banner} from '@astryxdesign/core/Banner';
 import {Selector} from '@astryxdesign/core/Selector';
 import {ToggleButton} from '@astryxdesign/core/ToggleButton';
 import {PlusIcon} from '@heroicons/react/24/outline';
 import {Page, PageError} from '../components/PageState';
 import {DataTable, type DataColumn, type ListMeta} from '../components/DataTable';
 import {FormDrawer, type Field} from '../components/FormDrawer';
+import {EditStudentDrawer, type EditableStudent} from '../components/EditStudentDrawer';
+import {canAct} from './Classes/shared';
 import {Status} from '../components/Status';
 import {Metric, MetricRow} from '../components/Metric';
 import {Balance} from '../components/Amount';
 import {useDebounced, useListQuery, useResource} from '../lib/hooks';
+import {getJson} from '../lib/api';
 import {money, date, number, titleCase} from '../lib/format';
 import {unitById} from '../lib/session';
 
@@ -59,6 +63,29 @@ export default function Students() {
   const list = useResource<StudentList>(`/app-api/units/${unitId}/students`, query);
   const can = list.data?.can;
   const canCreate = Boolean(unit && !unit.isArchived && (unit.role === 'superadmin' || unit.actions.includes('student')));
+  const canEdit = canAct(unit, 'student-update');
+  // The Edit row action loads just the editable fields, fresh on every open, and the
+  // drawer opens only once they have arrived (it snapshots them as its starting values).
+  const [editLoading, setEditLoading] = useState<number | null>(null);
+  const [editError, setEditError] = useState<string>();
+  const [editData, setEditData] = useState<{student: EditableStudent; states: string[]} | null>(null);
+  const editRequest = useRef(0);
+  const openEdit = (id: number) => {
+    // Only the latest request may open the drawer, so a slow earlier response never replaces it.
+    const request = ++editRequest.current;
+    setEditLoading(id);
+    setEditError(undefined);
+    getJson<{student: EditableStudent; states: string[]}>(`/app-api/units/${unitId}/students/${id}/edit`)
+      .then(data => {
+        if (request === editRequest.current) setEditData(current => current ?? data);
+      })
+      .catch((reason: Error) => {
+        if (request === editRequest.current) setEditError(reason.message);
+      })
+      .finally(() => {
+        if (request === editRequest.current) setEditLoading(null);
+      });
+  };
   const creating = params.get('new') === 'student';
   const setCreating = (open: boolean) =>
     setParams(current => {
@@ -92,8 +119,17 @@ export default function Students() {
         renderCell: row => <Balance paise={row.balancePaise} />,
       });
     }
+    if (canEdit) {
+      cols.push({
+        key: 'id',
+        header: '',
+        align: 'end',
+        renderCell: row => <Button label="Edit" variant="ghost" size="sm" isLoading={editLoading === row.id} onClick={() => openEdit(row.id)} />,
+      });
+    }
     return cols;
-  }, [can, unitId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [can, unitId, canEdit, editLoading]);
 
   const hasFilters = Boolean(query.q || query.status || query.priority || query.due);
   const clear = () => {
@@ -134,6 +170,7 @@ export default function Students() {
           <Metric label="Total outstanding" value={money(-list.data.totals.duePaise, {whole: true})} tone="error" />
         </MetricRow>
       )}
+      {editError && <Banner status="error" title={editError} isDismissable onDismiss={() => setEditError(undefined)} />}
       <DataTable<StudentRow>
         label="Students"
         rows={list.data?.data}
@@ -191,10 +228,26 @@ export default function Students() {
         phoneCard={{
           title: row => row.name,
           subtitle: row => `${row.code} · Grade ${row.grade} · ${titleCase(row.status)}`,
-          trailing: row => (row.balancePaise !== null ? <Balance paise={row.balancePaise} whole /> : undefined),
+          trailing: row =>
+            row.balancePaise !== null ? (
+              <Balance paise={row.balancePaise} whole />
+            ) : canEdit ? (
+              <Button label="Edit" variant="secondary" size="sm" isLoading={editLoading === row.id} onClick={() => openEdit(row.id)} />
+            ) : undefined,
           href: row => (can?.openProfile ? `/app/u/${unitId}/students/${row.id}` : undefined),
         }}
       />
+      {canEdit && editData && (
+        <EditStudentDrawer
+          key={editData.student.id}
+          unitId={unitId}
+          student={editData.student}
+          states={editData.states}
+          isOpen
+          onOpenChange={open => !open && setEditData(null)}
+          onSaved={() => list.reload()}
+        />
+      )}
       {canCreate && unit && (
         <FormDrawer
           isOpen={creating}

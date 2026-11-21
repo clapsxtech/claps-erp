@@ -11,6 +11,7 @@ import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/Segment
 import {Dialog, DialogHeader} from '@astryxdesign/core/Dialog';
 import {List, ListItem} from '@astryxdesign/core/List';
 import {Banner} from '@astryxdesign/core/Banner';
+import {TextInput} from '@astryxdesign/core/TextInput';
 import {useToast} from '@astryxdesign/core/Toast';
 import {PlusIcon} from '@heroicons/react/24/outline';
 import {Page, PageError} from '../../components/PageState';
@@ -22,7 +23,7 @@ import {useDebounced, useListQuery, useResource} from '../../lib/hooks';
 import {ApiError, postJson} from '../../lib/api';
 import {date, dateTime, number} from '../../lib/format';
 import {session, unitById} from '../../lib/session';
-import {hasPage, postOwnTask, todayIn} from './shared';
+import {canAct, hasPage, postOwnTask, todayIn} from './shared';
 
 interface TaskItem {
   id: number;
@@ -88,6 +89,36 @@ export default function Tasks() {
   const members = useResource<{id: number; label: string}[]>(creating && can?.create ? `/erp/units/${unitId}/lookup` : null, {type: 'members'});
 
   const canCompleteTask = (row: TaskRow) => Boolean(can && row.status !== 'completed' && (can.complete || (row.assignedToMe && can.completeOwn)));
+  // Adding checklist items is the task-item action (BusinessController); the server refuses it on completed tasks.
+  const canAddItems = canAct(unit, 'task-item') && !session().sheetsAuthority;
+  const canAddItem = (row: TaskRow) => canAddItems && row.status !== 'completed';
+  const [newItem, setNewItem] = useState('');
+  const [itemError, setItemError] = useState<string>();
+  const [addingItem, setAddingItem] = useState(false);
+  const openChecklist = (id: number | undefined) => {
+    setChecklistFor(id);
+    setNewItem('');
+    setItemError(undefined);
+  };
+  async function addItem(row: TaskRow) {
+    const title = newItem.trim();
+    if (!title) {
+      setItemError('Enter the checklist item.');
+      return;
+    }
+    setAddingItem(true);
+    setItemError(undefined);
+    try {
+      await postJson(`/erp/units/${unitId}/business-actions/task-item`, {task_id: row.id, title});
+      showToast({body: 'Checklist item added.', uniqueID: `task-item-${row.id}`});
+      setNewItem('');
+      list.reload();
+    } catch (reason) {
+      setItemError(reason instanceof ApiError ? Object.values(reason.fieldErrors)[0]?.[0] ?? reason.message : 'Could not reach the server. Nothing was saved.');
+    } finally {
+      setAddingItem(false);
+    }
+  }
   const canCompleteItem = (row: TaskRow) => Boolean(can && row.status !== 'completed' && (can.completeItem || (row.assignedToMe && can.completeOwn)));
 
   async function run(key: string, work: () => Promise<unknown>, message: string) {
@@ -161,13 +192,17 @@ export default function Tasks() {
         header: 'Checklist',
         renderCell: row =>
           row.items.length === 0 ? (
-            <Text color="secondary">—</Text>
+            canAddItem(row) ? (
+              <Button label="Add checklist" variant="ghost" size="sm" onClick={() => openChecklist(row.id)} />
+            ) : (
+              <Text color="secondary">—</Text>
+            )
           ) : (
             <Button
               label={row.remainingItems ? `${number(row.remainingItems)} of ${number(row.items.length)} left` : `All ${number(row.items.length)} done`}
               variant="ghost"
               size="sm"
-              onClick={() => setChecklistFor(row.id)}
+              onClick={() => openChecklist(row.id)}
             />
           ),
       },
@@ -179,14 +214,14 @@ export default function Tasks() {
         renderCell: row => {
           if (!canCompleteTask(row)) return <Text> </Text>;
           // A task with open checklist items is finished through its checklist first.
-          if (row.remainingItems) return <Button label="Open checklist" variant="secondary" size="sm" onClick={() => setChecklistFor(row.id)} />;
+          if (row.remainingItems) return <Button label="Open checklist" variant="secondary" size="sm" onClick={() => openChecklist(row.id)} />;
           return <Button label="Complete" variant="secondary" size="sm" isLoading={busy === `task-${row.id}`} onClick={() => completeTask(row)} />;
         },
       },
     );
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [can, query.scope, busy, today]);
+  }, [can, query.scope, busy, today, canAddItems]);
 
   const hasFilters = Boolean(query.q || query.status !== 'open');
   const clear = () => {
@@ -267,9 +302,9 @@ export default function Tasks() {
           title: row => row.title,
           subtitle: row => [row.dueOn ? `Due ${date(row.dueOn)}` : 'No due date', row.remainingItems ? `${row.remainingItems} checklist left` : null, query.scope === 'all' ? row.assigneeName : null].filter(Boolean).join(' · '),
           trailing: row =>
-            canCompleteTask(row) ? (
-              row.remainingItems ? (
-                <Button label="Checklist" variant="secondary" size="sm" onClick={() => setChecklistFor(row.id)} />
+            canCompleteTask(row) || canAddItem(row) ? (
+              row.remainingItems || canAddItem(row) ? (
+                <Button label="Checklist" variant="secondary" size="sm" onClick={() => openChecklist(row.id)} />
               ) : (
                 <Button label="Complete" variant="secondary" size="sm" isLoading={busy === `task-${row.id}`} onClick={() => completeTask(row)} />
               )
@@ -279,10 +314,11 @@ export default function Tasks() {
         }}
       />
 
-      <Dialog isOpen={checklistTask !== undefined} onOpenChange={open => !open && setChecklistFor(undefined)} width={480} padding={5}>
+      <Dialog isOpen={checklistTask !== undefined} onOpenChange={open => !open && openChecklist(undefined)} width={480} padding={5}>
         {checklistTask && (
           <VStack gap={4}>
-            <DialogHeader title={checklistTask.title} subtitle="Complete every checklist item before closing the task." onOpenChange={open => !open && setChecklistFor(undefined)} />
+            <DialogHeader title={checklistTask.title} subtitle="Complete every checklist item before closing the task." onOpenChange={open => !open && openChecklist(undefined)} />
+            {checklistTask.items.length === 0 && <Text color="secondary">No checklist items yet.</Text>}
             <List hasDividers edge="flush">
               {checklistTask.items.map(item => (
                 <ListItem
@@ -301,15 +337,32 @@ export default function Tasks() {
                 />
               ))}
             </List>
+            {canAddItem(checklistTask) && (
+              <HStack gap={2} vAlign="end">
+                <TextInput
+                  label="New checklist item"
+                  value={newItem}
+                  onChange={value => {
+                    setNewItem(value);
+                    setItemError(undefined);
+                  }}
+                  onEnter={() => addItem(checklistTask)}
+                  placeholder="e.g. Share the demo class link"
+                  status={itemError ? {type: 'error', message: itemError} : undefined}
+                  containerStyle={{flex: 1, minWidth: 0}}
+                />
+                <Button label="Add" variant="secondary" isLoading={addingItem} onClick={() => addItem(checklistTask)} />
+              </HStack>
+            )}
             <HStack gap={2} hAlign="end">
-              <Button label="Close" variant="ghost" onClick={() => setChecklistFor(undefined)} />
+              <Button label="Close" variant="ghost" onClick={() => openChecklist(undefined)} />
               {canCompleteTask(checklistTask) && (
                 <Button
                   label="Complete task"
                   variant="primary"
                   isDisabled={checklistTask.remainingItems > 0}
                   isLoading={busy === `task-${checklistTask.id}`}
-                  onClick={() => completeTask(checklistTask).then(() => setChecklistFor(undefined))}
+                  onClick={() => completeTask(checklistTask).then(() => openChecklist(undefined))}
                 />
               )}
             </HStack>

@@ -5,7 +5,7 @@ import {Typeahead} from '@astryxdesign/core/Typeahead';
 import type {SearchableItem, SearchSource} from '@astryxdesign/core/Typeahead';
 import {getJson} from '../../lib/api';
 
-export type LookupType = 'students' | 'teachers' | 'lessons' | 'agreements' | 'attendance' | 'enrollments' | 'reviews';
+export type LookupType = 'students' | 'teachers' | 'lessons' | 'agreements' | 'attendance' | 'enrollments' | 'reviews' | 'subjects';
 
 function lookupSource(unitId: number, type: LookupType): SearchSource<SearchableItem> {
   let controller: AbortController | null = null;

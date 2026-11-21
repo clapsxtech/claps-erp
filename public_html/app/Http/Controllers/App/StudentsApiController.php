@@ -91,6 +91,27 @@ class StudentsApiController extends Controller
         ]);
     }
 
+    /**
+     * The fields the Edit student drawer prefills, for any role allowed student-update
+     * (TeamAuthorization checks it). No balances, rates, ledger or profile sections.
+     */
+    public function editable(int $unit, int $student)
+    {
+        $s = DB::table('erp_students')->where('unit_id', $unit)->where('id', $student)
+            ->first(['id', 'code', 'name', 'status', 'registered_on', 'grade', 'syllabus', 'guardian_contact', 'meeting_url']);
+        abort_unless($s, 404);
+        $billingState = DB::table('erp_student_profiles')->where('unit_id', $unit)->where('student_id', $s->id)->value('billing_state');
+        return response()->json([
+            'student' => [
+                'id' => (int) $s->id, 'code' => $s->code, 'name' => $s->name, 'status' => $s->status,
+                'registeredOn' => $s->registered_on, 'grade' => $s->grade, 'syllabus' => $s->syllabus,
+                'guardianContact' => $s->guardian_contact, 'meetingUrl' => RecordsDatasets::safeLink($s->meeting_url),
+                'billingState' => $billingState,
+            ],
+            'states' => IndianStates::names(),
+        ]);
+    }
+
     /** Paginated profile sections and their page sizes (StudentProfile::read). */
     private const SECTIONS = ['assignments', 'agreements', 'lessons', 'attendance', 'ledger', 'requests', 'followups', 'tasks'];
 

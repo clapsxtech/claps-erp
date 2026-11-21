@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  */
 class AdminTeamAccessApiController extends Controller
 {
-    /** Roles the grant form offers, in order (config/erp_forms.php). */
+    /** Roles the grant form offers, in order. */
     private const GRANT_ROLES = [
         'team_manager' => 'Team manager',
         'academics' => 'Academics / attendance',

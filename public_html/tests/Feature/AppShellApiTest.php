@@ -148,4 +148,32 @@ class AppShellApiTest extends TestCase
         $this->getJson('/app-api/units/'.$this->unit.'/students/'.$this->student)->assertOk()
             ->assertJsonPath('student.guardianContact', null)->assertJsonPath('student.meetingUrl', null);
     }
+
+    public function test_edit_read_is_for_student_update_roles_with_only_editable_fields(): void
+    {
+        DB::table('erp_student_profiles')->insert(['unit_id' => $this->unit, 'student_id' => $this->student, 'hour_rate_paise' => 50000, 'date_of_birth' => '2014-02-03', 'billing_state' => 'Tamil Nadu', 'feedback' => 'PRIVATE SHEET FEEDBACK']);
+        DB::table('erp_students')->where('id', $this->student)->update(['meeting_url' => 'javascript:alert(1)']);
+        $url = '/app-api/units/'.$this->unit.'/students/'.$this->student.'/edit';
+
+        // Academics may edit students but not open the profile.
+        $academics = $this->member('academics');
+        $json = $this->actingAs($academics)->getJson($url)->assertOk()->json();
+        $this->assertSame(['student', 'states'], array_keys($json));
+        $this->assertSame(['id', 'code', 'name', 'status', 'registeredOn', 'grade', 'syllabus', 'guardianContact', 'meetingUrl', 'billingState'], array_keys($json['student']));
+        $this->assertSame(['Synthetic Owing Student', '+910000000000', null, 'Tamil Nadu'], [$json['student']['name'], $json['student']['guardianContact'], $json['student']['meetingUrl'], $json['student']['billingState']]);
+        $this->assertContains('Kerala', $json['states']);
+        foreach (['-45000', '45000', '50000', '2014-02-03', 'PRIVATE SHEET FEEDBACK', 'javascript:', 'balance'] as $hidden) $this->assertStringNotContainsString($hidden, json_encode($json));
+        $this->getJson('/app-api/units/'.$this->unit.'/students/'.$this->student)->assertForbidden();
+        // The drawer's save goes through student-update.
+        $this->postJson('/erp/units/'.$this->unit.'/business-actions/student-update', ['student_id' => $this->student, 'name' => 'Synthetic Renamed Student'])->assertOk();
+        $this->getJson($url)->assertOk()->assertJsonPath('student.name', 'Synthetic Renamed Student');
+
+        // A student from another unit is not found here; another unit's route is refused.
+        $secret = DB::table('erp_students')->where('code', 'APP-SECRET')->value('id');
+        $this->getJson('/app-api/units/'.$this->unit.'/students/'.$secret.'/edit')->assertNotFound();
+        $this->getJson('/app-api/units/'.$this->other.'/students/'.$secret.'/edit')->assertForbidden();
+
+        $this->actingAs($this->member('team_manager'))->getJson($url)->assertOk();
+        foreach (['read_only', 'finance', 'sales_followups'] as $role) $this->actingAs($this->member($role))->getJson($url)->assertForbidden();
+    }
 }

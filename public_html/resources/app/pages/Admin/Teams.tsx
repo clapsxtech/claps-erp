@@ -10,7 +10,7 @@ import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
 import {Selector} from '@astryxdesign/core/Selector';
 import {TabList, Tab} from '@astryxdesign/core/TabList';
-import {Table, type TableColumn} from '@astryxdesign/core/Table';
+import {Table, pixel, type TableColumn} from '@astryxdesign/core/Table';
 import {EmptyState} from '@astryxdesign/core/EmptyState';
 import {PlusIcon} from '@heroicons/react/24/outline';
 import {Page, PageError} from '../../components/PageState';
@@ -108,6 +108,7 @@ export default function Teams() {
     {key: 'isArchived', header: 'Status', renderCell: t => <Status value={t.isArchived ? 'archived' : 'active'} />},
     {
       key: 'id',
+      width: pixel(250),
       header: '',
       align: 'end',
       renderCell: t => (
@@ -144,6 +145,7 @@ export default function Teams() {
       {key: 'isActive', header: 'Status', renderCell: a => <Status value={a.isActive ? 'active' : 'blocked'} label={a.isActive ? 'Active' : 'Suspended'} />},
       {
         key: 'id',
+        width: pixel(200),
         header: '',
         align: 'end',
         renderCell: a => (

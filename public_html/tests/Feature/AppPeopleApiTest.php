@@ -318,4 +318,28 @@ class AppPeopleApiTest extends TestCase
         $this->assertStringNotContainsString('9800000099', json_encode($rows));
         $this->actingAs($this->member('academics'))->getJson('/app-api/units/'.$this->unit.'/admissions/demos')->assertForbidden();
     }
+
+    public function test_assign_and_end_assignment_drawer_payloads_round_trip(): void
+    {
+        $subject = DB::table('erp_subjects')->where('name', 'Synthetic Maths')->value('id');
+        $today = now('UTC')->toDateString();
+        $academic = $this->member('academics');
+        // Rates are rupee strings, as the Assign drawer sends them; the server stores paise.
+        $enrollment = $this->actingAs($academic)->postJson('/erp/units/'.$this->unit.'/assign', ['student_id' => $this->student, 'teacher_id' => $this->teacher, 'subject_id' => $subject, 'starts_on' => $today, 'student_rate_inr' => '450.50', 'teacher_rate_inr' => '0'])
+            ->assertOk()->json('result.id');
+        $row = DB::table('erp_enrollments')->find($enrollment);
+        $this->assertSame([450_50, 0, null, 'active'], [(int) $row->student_rate_paise, (int) $row->teacher_rate_paise, $row->ends_on, $row->status]);
+        $this->getJson('/app-api/units/'.$this->unit.'/teachers/'.$this->teacher)->assertOk()->assertJsonPath('classes.0.id', $enrollment)->assertJsonPath('classes.0.endsOn', null);
+        // A second assignment for the same subject is refused with a message for the banner.
+        $this->postJson('/erp/units/'.$this->unit.'/assign', ['student_id' => $this->student, 'teacher_id' => $this->teacher, 'subject_id' => $subject, 'starts_on' => $today, 'student_rate_inr' => '1', 'teacher_rate_inr' => '1'])
+            ->assertStatus(422)->assertJsonValidationErrors('schedule');
+
+        $this->postJson('/erp/units/'.$this->unit.'/end-assignment', ['enrollment_id' => $enrollment, 'ends_on' => $today])->assertOk()->assertJsonPath('result.ends_on', $today);
+        $this->getJson('/app-api/units/'.$this->unit.'/teachers/'.$this->teacher)->assertOk()->assertJsonPath('classes.0.endsOn', $today);
+        $this->postJson('/erp/units/'.$this->unit.'/end-assignment', ['enrollment_id' => $enrollment, 'ends_on' => now('UTC')->addDay()->toDateString()])->assertStatus(422);
+
+        foreach (['finance', 'sales_followups', 'read_only'] as $role) {
+            $this->actingAs($this->member($role))->postJson('/erp/units/'.$this->unit.'/end-assignment', ['enrollment_id' => $enrollment, 'ends_on' => $today])->assertForbidden();
+        }
+    }
 }

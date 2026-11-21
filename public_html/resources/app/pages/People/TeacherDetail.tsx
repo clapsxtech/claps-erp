@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {useParams} from 'react-router';
-import {VStack} from '@astryxdesign/core/Layout';
+import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Card} from '@astryxdesign/core/Card';
 import {Heading, Text} from '@astryxdesign/core/Text';
 import {Link} from '@astryxdesign/core/Link';
@@ -16,6 +16,8 @@ import {date, money, number} from '../../lib/format';
 import {unitById} from '../../lib/session';
 import {canAct} from './access';
 import {TeacherForms, type TeacherFormKind} from './TeacherForms';
+import {AssignTeacherDrawer, EndAssignmentDialog, isEndable, type EndableAssignment} from '../Classes/assignmentActions';
+import {todayIn} from '../Classes/shared';
 
 interface Profile {
   teacher: {id: number; code: string; name: string; status: string; timezone: string; levels: string[]; category: string | null; ttHours: string};
@@ -32,6 +34,8 @@ export default function TeacherDetail() {
   const unit = unitById(unitId);
   const {data, error, isLoading, reload} = useResource<Profile>(`/app-api/units/${unitId}/teachers/${params.teacher}`);
   const [form, setForm] = useState<TeacherFormKind | null>(null);
+  const [assigning, setAssigning] = useState(false);
+  const [ending, setEnding] = useState<EndableAssignment | null>(null);
 
   if (isLoading) return <PageLoading />;
   if (error || !data) return <Page title="Teacher"><PageError error={error ?? new Error('Not found')} onRetry={reload} /></Page>;
@@ -39,6 +43,9 @@ export default function TeacherDetail() {
   const {teacher, statement} = data;
   const canClassify = canAct(unit, 'teacher-classify');
   const canEligibility = canAct(unit, 'eligibility');
+  const canAssign = canAct(unit, 'assign');
+  const canEndAssignment = canAct(unit, 'end-assignment');
+  const today = unit ? todayIn(unit.timezone) : '';
   const active = data.classes.filter(c => c.status === 'active').length;
   const eligibilityRows = data.eligibilities.map((e, i) => ({...e, id: i}));
 
@@ -95,7 +102,10 @@ export default function TeacherDetail() {
 
       <Card padding={4}>
         <VStack gap={3}>
-          <Heading level={2}>Classes</Heading>
+          <HStack gap={2} hAlign="between" vAlign="center">
+            <Heading level={2}>Classes</Heading>
+            {canAssign && <Button label="Assign student" variant="secondary" onClick={() => setAssigning(true)} />}
+          </HStack>
           {data.classes.length === 0 ? (
             <EmptyState title="No classes assigned" isCompact />
           ) : (
@@ -117,12 +127,45 @@ export default function TeacherDetail() {
                     ]
                   : []),
                 {key: 'status', header: 'Status', renderCell: r => <Status value={r.status} />},
+                ...(canEndAssignment
+                  ? [
+                      {
+                        key: 'id' as const,
+                        header: '',
+                        align: 'end' as const,
+                        renderCell: (r: Profile['classes'][number]) =>
+                          isEndable(r, today) ? (
+                            <Button
+                              label="End"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEnding({id: r.id, label: `${r.subjectName ?? 'Class'} for ${r.studentName}`, startsOn: r.startsOn, endsOn: r.endsOn})}
+                            />
+                          ) : (
+                            <Text> </Text>
+                          ),
+                      },
+                    ]
+                  : []),
               ]}
             />
           )}
         </VStack>
       </Card>
 
+      {unit && canAssign && (
+        <AssignTeacherDrawer
+          isOpen={assigning}
+          onOpenChange={setAssigning}
+          unitId={unitId}
+          timezone={unit.timezone}
+          teacher={{id: teacher.id, name: teacher.name}}
+          onSaved={reload}
+        />
+      )}
+      {unit && canEndAssignment && (
+        <EndAssignmentDialog unitId={unitId} timezone={unit.timezone} assignment={ending} onClose={() => setEnding(null)} onDone={reload} />
+      )}
       {unit && (
         <TeacherForms
           unitId={unitId}

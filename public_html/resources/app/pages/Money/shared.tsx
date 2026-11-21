@@ -2,7 +2,7 @@
 // writes through the Laravel action routes; nothing here computes or
 // posts money itself. Amounts are typed as rupee strings ("100.50"), exactly what
 // the action routes expect as amount_inr; the server converts them to paise.
-import {useEffect, useState, type ReactNode} from 'react';
+import {useEffect, useState, type ComponentProps, type ReactNode} from 'react';
 import {Dialog, DialogHeader} from '@astryxdesign/core/Dialog';
 import {AlertDialog} from '@astryxdesign/core/AlertDialog';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
@@ -10,6 +10,7 @@ import {TextInput} from '@astryxdesign/core/TextInput';
 import {TextArea} from '@astryxdesign/core/TextArea';
 import {Selector} from '@astryxdesign/core/Selector';
 import {DateTimeInput, type ISODateTimeString} from '@astryxdesign/core/DateTimeInput';
+import {DateInput} from '@astryxdesign/core/DateInput';
 import {Button} from '@astryxdesign/core/Button';
 import {Banner} from '@astryxdesign/core/Banner';
 import {Text} from '@astryxdesign/core/Text';
@@ -56,7 +57,10 @@ export function actionUrl(unitId: number, action: string): string {
 
 export type DialogField =
   | {kind: 'text' | 'money' | 'textarea' | 'datetime'; name: string; label: string; required?: boolean; description?: string; placeholder?: string}
-  | {kind: 'select'; name: string; label: string; required?: boolean; description?: string; options: {value: string; label: string}[]};
+  | {kind: 'select'; name: string; label: string; required?: boolean; description?: string; options: {value: string; label: string}[]}
+  | {kind: 'date'; name: string; label: string; required?: boolean; description?: string; min?: string; max?: string};
+
+type ISODate = ComponentProps<typeof DateInput>['value'];
 
 /** Server error keys that belong to a differently named input (domain services report paise). */
 const ERROR_ALIASES: Record<string, string> = {amount_paise: 'amount_inr'};
@@ -191,6 +195,8 @@ export function ConfirmActionDialog({
                 return <TextArea key={field.name} {...common} value={values[field.name] ?? ''} onChange={set(field.name)} />;
               case 'select':
                 return <Selector key={field.name} {...common} options={field.options} value={values[field.name] || undefined} onChange={set(field.name)} />;
+              case 'date':
+                return <DateInput key={field.name} {...common} value={(values[field.name] || undefined) as ISODate} onChange={value => set(field.name)(value)} min={field.min as ISODate} max={field.max as ISODate} />;
               case 'datetime':
                 return (
                   <DateTimeInput
