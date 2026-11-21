@@ -45,4 +45,19 @@ class TimeTableController extends Controller
             ->header('Cache-Control', 'no-store, private');
     }
 
+    /** Only http(s) meeting links reach the page; a bare host gets https://, any other scheme is dropped. */
+    private function safeMeetingLink(?string $link): ?string
+    {
+        $link = trim((string) $link);
+        if ($link === '') {
+            return null;
+        }
+        if (!preg_match('~^https?://~i', $link)) {
+            if (strpos($link, ':') !== false || strpos($link, '//') === 0) {
+                return null;
+            }
+            $link = 'https://'.$link;
+        }
+        return filter_var($link, FILTER_VALIDATE_URL) ? $link : null;
+    }
 }

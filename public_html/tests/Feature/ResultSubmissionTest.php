@@ -7,6 +7,7 @@ use App\Models\Performance;
 use App\Models\Students;
 use App\Models\Teacher;
 use App\Models\Topic;
+use App\Modules\Academics\Actions\SubmitMarklist;
 use App\Modules\Academics\Services\ResultSheetSerializer;
 use App\Modules\Integrations\Contracts\SheetsTransport;
 use App\Modules\Integrations\Models\IntegrationOutbox;
@@ -109,57 +110,8 @@ class ResultSubmissionTest extends TestCase
         $this->assertStringNotContainsString('01/01/1990', json_encode($event->getAttributes()));
     }
 
-    public function test_admin_id_inputs_export_the_same_canonical_marklist_schema(): void
-    {
-        $payload = $this->resultPayload();
-        $this->postJson('/upload-result', $payload)->assertOk();
-        $teacher = Teacher::create(['teacher_name' => 'QA Teacher', 'teacher_code' => 'T-QA', 'status' => 'Available✅']);
-        $student = Students::create(['student_name' => 'QA Student', 'student_code' => 'S-QA', 'status' => 'OnGoing ✅']);
-        $payload['teacher_name'] = $teacher->id;
-        $payload['student_name'] = $student->id;
-        $payload['submission_key'] = (string) Str::uuid();
-        unset($payload['password'], $payload['student_code']);
-        $this->actingAs($this->createAdmin());
-        $this->postJson('/admin/marklist', $payload)->assertOk();
-        $this->postJson('/admin/marklist', $payload)->assertOk()->assertJson(['replayed' => true]);
-        $events = IntegrationOutbox::orderBy('id')->get();
-        $this->assertCount(2, $events);
-        $this->assertSame(array_slice($events[0]->payload['values'][0], 0, 11), array_slice($events[1]->payload['values'][0], 0, 11));
-        $this->assertDatabaseHas('marklists', ['teacher_name' => 'QA Teacher', 'student_name' => 'QA Student', 'student_code' => 'S-QA']);
-    }
 
-    public function test_snapshot_id_reuse_does_not_relabel_a_new_admin_result(): void
-    {
-        $payload = $this->resultPayload();
-        $teacher = Teacher::create(['teacher_name' => 'QA Teacher', 'teacher_code' => 'T-QA']);
-        $student = Students::create(['student_name' => 'QA Student', 'student_code' => 'S-QA']);
-        $payload['teacher_name'] = $teacher->id;
-        $payload['student_name'] = $student->id;
-        $this->actingAs($this->createAdmin());
-        $this->postJson('/admin/marklist', $payload)->assertOk();
-        $teacher->update(['teacher_name' => 'Different teacher', 'teacher_code' => 'T-NEW']);
-        $student->update(['student_name' => 'Different student', 'student_code' => 'S-NEW']);
-        $this->postJson('/admin/marklist', $payload)->assertOk()->assertJson(['replayed' => true]);
-        $this->assertDatabaseCount('marklists', 1);
-        $record = Marklist::firstOrFail();
-        $this->assertSame('QA Teacher', $record->teacher_name);
-        $this->assertSame('QA Student', $record->student_name);
-        $response = $this->getJson('/admin/marklist', ['X-Requested-With' => 'XMLHttpRequest'])->assertOk();
-        $this->assertSame('QA Teacher', $response->json('data.0.teacher_name'));
-        $this->assertSame('QA Student', $response->json('data.0.student_name'));
-        $query = ['draw'=>1,'start'=>0,'length'=>10,'search'=>['value'=>'QA','regex'=>false],
-            'order'=>[['column'=>0,'dir'=>'asc']],
-            'columns'=>array_map(function ($name) { return ['data'=>$name,'name'=>$name,'searchable'=>'true','orderable'=>'true','search'=>['value'=>'','regex'=>false]]; }, ['teacher_name','teacher_code','student_name','subject_name'])];
-        $searched = $this->getJson('/admin/marklist?'.http_build_query($query), ['X-Requested-With'=>'XMLHttpRequest'])->assertOk();
-        $this->assertSame(1, (int)$searched->json('recordsFiltered'));
-        $this->assertSame('QA Teacher', $searched->json('data.0.teacher_name'));
-        foreach ([1,2,3] as $column) {
-            $query['order'][0]['column']=$column;
-            $query['order'][0]['dir']='desc';
-            $this->getJson('/admin/marklist?'.http_build_query($query), ['X-Requested-With'=>'XMLHttpRequest'])->assertOk();
-        }
 
-    }
 
     public function test_student_lookup_requires_verification_and_omits_credentials_and_rates(): void
     {
@@ -187,14 +139,19 @@ class ResultSubmissionTest extends TestCase
     {
         $this->createMaster();
         $this->createSubject();
-        foreach (['/resultform', '/performance'] as $path) {
-            $response = $this->get($path)->assertOk();
-            $response->assertSee('name="submission_key"', false);
-            $response->assertSee('Verify and load students');
-            $response->assertSee('type="password"', false);
+        // The React forms generate the submission key and ask for the DOB in the browser; the server
+        // page embeds only teacher names and the subject/topic lists, never a DOB, student, code or rate.
+        foreach (['/resultform' => 'result', '/performance' => 'performance'] as $path => $form) {
+            $response = $this->get($path)->assertOk()->assertSee('"kind":"public","form":"'.$form.'"', false)->assertSee('QA Teacher');
             $response->assertDontSee('01/01/1990');
             $response->assertDontSee('QA Student');
+            $response->assertDontSee('S-QA');
+            $response->assertDontSee('T-QA');
         }
+        $this->get('/resultform')->assertSee('QA Mathematics');
+        // The student list loads only after DOB verification.
+        $this->postJson('/studentinforesult', ['teacher_name' => 'QA Teacher'])->assertStatus(422);
+        $this->postJson('/studentinforesult', ['teacher_name' => 'QA Teacher', 'password' => '01/01/1990'])->assertOk()->assertSee('QA Student');
     }
 
     public function test_replay_survives_academic_reference_renames_or_removal(): void

@@ -34,8 +34,8 @@ class AppGuestTest extends TestCase
         $this->get('/app/u/1/students')->assertRedirect('/login');
 
         $this->actingAs($this->createMember());
-        $this->get('/login')->assertRedirect('/');
-        $this->get('/staff/login')->assertRedirect('/');
+        $this->get('/login')->assertRedirect('/app');
+        $this->get('/staff/login')->assertRedirect('/app');
     }
 
     public function test_json_login_returns_the_destination_for_each_kind_of_account(): void
@@ -49,18 +49,18 @@ class AppGuestTest extends TestCase
 
         $admin = $this->createAdmin();
         $this->postJson('/login', ['email' => $admin->email, 'password' => self::PASSWORD, 'portal' => 'superadmin'])
-            ->assertOk()->assertExactJson(['redirect' => route('erp.index')]);
+            ->assertOk()->assertExactJson(['redirect' => url('/app')]);
         $this->post('/logout');
 
         $teacher = $this->createMember(['email' => 'teacher-json@example.invalid']);
         $unit = DB::table('erp_units')->insertGetId(['code' => 'G-T', 'name' => 'Guest Unit', 'timezone' => 'UTC']);
         DB::table('erp_memberships')->insert(['unit_id' => $unit, 'user_id' => $teacher->id, 'role' => 'teacher']);
         $this->postJson('/login', ['email' => $teacher->email, 'password' => self::PASSWORD])
-            ->assertOk()->assertExactJson(['redirect' => route('erp.teacher.index')]);
+            ->assertOk()->assertExactJson(['redirect' => url('/teacher')]);
         $this->post('/logout');
 
         // Normal form posts keep redirecting.
-        $this->post('/login', ['email' => $admin->email, 'password' => self::PASSWORD])->assertRedirect(route('erp.index'));
+        $this->post('/login', ['email' => $admin->email, 'password' => self::PASSWORD])->assertRedirect(url('/app'));
     }
 
     public function test_json_login_failures_use_the_classic_messages_and_throttle(): void
@@ -105,7 +105,7 @@ class AppGuestTest extends TestCase
 
         $this->postJson('/two-factor', ['code' => '000000'])->assertStatus(422)->assertJsonValidationErrors('code');
         $this->postJson('/two-factor', ['code' => TOTP::createFromSecret($secret)->now()])
-            ->assertOk()->assertExactJson(['redirect' => route('erp.index')]);
+            ->assertOk()->assertExactJson(['redirect' => url('/app')]);
         $this->assertAuthenticatedAs($user);
     }
 
@@ -212,7 +212,9 @@ class AppGuestTest extends TestCase
 
     private function assertNoSecretsInReads(array $secrets): void
     {
-        foreach (['/account/security', '/app/account/security', '/app-api/account/two-factor', '/app-api/account/security'] as $url) {
+        // (The old /app-api/account/security read was removed with the old UI; it now 404s and holds nothing.)
+        $this->get('/app-api/account/security')->assertNotFound();
+        foreach (['/account/security', '/app/account/security', '/app-api/account/two-factor'] as $url) {
             $body = $this->get($url)->assertOk()->getContent();
             foreach ($secrets as $secret) $this->assertStringNotContainsString($secret, $body, "$url must not expose a secret");
         }

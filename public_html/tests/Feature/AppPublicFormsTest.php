@@ -92,7 +92,8 @@ class AppPublicFormsTest extends TestCase
         DB::table('erp_memberships')->insert(['user_id' => $user->id, 'unit_id' => $unit, 'role' => 'teacher']);
         $this->actingAs($user);
         foreach (['/timetableReport' => 'timetable', '/timetable' => 'timetable', '/attendance' => 'attendance', '/resultform' => 'results'] as $path => $section) {
-            $this->get($path)->assertRedirect(route('erp.teacher.index', ['section' => $section]));
+            $this->get($path)->assertRedirect(route('teacher.portal.section', ['section' => $section]));
+            $this->assertSame(url('/teacher/'.$section), route('teacher.portal.section', ['section' => $section]));
         }
     }
 
