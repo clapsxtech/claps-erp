@@ -85,6 +85,7 @@
         <a href="{{ route('account.security') }}">Account security</a>
         @if(config('sheet_transition.enabled'))<a href="{{ route('erp.sheets', $currentUnit ? ['unit'=>$currentUnit->id] : []) }}">From Sheets</a>@endif
         @if($toolAdministrator)<a href="{{ route('erp.administration') }}">Teams & accounts</a><a href="{{ route('erp.operations') }}">Operations & audit</a>@endif
+        <a href="{{ $currentUnit ? url('/app/u/'.$currentUnit->id.'/home') : url('/app') }}">@include('erp.icon',['name'=>'spark'])<span>Open the new app</span></a>
         <a href="{{ route('erp.index') }}" @if($isHome) aria-current="page" @endif>@include('erp.icon',['name'=>'grid'])<span>Business units</span><span class="nav-count">{{ $navigationUnits->count() }}</span></a>
         <a href="{{ route('erp.tasks.mine') }}" @if(request()->routeIs('erp.tasks.*')) aria-current="page" @endif>@include('erp.icon',['name'=>'check'])<span>My assigned tasks</span></a>
         @if(request()->routeIs('erp.teacher.*'))<a href="{{ route('erp.teacher.index') }}" aria-current="page">@include('erp.icon',['name'=>'calendar'])<span>My lessons</span></a>@endif

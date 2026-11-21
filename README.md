@@ -9,6 +9,10 @@ The [customer and staff journey simulation](public_html/docs/JOURNEY_SIMULATION.
 
 Start with the [ERP user guide and journeys for each role](public_html/docs/ERP_USER_GUIDE.md) for login, daily workflows, permissions, handoffs and Sheets transition behavior. The [complete route reference](public_html/docs/ERP_ROUTE_REFERENCE.md) lists browser pages, form actions, exports and all registered Laravel routes.
 
+## New app (React + Astryx)
+
+Staff screens are being rebuilt at `/app` with the [Astryx](https://astryx.atmeta.com/) design system. The classic screens stay live until cutover. See [the app guide](public_html/resources/app/README.md) for how screens, permissions and tests fit together.
+
 ## Architecture and cutover review
 
 See the [Sheets-to-application ER diagrams and production-readiness review](public_html/docs/architecture-review/README.md) for verified workbook dependencies, schema comparisons, migration join contracts, current release gaps, and validation results (26 October 2026).
