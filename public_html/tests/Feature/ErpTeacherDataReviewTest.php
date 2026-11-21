@@ -22,7 +22,9 @@ class ErpTeacherDataReviewTest extends TestCase
         $this->postJson($url,['candidate_id'=>$a->id,'decision'=>'merge','target_id'=>$b->id,'note'=>'Same person verified with both response records.'])->assertOk();
         $this->assertDatabaseHas('erp_teacher_candidates',['id'=>$a->id,'stage'=>'MERGED','merged_into_id'=>$b->id]);
         $this->assertDatabaseHas('erp_teacher_candidate_sources',['source_key'=>'review-test','candidate_id'=>$a->id]);
-        $this->get(route('erp.business',[$unit,'teacher-recruitment','candidate'=>$b->id]))->assertOk()->assertSee('Original application');
+        // The merged record's application stays visible on the surviving candidate.
+        $sources=$this->getJson('/app-api/units/'.$unit.'/recruitment/'.$b->id)->assertOk()->json('sources');
+        $this->assertSame(['Original application'],array_column(array_column($sources,'fields'),'name'));
         $this->postJson($url,['candidate_id'=>$a->id,'decision'=>'correct','name'=>'Changed','phone'=>'9000099999','note'=>'Retry'])->assertStatus(422);
         $c=$s->mutate($unit,$admin,'teacher-candidate-create',['name'=>'Third Identity','phone'=>'9000009876']);
         foreach([$b,$c] as $index=>$candidate){$teacher=DB::table('erp_teachers')->insertGetId(['code'=>'REVIEW-'.$index,'name'=>$candidate->name,'timezone'=>'UTC','status'=>'active']);DB::table('erp_teacher_candidates')->where('id',$candidate->id)->update(['teacher_id'=>$teacher]);}

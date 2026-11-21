@@ -20,16 +20,40 @@ class ErpOwnTasksHttpTest extends TestCase
         DB::table('erp_students')->insert(['unit_id'=>$this->unit,'code'=>'HIDDEN-STUDENT','name'=>'Sensitive student name','registered_on'=>'2026-01-01','timezone'=>'UTC','status'=>'active','grade'=>'8','syllabus'=>'Test','guardian_contact'=>'PRIVATE-GUARDIAN-CONTACT']);
         DB::table('erp_ledger')->insert(['unit_id'=>$this->unit,'kind'=>'payment','amount_paise'=>99988,'currency'=>'INR','reference'=>'PRIVATE-FINANCE-REFERENCE','event_key'=>'own-http-private','occurred_at'=>now(),'created_by'=>$this->sales->id]);
     }
-    public function test_sales_sees_only_own_tasks_without_people_finance_or_other_assignment_data(): void {
-        $this->actingAs($this->sales)->get(route('erp.tasks.mine'))->assertOk()->assertSee('My sales task')->assertSee('My checklist item')->assertSee('Assigned task instructions')->assertDontSee('Other assignee secret')->assertDontSee('Other assignee checklist')->assertDontSee('Unauthorized unit task')->assertDontSee('Corrupt cross-unit checklist')->assertDontSee('Sensitive student name')->assertDontSee('PRIVATE-GUARDIAN-CONTACT')->assertDontSee('PRIVATE-FINANCE-REFERENCE')->assertDontSee('99988');
+    /** The own-task list now comes from the unit's My tasks JSON read. */
+    private function tasks(int $unit, array $query = []): string { return '/app-api/units/'.$unit.'/overview/tasks'.($query ? '?'.http_build_query($query) : ''); }
+    /** Decoded-and-re-encoded body, so text checks see the same characters the old page showed. */
+    private function body($response): string { return json_encode($response->json(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); }
+    private function assertSeesOnly($response, array $see, array $dontSee): void
+    {
+        $body = $this->body($response);
+        foreach ($see as $text) $this->assertStringContainsString($text, $body);
+        foreach ($dontSee as $text) $this->assertStringNotContainsString($text, $body);
+    }
+    public function test_own_task_read_shows_only_own_tasks_without_people_finance_or_other_assignment_data(): void {
+        // The same privacy rules, on the read that replaced the classic own-task page, for a current
+        // staff role without the unit-wide Follow-ups register (legacy "sales" members list own tasks via /app-api/me/tasks).
+        DB::table('erp_memberships')->where('user_id',$this->sales->id)->update(['role'=>'academics']);
+        $response=$this->actingAs($this->sales)->getJson($this->tasks($this->unit))->assertOk()->assertJsonPath('meta.total',1)->assertJsonPath('data.0.title','My sales task');
+        $this->assertSeesOnly($response,['My sales task','My checklist item','Assigned task instructions'],['Other assignee secret','Other assignee checklist','Unauthorized unit task','Corrupt cross-unit checklist','Sensitive student name','PRIVATE-GUARDIAN-CONTACT','PRIVATE-FINANCE-REFERENCE','99988']);
+        $this->getJson($this->tasks($this->unit,['scope'=>'all']))->assertForbidden();
+        $this->getJson($this->tasks($this->other))->assertForbidden();
+    }
+    public function test_legacy_sales_and_teacher_members_can_read_their_own_tasks(): void {
+        $response=$this->actingAs($this->sales)->getJson('/app-api/me/tasks')->assertOk()->assertJsonPath('meta.total',1)->assertJsonPath('data.0.title','My sales task');
+        $this->assertSeesOnly($response,['My sales task','My checklist item','Assigned task instructions'],['Other assignee secret','Other assignee checklist','Unauthorized unit task','Corrupt cross-unit checklist','Sensitive student name','PRIVATE-GUARDIAN-CONTACT','PRIVATE-FINANCE-REFERENCE','99988']);
+        $response=$this->actingAs($this->teacher)->getJson('/app-api/me/tasks')->assertOk();
+        $this->assertSeesOnly($response,['Other assignee secret'],['My sales task']);
+        DB::table('erp_memberships')->where('user_id',$this->teacher->id)->delete(); $this->getJson('/app-api/me/tasks')->assertForbidden();
     }
     public function test_own_checklist_completion_gates_task_completion_and_is_audited_idempotently(): void {
         $this->actingAs($this->sales);
-        $this->from(route('erp.tasks.mine'))->post(route('erp.tasks.complete',$this->own))->assertRedirect(route('erp.tasks.mine'))->assertSessionHasErrors();
-        $this->post(route('erp.tasks.item.complete',[$this->own,$this->item]))->assertRedirect(route('erp.tasks.mine'))->assertSessionHasNoErrors();
-        $this->post(route('erp.tasks.item.complete',[$this->own,$this->item]))->assertRedirect(route('erp.tasks.mine'));
-        $this->post(route('erp.tasks.complete',$this->own))->assertRedirect(route('erp.tasks.mine'));
-        $this->post(route('erp.tasks.complete',$this->own))->assertRedirect(route('erp.tasks.mine'));
+        $this->postJson(route('erp.tasks.complete',$this->own))->assertStatus(422);
+        $this->assertDatabaseHas('erp_tasks',['id'=>$this->own,'status'=>'in_progress']);
+        $this->postJson(route('erp.tasks.item.complete',[$this->own,$this->item]))->assertOk()->assertJsonPath('message','Checklist item completed.');
+        $this->postJson(route('erp.tasks.item.complete',[$this->own,$this->item]))->assertOk();
+        $this->postJson(route('erp.tasks.complete',$this->own))->assertOk()->assertJsonPath('message','Your assigned task is complete.');
+        $this->postJson(route('erp.tasks.complete',$this->own))->assertOk();
         $this->assertDatabaseHas('erp_tasks',['id'=>$this->own,'status'=>'completed']);
         $this->assertDatabaseHas('erp_task_items',['id'=>$this->item,'completed_by'=>$this->sales->id]);
         $this->assertSame(1,DB::table('erp_audit')->where('action','task.item_completed')->where('entity_id',$this->item)->count());
@@ -46,29 +70,38 @@ class ErpOwnTasksHttpTest extends TestCase
         $this->assertSame(0,DB::table('erp_task_items')->whereNotNull('completed_at')->count());
     }
     public function test_teacher_can_complete_own_task_but_membership_revocation_blocks_access(): void {
-        $this->actingAs($this->teacher)->get(route('erp.tasks.mine'))->assertOk()->assertSee('Other assignee secret')->assertDontSee('My sales task');
-        $this->post(route('erp.tasks.item.complete',[$this->theirs,$this->otherItem]))->assertRedirect(route('erp.tasks.mine'));
-        $this->post(route('erp.tasks.complete',$this->theirs))->assertRedirect(route('erp.tasks.mine'));
+        $this->actingAs($this->teacher);
+        $this->postJson(route('erp.tasks.item.complete',[$this->theirs,$this->otherItem]))->assertOk();
+        $this->postJson(route('erp.tasks.complete',$this->theirs))->assertOk();
+        $this->assertDatabaseHas('erp_tasks',['id'=>$this->theirs,'status'=>'completed']);
+        DB::table('erp_tasks')->where('id',$this->theirs)->update(['status'=>'open']);
         DB::table('erp_memberships')->where('user_id',$this->teacher->id)->delete();
-        $this->get(route('erp.tasks.mine'))->assertForbidden(); $this->post(route('erp.tasks.complete',$this->theirs))->assertForbidden();
+        $this->postJson(route('erp.tasks.complete',$this->theirs))->assertForbidden();
+        $this->assertDatabaseHas('erp_tasks',['id'=>$this->theirs,'status'=>'open']);
     }
     public function test_superadmin_without_team_membership_sees_an_empty_task_list(): void {
         $admin=$this->createMember(['user_type'=>'superadmin']);
-        $this->actingAs($admin)->get(route('erp.tasks.mine'))->assertOk()->assertDontSee('My sales task')->assertDontSee('Other assignee secret');
+        $response=$this->actingAs($admin)->getJson($this->tasks($this->unit))->assertOk()->assertJsonPath('meta.total',0)->assertJsonCount(0,'data');
+        $this->assertSeesOnly($response,[],['My sales task','Other assignee secret']);
     }
     public function test_deleted_wrong_site_and_guest_access_is_denied(): void {
-        $this->sales->forceFill(['deleted_at'=>now()])->save(); $this->actingAs($this->sales)->get(route('erp.tasks.mine'))->assertForbidden();
-        $this->post(route('erp.tasks.complete',$this->own))->assertForbidden();
-        $this->sales->forceFill(['deleted_at'=>null,'business_id'=>2])->save(); $this->actingAs($this->sales)->get(route('erp.tasks.mine'))->assertForbidden();
-        $this->app['auth']->guard()->logout(); $this->get(route('erp.tasks.mine'))->assertRedirect(route('login'));
+        // Positive control on a current role, so the refusals below come from the account state, not the role.
+        DB::table('erp_memberships')->where('user_id',$this->sales->id)->update(['role'=>'sales_followups']);
+        $this->actingAs($this->sales)->getJson($this->tasks($this->unit))->assertOk();
+        $this->sales->forceFill(['deleted_at'=>now()])->save(); $this->actingAs($this->sales)->getJson($this->tasks($this->unit))->assertForbidden();
+        $this->postJson(route('erp.tasks.complete',$this->own))->assertForbidden();
+        $this->sales->forceFill(['deleted_at'=>null,'business_id'=>2])->save(); $this->actingAs($this->sales)->getJson($this->tasks($this->unit))->assertForbidden();
+        $this->app['auth']->guard()->logout(); $this->get($this->tasks($this->unit))->assertRedirect(route('login'));
         $this->post(route('erp.tasks.complete',$this->own))->assertRedirect(route('login'));
+        $this->assertDatabaseHas('erp_tasks',['id'=>$this->own,'status'=>'in_progress']);
     }
     public function test_admin_own_task_portal_remains_assignment_only(): void {
         $admin=$this->createAdmin(); DB::table('erp_memberships')->insert(['unit_id'=>$this->unit,'user_id'=>$admin->id,'role'=>'admin']);
         $task=DB::table('erp_tasks')->insertGetId(['unit_id'=>$this->unit,'assigned_to'=>$admin->id,'title'=>'My administrator assignment','status'=>'open','created_by'=>$admin->id]);
-        $this->actingAs($admin)->get(route('erp.tasks.mine'))->assertOk()->assertSee('My administrator assignment')->assertDontSee('My sales task')->assertDontSee('Other assignee secret')->assertDontSee('PRIVATE-FINANCE-REFERENCE');
-        $this->post(route('erp.tasks.complete',$this->own))->assertForbidden();
-        $this->post(route('erp.tasks.complete',$task))->assertRedirect(route('erp.tasks.mine'));
+        $response=$this->actingAs($admin)->getJson($this->tasks($this->unit))->assertOk()->assertJsonPath('meta.total',1);
+        $this->assertSeesOnly($response,['My administrator assignment'],['My sales task','Other assignee secret','PRIVATE-FINANCE-REFERENCE']);
+        $this->postJson(route('erp.tasks.complete',$this->own))->assertForbidden();
+        $this->postJson(route('erp.tasks.complete',$task))->assertOk();
         $this->assertDatabaseHas('erp_tasks',['id'=>$task,'status'=>'completed']);
     }
 

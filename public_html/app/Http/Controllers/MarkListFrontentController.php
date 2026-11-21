@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Master;
-use App\Models\Subject;
 use App\Modules\Academics\Actions\SubmitMarklist;
 use App\Modules\Academics\Services\ResultResponse;
 use App\Modules\People\Services\TeacherIdentityVerifier;
@@ -28,11 +27,4 @@ class MarkListFrontentController extends Controller
         });
     }
 
-    public function frontetMarkUploadCreate()
-    {
-        $teachers = Master::select('teacher_name')->distinct()->orderBy('teacher_name')->get();
-        $subject = Subject::select('id', 'name')->get();
-
-        return view('marklistform', compact('teachers', 'subject'));
-    }
 }

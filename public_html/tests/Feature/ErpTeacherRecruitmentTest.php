@@ -15,6 +15,14 @@ class ErpTeacherRecruitmentTest extends TestCase
         parent::setUp(); $this->admin=$this->createAdmin();
         $this->unit=DB::table('erp_units')->insertGetId(['code'=>'RECRUIT','name'=>'Recruitment unit','timezone'=>'Asia/Kolkata']);
     }
+    private function api(string $path = '', array $query = [])
+    {
+        return $this->getJson('/app-api/units/'.$this->unit.'/recruitment'.($path !== '' ? '/'.$path : '').($query ? '?'.http_build_query($query) : ''));
+    }
+    private function body($response): string
+    {
+        return json_encode($response->json(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
     public function test_application_registration_and_approval_create_only_one_canonical_teacher(): void
     {
         $this->actingAs($this->admin);
@@ -32,7 +40,8 @@ class ErpTeacherRecruitmentTest extends TestCase
         $this->postJson($url('approve'),['candidate_id'=>$id,'teacher_code'=>'CT98765'])->assertOk();
         $this->assertDatabaseCount('erp_teachers',1);
         $this->assertDatabaseHas('erp_teacher_candidates',['id'=>$id,'stage'=>'APPROVED']);
-        $this->get(route('erp.business',[$this->unit,'teacher-recruitment','candidate'=>$id]))->assertOk()->assertSee('Test Teacher')->assertSee('Open CV');
+        $this->api((string)$id)->assertOk()->assertJsonPath('candidate.name','Test Teacher')->assertJsonPath('candidate.stage','APPROVED')
+            ->assertJsonPath('candidate.teacherCode','CT98765')->assertJsonPath('candidate.cvUrl','https://example.com/cv.pdf');
     }
     public function test_demo_staff_can_search_registered_pool_but_cannot_review_applicants_or_mutate(): void
     {
@@ -42,7 +51,13 @@ class ErpTeacherRecruitmentTest extends TestCase
         DB::table('erp_teacher_candidates')->where('id',$b->id)->update(['stage'=>'REGISTERED','subjects'=>'Maths']);
         $demo=$this->createMember(['id'=>31]);
         DB::table('erp_memberships')->insert(['unit_id'=>$this->unit,'user_id'=>$demo->id,'role'=>'sales_followups']);
-        $this->actingAs($demo)->get(route('erp.business',[$this->unit,'teacher-recruitment','subject'=>'Maths','candidate'=>$a->id]))->assertOk()->assertSee('Registered Teacher')->assertDontSee('Private Applicant')->assertDontSee('Review history');
+        $this->actingAs($this->admin)->api((string)$a->id)->assertOk()->assertJsonPath('candidate.name','Private Applicant');
+        $pool=$this->actingAs($demo)->api('',['subject'=>'Maths'])->assertOk()->assertJsonPath('meta.total',1)->assertJsonPath('data.0.name','Registered Teacher')->assertJsonPath('can.manage',false);
+        $this->assertStringNotContainsString('Private Applicant',$this->body($pool));
+        $this->assertStringNotContainsString('Private Applicant',$this->body($this->api()->assertOk()));
+        // Applicant profiles and their review history are for managers only.
+        $this->api((string)$a->id)->assertForbidden();
+        $this->api((string)$b->id)->assertForbidden();
         $this->postJson(route('erp.business.mutate',[$this->unit,'teacher-candidate-update']),['candidate_id'=>$b->id,'stage'=>'SELECTED'])->assertForbidden();
     }
     public function test_open_profile_shows_the_selected_teacher_instead_of_repeating_the_directory(): void
@@ -52,18 +67,13 @@ class ErpTeacherRecruitmentTest extends TestCase
         $service->mutate($this->unit,$this->admin,'teacher-candidate-create',['name'=>'Other Applicant','phone'=>'9000000012']);
         $manager=$this->createMember(['id'=>32]);
         DB::table('erp_memberships')->insert(['unit_id'=>$this->unit,'user_id'=>$manager->id,'role'=>'team_manager']);
-        $filters=['q'=>'Applicant','stage'=>'APPLIED','page'=>2];
-        $base=route('erp.business',[$this->unit,'teacher-recruitment']);
-        $back=$base.'?'.http_build_query($filters);
-        $this->actingAs($manager)->get($base.'?'.http_build_query(array_merge($filters,['candidate'=>$selected->id])))
-            ->assertOk()->assertSee('<h1>Teacher profile</h1>',false)
-            ->assertSee('Selected Applicant')->assertSee('Save review')->assertSee('Back to teacher profiles')
-            ->assertSee(e($back),false)->assertDontSee('Other Applicant')->assertDontSee('Search teachers')->assertDontSee('Open profile');
-        $this->get($back)->assertOk()->assertSee('Search teachers')->assertDontSee('Save review');
-        $filters['page']=1;
-        $profile=$base.'?'.http_build_query(array_merge($filters,['candidate'=>$selected->id]));
-        $this->get($base.'?'.http_build_query($filters))
-            ->assertOk()->assertSee(e($profile),false)->assertSee('Other Applicant');
+        $this->actingAs($manager);
+        $profile=$this->api((string)$selected->id)->assertOk()->assertJsonPath('candidate.name','Selected Applicant')->assertJsonPath('can.manage',true);
+        $this->assertStringNotContainsString('Other Applicant',$this->body($profile));
+        $filters=['q'=>'Applicant','stage'=>'APPLIED'];
+        $this->api('',$filters+['page'=>2])->assertOk()->assertJsonPath('meta.total',2)->assertJsonCount(0,'data');
+        $list=$this->api('',$filters+['page'=>1])->assertOk()->assertJsonPath('meta.total',2)->assertJsonPath('can.manage',true)->assertJsonPath('can.write',true);
+        $this->assertSame(['Other Applicant','Selected Applicant'],array_column($list->json('data'),'name'));
     }
     public function test_snapshot_matches_canonical_code_deduplicates_and_is_resumable(): void
     {

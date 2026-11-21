@@ -33,9 +33,18 @@ class ErpStudentProfileTest extends TestCase
     {
         return DB::table('erp_students')->insertGetId(['unit_id'=>$unit ?? $this->unit,'code'=>$code,'name'=>$name,'registered_on'=>'2026-01-01','timezone'=>'UTC','status'=>'active','grade'=>'8','syllabus'=>'Synthetic']);
     }
-    private function url(array $query = []): string
+    /** The profile now loads from the Students JSON read. */
+    private function url(array $query = [], ?int $unit = null, ?int $student = null): string
     {
-        return route('erp.student-profile', array_merge([$this->unit,$this->student], $query));
+        return '/app-api/units/'.($unit ?? $this->unit).'/students/'.($student ?? $this->student).($query ? '?'.http_build_query($query) : '');
+    }
+    private function profile(array $query = [])
+    {
+        return $this->getJson($this->url($query));
+    }
+    private function body($response): string
+    {
+        return json_encode($response->json(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
     private function entry(string $reference, int $amount, array $extra = []): int
     {
@@ -51,24 +60,40 @@ class ErpStudentProfileTest extends TestCase
         DB::table('erp_tasks')->insert(['unit_id'=>$this->unit,'student_id'=>$this->student,'assigned_to'=>$this->admin->id,'title'=>'Synthetic student task','status'=>'open','created_by'=>$this->admin->id]);
         $before = [];
         foreach (['erp_ledger','erp_audit','erp_attendance','erp_tasks','erp_followups'] as $table) $before[$table] = DB::table($table)->orderBy('id')->get()->toJson();
-        $this->get($this->url())->assertOk()->assertSee('Synthetic Profile Student')->assertSee('Synthetic Profile Teacher')->assertSee('Profile Mathematics')->assertSee('2026-10-20 15:30')->assertSee('INR 79.71')->assertSee('Credit')->assertSee('submitted')->assertSee('Synthetic logged conversation')->assertSee('Synthetic student task')->assertSee(route('erp.receipt',[$this->unit,$payment]),false)->assertDontSee('PRIVATE-TEACHER-PAY')->assertDontSee('teacher_rate_paise')->assertDontSee('Private Peer Student');
-        $this->get($this->url())->assertOk();
+        $response = $this->profile()->assertOk()
+            ->assertJsonPath('student.name', 'Synthetic Profile Student')
+            ->assertJsonPath('assignments.0.teacher_name', 'Synthetic Profile Teacher')->assertJsonPath('assignments.0.subject_name', 'Profile Mathematics')
+            // Stored in UTC; the client shows it in the team's zone (Asia/Kolkata: 2026-10-20 15:30).
+            ->assertJsonPath('lessons.0.starts_at', '2026-10-20 10:00:00')
+            ->assertJsonPath('balances', [['currency'=>'INR','balancePaise'=>7971]])
+            ->assertJsonPath('attendance.0.status', 'submitted')
+            ->assertJsonPath('followups.0.note', 'Synthetic logged conversation')
+            ->assertJsonPath('tasks.0.title', 'Synthetic student task');
+        // The receipt link is built from a payment row's id; that receipt opens for this unit.
+        $this->assertSame([['id'=>$payment,'kind'=>'payment']], collect($response->json('ledger'))->where('kind','payment')->map(fn ($r) => ['id'=>$r['id'],'kind'=>$r['kind']])->values()->all());
+        $this->getJson('/app-api/units/'.$this->unit.'/print/receipt/'.$payment)->assertOk()->assertJsonPath('reference', 'PROFILE-RECEIPT');
+        $body = $this->body($response);
+        foreach (['PRIVATE-TEACHER-PAY','teacher_rate_paise','teacherRatePaise','student_rate_paise','6025','Private Peer Student'] as $hidden) $this->assertStringNotContainsString($hidden, $body);
+        $this->profile()->assertOk();
         foreach ($before as $table=>$snapshot) $this->assertSame($snapshot, DB::table($table)->orderBy('id')->get()->toJson(), $table.' was changed by a read');
     }
 
     public function test_access_requires_active_site_user_and_explicit_unit_admin_membership(): void
     {
+        $this->profile()->assertOk();
         $member = $this->createMember();
         foreach (['sales','teacher'] as $role) {
             DB::table('erp_memberships')->updateOrInsert(['unit_id'=>$this->unit,'user_id'=>$member->id],['role'=>$role]);
-            $this->actingAs($member)->get($this->url())->assertForbidden();
+            $this->actingAs($member)->getJson($this->url())->assertForbidden();
         }
-        $this->actingAs($this->admin)->get(route('erp.student-profile',[$this->other,$this->student]))->assertNotFound();
+        DB::table('erp_memberships')->updateOrInsert(['unit_id'=>$this->unit,'user_id'=>$member->id],['role'=>'team_manager']);
+        $this->actingAs($member)->getJson($this->url())->assertOk();
+        $this->actingAs($this->admin)->getJson($this->url([], $this->other))->assertNotFound();
         DB::table('erp_memberships')->insert(['unit_id'=>$this->other,'user_id'=>$this->admin->id,'role'=>'admin']);
-        $this->get(route('erp.student-profile',[$this->other,$this->student]))->assertNotFound();
-        $this->get(route('erp.student-profile',[$this->unit,999999]))->assertNotFound();
+        $this->getJson($this->url([], $this->other))->assertNotFound();
+        $this->getJson($this->url([], $this->unit, 999999))->assertNotFound();
         $this->admin->forceFill(['status'=>0])->save();
-        $this->get($this->url())->assertForbidden();
+        $this->getJson($this->url())->assertForbidden();
         $this->app['auth']->guard()->logout();
         $this->get($this->url())->assertRedirect(route('login'));
     }
@@ -87,16 +112,19 @@ class ErpStudentProfileTest extends TestCase
         DB::table('erp_attendance')->where('lesson_id',$this->lesson)->update(['unit_id'=>$this->other]);
         $profile = (new StudentProfile())->read($this->unit,$this->student);
         foreach (['ledger','balances','followups','tasks','requests','agreements','attendance'] as $key) $this->assertCount(0,$profile[$key]);
-        $this->get($this->url())->assertOk()->assertDontSee('PRIVATE-')->assertDontSee('PRIVATE FOLLOWUP')->assertDontSee('PRIVATE TASK');
+        $response = $this->profile()->assertOk();
+        foreach (['ledger','balances','followups','tasks','agreements','attendance'] as $key) $response->assertJsonCount(0, $key);
+        $this->assertStringNotContainsString('PRIVATE', $this->body($response));
         DB::table('erp_teacher_units')->where('teacher_id',$this->teacher)->update(['unit_id'=>$this->other]);
         $profile = (new StudentProfile())->read($this->unit,$this->student);
         $this->assertCount(0,$profile['assignments']); $this->assertCount(0,$profile['lessons']);
+        $this->profile()->assertOk()->assertJsonCount(0, 'assignments')->assertJsonCount(0, 'lessons');
     }
 
     public function test_reversals_requests_and_multiple_currencies_do_not_create_false_credit(): void
     {
         $payment = $this->entry('PROFILE-ORIGINAL', 10000);
-        $this->entry('PROFILE-REVERSAL', -10000, ['kind'=>'reversal','reverses_id'=>$payment]);
+        $reversal = $this->entry('PROFILE-REVERSAL', -10000, ['kind'=>'reversal','reverses_id'=>$payment]);
         $this->entry('PROFILE-DUE', -12029, ['kind'=>'opening_balance']);
         $this->entry('PROFILE-OTHER-CURRENCY', 999, ['currency'=>'USD']);
         $request = DB::table('erp_payment_requests')->insertGetId(['unit_id'=>$this->unit,'student_id'=>$this->student,'reference'=>'PROFILE-REQUEST','amount_paise'=>10000,'requested_on'=>'2026-10-20','created_by'=>$this->admin->id]);
@@ -105,27 +133,60 @@ class ErpStudentProfileTest extends TestCase
         $this->assertSame(-12029,(int)$profile['balances']->firstWhere('currency','INR')->balance_paise);
         $this->assertSame(999,(int)$profile['balances']->firstWhere('currency','USD')->balance_paise);
         $this->assertSame(10000,$profile['requestSummaries'][$request]['outstanding_paise']);
-        $this->get($this->url())->assertOk()->assertSee('INR 120.29')->assertSee('Due')->assertSee('USD 9.99')->assertSee('Reverses entry #'.$payment)->assertSee(route('erp.request.print',[$this->unit,$request]),false)->assertSee('A request is not a receipt');
+        $response = $this->profile()->assertOk()->assertJsonPath('balances', [['currency'=>'INR','balancePaise'=>-12029],['currency'=>'USD','balancePaise'=>999]]);
+        $this->assertSame($payment, collect($response->json('ledger'))->firstWhere('id', $reversal)['reverses_id']);
+        $this->getJson('/app-api/units/'.$this->unit.'/print/request/'.$request)->assertOk()->assertJsonPath('reference', 'PROFILE-REQUEST')->assertJsonPath('outstanding', 'INR 100.00');
+    }
+
+    public function test_profile_lists_payment_requests_with_outstanding_amounts(): void
+    {
+        $payment = $this->entry('PROFILE-PAYMENT', 4000);
+        $request = DB::table('erp_payment_requests')->insertGetId(['unit_id'=>$this->unit,'student_id'=>$this->student,'reference'=>'PROFILE-REQUEST','amount_paise'=>12029,'requested_on'=>'2026-10-20','due_on'=>'2026-10-30','created_by'=>$this->admin->id]);
+        DB::table('erp_request_allocations')->insert(['unit_id'=>$this->unit,'request_id'=>$request,'payment_id'=>$payment,'amount_paise'=>4000]);
+        $this->profile()->assertOk()->assertJsonPath('requests', [['id'=>$request,'reference'=>'PROFILE-REQUEST','requestedOn'=>'2026-10-20','dueOn'=>'2026-10-30','requestedPaise'=>12029,'coveredPaise'=>4000,'outstandingPaise'=>8029,'status'=>'pending']])
+            ->assertJsonPath('pages.requests.total', 1);
+        // The print link the profile offers opens for this unit.
+        $this->getJson('/app-api/units/'.$this->unit.'/print/request/'.$request)->assertOk()->assertJsonPath('reference', 'PROFILE-REQUEST');
     }
 
     public function test_pagination_is_independent_and_balance_covers_all_history(): void
     {
         for ($i=1;$i<=17;$i++) $this->entry('PROFILE-PAGINATION-'.$i,100);
         for ($i=1;$i<=12;$i++) DB::table('erp_followups')->insert(['unit_id'=>$this->unit,'student_id'=>$this->student,'contact_channel'=>'call','note'=>'Follow-up '.$i,'outcome'=>'Synthetic','created_by'=>$this->admin->id]);
-        $this->get($this->url())->assertOk()->assertSee('INR 17.00')->assertViewHas('ledger',fn($rows)=>$rows->count()===15 && $rows->total()===17)->assertViewHas('followups',fn($rows)=>$rows->count()===10);
-        $this->get($this->url(['ledger_page'=>2,'followups_page'=>2]))->assertOk()->assertSee('INR 17.00')->assertViewHas('ledger',fn($rows)=>$rows->count()===2)->assertViewHas('followups',fn($rows)=>$rows->count()===2);
-        foreach (['0','-1','nope','1000001'] as $page) $this->getJson($this->url(['ledger_page'=>$page]))->assertUnprocessable();
-        $this->get($this->url(['ledger_page'=>100]))->assertOk()->assertSee('No receipt or ledger history recorded.')->assertSee('INR 17.00');
+        $balance = [['currency'=>'INR','balancePaise'=>1700]];
+        $this->profile()->assertOk()->assertJsonPath('balances', $balance)->assertJsonCount(15, 'ledger')->assertJsonCount(10, 'followups');
+        $this->profile(['ledger_page'=>2,'followups_page'=>2])->assertOk()->assertJsonPath('balances', $balance)->assertJsonCount(2, 'ledger')->assertJsonCount(2, 'followups');
+        $this->profile(['ledger_page'=>2])->assertOk()->assertJsonCount(2, 'ledger')->assertJsonCount(10, 'followups');
+        $this->profile(['ledger_page'=>100])->assertOk()->assertJsonCount(0, 'ledger')->assertJsonPath('balances', $balance);
     }
 
-    public function test_empty_sections_and_untrusted_text_render_safely_without_mutation_forms(): void
+    public function test_profile_pages_report_totals_and_reject_invalid_page_numbers(): void
+    {
+        for ($i=1;$i<=17;$i++) $this->entry('PROFILE-PAGES-'.$i,100);
+        $this->profile()->assertOk()->assertJsonCount(15, 'ledger')->assertJsonPath('pages.ledger', ['page'=>1,'perPage'=>15,'total'=>17,'param'=>'ledger_page'])->assertJsonPath('pages.followups.total', 0);
+        $this->profile(['ledger_page'=>2])->assertOk()->assertJsonCount(2, 'ledger')->assertJsonPath('pages.ledger.page', 2);
+        foreach (['0','-1','nope','1000001'] as $page) $this->profile(['ledger_page'=>$page])->assertUnprocessable()->assertJsonValidationErrors('ledger_page');
+        $this->profile(['tasks_page'=>'nope'])->assertUnprocessable();
+        $this->profile(['ledger_page'=>100])->assertOk()->assertJsonCount(0, 'ledger')->assertJsonPath('pages.ledger.total', 17);
+    }
+
+    public function test_empty_sections_and_untrusted_text_are_returned_as_data(): void
     {
         DB::table('erp_students')->where('id',$this->student)->update(['name'=>'<script>alert(1)</script>','meeting_url'=>'javascript:alert(2)']);
-        $response = $this->get($this->url())->assertOk()->assertSee('<script>alert(1)</script>')->assertDontSee('<script>alert(1)</script>',false)->assertDontSee('href="javascript:',false)->assertSee('No follow-ups recorded.')->assertSee('No student tasks recorded.')->assertSee('No payment requests recorded.');
-        $dom = new \DOMDocument();
-        @$dom->loadHTML($response->getContent());
-        // The shared shell offers sign-out; the student profile itself remains read-only.
-        $this->assertSame(0, (new \DOMXPath($dom))->query('//main//form')->length);
+        $response = $this->profile()->assertOk()->assertHeader('Content-Type', 'application/json')
+            ->assertJsonPath('student.name', '<script>alert(1)</script>')
+            ->assertJsonCount(0, 'followups')->assertJsonCount(0, 'tasks')->assertJsonCount(0, 'ledger')->assertJsonCount(0, 'balances');
+    }
+
+    public function test_meeting_address_is_not_offered_as_a_script_link(): void
+    {
+        DB::table('erp_students')->where('id',$this->student)->update(['meeting_url'=>'javascript:alert(2)']);
+        $response = $this->profile()->assertOk()->assertJsonPath('student.meetingUrl', null);
+        $this->assertStringNotContainsString('javascript:', $this->body($response));
+        DB::table('erp_students')->where('id',$this->student)->update(['meeting_url'=>'meet.example.test/abc']);
+        $this->profile()->assertOk()->assertJsonPath('student.meetingUrl', 'https://meet.example.test/abc');
+        DB::table('erp_students')->where('id',$this->student)->update(['meeting_url'=>'http://meet.example.test/x']);
+        $this->profile()->assertOk()->assertJsonPath('student.meetingUrl', 'http://meet.example.test/x');
     }
 
     public function test_task_assignee_names_require_membership_in_the_profile_unit(): void
@@ -133,6 +194,19 @@ class ErpStudentProfileTest extends TestCase
         $outside = $this->createMember(['name'=>'PRIVATE OUTSIDE ASSIGNEE']);
         DB::table('erp_memberships')->insert(['unit_id'=>$this->other,'user_id'=>$outside->id,'role'=>'sales']);
         DB::table('erp_tasks')->insert(['unit_id'=>$this->unit,'student_id'=>$this->student,'assigned_to'=>$outside->id,'title'=>'Synthetic malformed task','status'=>'open','created_by'=>$this->admin->id]);
-        $this->get($this->url())->assertOk()->assertSee('Synthetic malformed task')->assertSee('Unassigned or unavailable account')->assertDontSee('PRIVATE OUTSIDE ASSIGNEE');
+        $response = $this->profile()->assertOk()->assertJsonPath('tasks.0.title', 'Synthetic malformed task');
+        $this->assertStringNotContainsString('PRIVATE OUTSIDE ASSIGNEE', $this->body($response));
+    }
+
+    public function test_task_assignee_names_are_shown_for_unit_members(): void
+    {
+        $outside = $this->createMember(['name'=>'PRIVATE OUTSIDE ASSIGNEE']);
+        DB::table('erp_memberships')->insert(['unit_id'=>$this->other,'user_id'=>$outside->id,'role'=>'sales']);
+        DB::table('erp_tasks')->insert(['unit_id'=>$this->unit,'student_id'=>$this->student,'assigned_to'=>$outside->id,'title'=>'Synthetic malformed task','status'=>'open','created_by'=>$this->admin->id]);
+        DB::table('erp_tasks')->insert(['unit_id'=>$this->unit,'student_id'=>$this->student,'assigned_to'=>$this->admin->id,'title'=>'Synthetic member task','notes'=>'Call after school','status'=>'open','created_by'=>$this->admin->id]);
+        $response = $this->profile()->assertOk()
+            ->assertJsonPath('tasks.0.title', 'Synthetic member task')->assertJsonPath('tasks.0.assignedTo', $this->admin->name)->assertJsonPath('tasks.0.notes', 'Call after school')
+            ->assertJsonPath('tasks.1.title', 'Synthetic malformed task')->assertJsonPath('tasks.1.assignedTo', 'Unassigned or unavailable account');
+        $this->assertStringNotContainsString('PRIVATE OUTSIDE ASSIGNEE', $this->body($response));
     }
 }

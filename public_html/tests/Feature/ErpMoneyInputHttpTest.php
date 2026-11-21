@@ -32,7 +32,7 @@ class ErpMoneyInputHttpTest extends TestCase
     {
         $url = route('erp.mutate', [$this->unit, 'payment']);
         $payload = ['student_id' => $this->student, 'amount_inr' => '1234.29', 'reference' => 'INR-RECEIPT'];
-        $this->post($url, $payload + ['return_page' => 'money'])->assertRedirect(route('erp.business', [$this->unit, 'money']))->assertSessionHasNoErrors();
+        $this->postJson($url, $payload + ['return_page' => 'money'])->assertOk();
         $entry = DB::table('erp_ledger')->where('reference', 'INR-RECEIPT')->first();
         $this->assertSame(123429, (int) $entry->amount_paise);
         unset($payload['amount_inr']);
@@ -41,46 +41,49 @@ class ErpMoneyInputHttpTest extends TestCase
         $this->postJson($url, $payload + ['amount_inr' => '1234.30'])->assertUnprocessable();
         $this->assertSame(1, DB::table('erp_ledger')->count());
         $this->assertSame(1, DB::table('erp_audit')->where('action', 'payment.recorded')->count());
-        $this->get(route('erp.receipt', [$this->unit, $entry->id]))->assertOk()->assertSee('Received: INR 1,234.29');
-        $this->get(route('erp.workspace', $this->unit))->assertOk()->assertSee('INR 1,234.29');
+        $this->getJson(route('app.api.print.receipt', [$this->unit, $entry->id]))->assertOk()->assertJsonPath('amountLabel', 'Received')->assertJsonPath('amount', 'INR 1,234.29');
+        $this->getJson(route('app.api.money.ledger', [$this->unit]))->assertOk()->assertJsonPath('data.0.id', (int) $entry->id)->assertJsonPath('data.0.amountPaise', 123429)->assertJsonPath('totals.netPaise', 123429);
     }
 
     public function test_assignment_forms_accept_decimal_and_zero_rates_without_changing_storage(): void
     {
         $payload = $this->assignment() + ['student_rate_inr' => '120.29', 'teacher_rate_inr' => '0.00'];
-        $this->post(route('erp.mutate', [$this->unit, 'assign']), $payload)->assertRedirect()->assertSessionHasNoErrors();
+        $this->postJson(route('erp.mutate', [$this->unit, 'assign']), $payload)->assertOk();
         $this->assertDatabaseHas('erp_enrollments', ['unit_id' => $this->unit, 'student_rate_paise' => 12029, 'teacher_rate_paise' => 0, 'currency' => 'INR']);
-        $this->get(route('erp.workspace', $this->unit))->assertOk()->assertSee('Student hourly rate (INR)')->assertSee('INR 120.29')->assertSee('INR 0.00')->assertDontSee('name="student_rate_paise"', false)->assertDontSee('name="teacher_rate_paise"', false);
+        // The classic workspace listed enrollment rates as INR; no JSON read shows them now (see report). The paise export still does.
+        $csv = $this->get(route('erp.export', [$this->unit, 'enrollments']))->assertOk()->streamedContent();
+        $this->assertStringContainsString('12029', $csv);
         $this->assertSame(0, DB::table('erp_ledger')->count());
     }
 
     public function test_rupee_requests_allocations_corrections_and_settlements_preserve_bookkeeping_contract(): void
     {
         $requestPayload = ['student_id' => $this->student, 'amount_inr' => '200.25', 'reference' => 'INR-REQUEST', 'requested_on' => now()->toDateString()];
-        $this->business('request-create', $requestPayload)->assertRedirect()->assertSessionHasNoErrors();
+        $this->business('request-create', $requestPayload)->assertOk();
         $request = DB::table('erp_payment_requests')->where('reference', 'INR-REQUEST')->first();
         $this->assertSame(20025, (int) $request->amount_paise);
         $this->assertSame(0, DB::table('erp_ledger')->count());
-        $this->post(route('erp.mutate', [$this->unit, 'payment']), ['student_id' => $this->student, 'amount_inr' => '200.25', 'reference' => 'INR-ALLOCATABLE'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->postJson(route('erp.mutate', [$this->unit, 'payment']), ['student_id' => $this->student, 'amount_inr' => '200.25', 'reference' => 'INR-ALLOCATABLE'])->assertOk();
         $receipt = DB::table('erp_ledger')->where('reference', 'INR-ALLOCATABLE')->first();
-        $this->business('request-allocate', ['request_id' => $request->id, 'payment_id' => $receipt->id, 'amount_inr' => '100.25'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->business('request-allocate', ['request_id' => $request->id, 'payment_id' => $receipt->id, 'amount_inr' => '100.25'])->assertOk();
         $this->assertDatabaseHas('erp_request_allocations', ['request_id' => $request->id, 'amount_paise' => 10025]);
-        $this->get(route('erp.request.print', [$this->unit, $request->id]))->assertOk()->assertSee('Requested: INR 200.25')->assertSee('Covered by active received payments: INR 100.25')->assertSee('Outstanding request: INR 100.00');
-        $this->business('receipt-correct', ['entry_id' => $receipt->id, 'amount_inr' => '150.29', 'new_reference' => 'INR-CORRECTED', 'reason' => 'Synthetic amount correction'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->getJson(route('app.api.print.request', [$this->unit, $request->id]))->assertOk()->assertJsonPath('requested', 'INR 200.25')->assertJsonPath('covered', 'INR 100.25')->assertJsonPath('outstanding', 'INR 100.00');
+        $this->business('receipt-correct', ['entry_id' => $receipt->id, 'amount_inr' => '150.29', 'new_reference' => 'INR-CORRECTED', 'reason' => 'Synthetic amount correction'])->assertOk();
         $this->assertDatabaseHas('erp_ledger', ['reference' => 'INR-CORRECTED', 'amount_paise' => 15029]);
-        $this->get(route('erp.request.print', [$this->unit, $request->id]))->assertOk()->assertSee('Outstanding request: INR 200.25');
+        $this->getJson(route('app.api.print.request', [$this->unit, $request->id]))->assertOk()->assertJsonPath('outstanding', 'INR 200.25');
         DB::table('erp_ledger')->insert(['unit_id' => $this->unit, 'teacher_id' => $this->teacher, 'kind' => 'teacher_accrual', 'amount_paise' => 10025, 'currency' => 'INR', 'reference' => 'INR-EARNED', 'event_key' => 'inr-earned', 'occurred_at' => now(), 'created_by' => $this->admin->id]);
         $settlement = ['teacher_id' => $this->teacher, 'amount_inr' => '40.25', 'reference' => 'INR-PAID', 'paid_on' => now()->toDateString(), 'reason' => 'Synthetic recorded external settlement'];
-        $this->business('salary-paid', $settlement)->assertSessionHasErrors('already_paid');
+        $this->business('salary-paid', $settlement)->assertUnprocessable()->assertJsonValidationErrors('already_paid');
         $this->assertSame(0, DB::table('erp_ledger')->where('kind', 'teacher_payment')->count());
-        $this->business('salary-paid', $settlement + ['already_paid' => '1'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->business('salary-paid', $settlement + ['already_paid' => '1'])->assertOk();
         $this->assertDatabaseHas('erp_ledger', ['reference' => 'INR-PAID', 'amount_paise' => -4025]);
         $settlement['reference'] = 'INR-OVERPAYMENT';
         $settlement['amount_inr'] = '60.01';
-        $this->business('salary-paid', $settlement + ['already_paid' => '1'])->assertSessionHasErrors('amount_paise');
+        $this->business('salary-paid', $settlement + ['already_paid' => '1'])->assertUnprocessable()->assertJsonValidationErrors('amount_paise');
         $this->assertSame(1, DB::table('erp_ledger')->where('kind', 'teacher_payment')->count());
-        $this->get(route('erp.business', [$this->unit, 'money']))->assertOk()->assertSee('Earned (INR)')->assertSee('Paid (INR)')->assertSee('Net payable (INR)')->assertSee('INR 100.25')->assertSee('INR 40.25')->assertSee('INR 60.00');
-        $this->get(route('erp.workspace', $this->unit))->assertOk()->assertSee('These are earned amounts, not proof of payment')->assertSee('approved earnings (INR)');
+        $this->getJson(route('app.api.money.teachers', [$this->unit]))->assertOk()->assertJsonPath('data.0.id', $this->teacher)
+            ->assertJsonPath('data.0.earnedPaise', 10025)->assertJsonPath('data.0.paidPaise', 4025)->assertJsonPath('data.0.netPayablePaise', 6000);
+        $this->getJson(route('app.api.money.summary', [$this->unit]))->assertOk()->assertJsonPath('totals.teacherPayablePaise', 6000)->assertJsonPath('totals.teachersOwedCount', 1);
     }
 
     public function test_invalid_rupees_and_mixed_units_cannot_write_ledger_audit_or_assignments(): void
@@ -101,16 +104,26 @@ class ErpMoneyInputHttpTest extends TestCase
         $this->assertSame(0, DB::table('erp_enrollments')->count());
     }
 
-    public function test_browser_money_fields_and_signed_displays_are_inr_but_exports_stay_paise(): void
+    public function test_signed_balances_reach_the_app_as_paise_and_exports_stay_paise(): void
     {
         DB::table('erp_ledger')->insert(['unit_id' => $this->unit, 'student_id' => $this->student, 'kind' => 'opening_balance', 'amount_paise' => -123429, 'currency' => 'INR', 'reference' => 'INR-DUE', 'event_key' => 'inr-due', 'occurred_at' => now(), 'created_by' => $this->admin->id]);
-        $money = $this->get(route('erp.business', [$this->unit, 'money']))->assertOk()->assertSee('Amount (INR)')->assertSee('name="amount_inr"', false)->assertDontSee('name="amount_paise"', false)->assertSee('Balance (INR)')->assertSee('INR -1,234.29');
-        $this->assertSame(6, substr_count($money->getContent(), 'name="amount_inr"'));
-        $this->get(route('erp.workspace', $this->unit))->assertOk()->assertSee('INR -1,234.29')->assertDontSee('<th>amount paise</th>', false)->assertDontSee('name="amount_paise"', false);
+        // Signed balances reach the app as integer paise; the client formats them as INR.
+        $this->getJson(route('app.api.money.dues', [$this->unit]))->assertOk()->assertJsonPath('data.0.id', $this->student)->assertJsonPath('data.0.balancePaise', -123429);
+        $this->getJson(route('app.api.money.summary', [$this->unit]))->assertOk()->assertJsonPath('totals.duePaise', -123429)->assertJsonPath('totals.dueCount', 1);
+        $this->getJson(route('app.api.student', [$this->unit, $this->student]))->assertOk()->assertJsonPath('balances.0.balancePaise', -123429);
         $csv = $this->get(route('erp.export', [$this->unit, 'ledger']))->assertOk()->streamedContent();
         $this->assertStringContainsString('amount_paise', $csv);
         $this->assertStringContainsString('-123429', $csv);
         $this->assertStringNotContainsString('INR -1,234.29', $csv);
+    }
+
+    public function test_enrollment_hourly_rates_are_readable_in_the_app(): void
+    {
+        $this->postJson(route('erp.mutate', [$this->unit, 'assign']), $this->assignment() + ['student_rate_inr' => '120.29', 'teacher_rate_inr' => '0.00'])->assertOk();
+        // Money roles read the student's hourly rate on the profile and both rates on the teacher's classes.
+        $this->getJson('/app-api/units/'.$this->unit.'/students/'.$this->student)->assertOk()->assertJsonPath('assignments.0.studentRatePaise', 12029);
+        $this->getJson('/app-api/units/'.$this->unit.'/teachers/'.$this->teacher)->assertOk()
+            ->assertJsonPath('classes.0.studentRatePaise', 12029)->assertJsonPath('classes.0.teacherRatePaise', 0);
     }
 
     private function assignment(): array
@@ -120,6 +133,6 @@ class ErpMoneyInputHttpTest extends TestCase
 
     private function business(string $action, array $payload)
     {
-        return $this->from(route('erp.business', [$this->unit, 'money']))->post(route('erp.business.mutate', [$this->unit, $action]), $payload + ['return_page' => 'money']);
+        return $this->postJson(route('erp.business.mutate', [$this->unit, $action]), $payload + ['return_page' => 'money']);
     }
 }

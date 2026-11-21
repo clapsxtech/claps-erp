@@ -12,11 +12,6 @@ use OTPHP\TOTP;
 use ParagonIE\ConstantTime\Base32;
 class TwoFactorController extends Controller
 {
-    public function challenge(Request $request)
-    {
-        abort_unless($request->session()->has('two_factor_pending'),403);
-        return response()->view('auth.two-factor')->header('Cache-Control','no-store');
-    }
     public function verify(Request $request)
     {
         $v=$request->validate(['code'=>'required|string|max:100']);$pending=$request->session()->get('two_factor_pending');
@@ -24,20 +19,20 @@ class TwoFactorController extends Controller
         if(!$user || $pending['expires']<time() || !hash_equals($pending['password_hash'],$user->password) || !(new TwoFactor())->consume($user->id,$v['code']))throw ValidationException::withMessages(['code'=>'Invalid or expired code. Try a new code or a recovery code.']);
         $request->session()->forget('two_factor_pending');Auth::login($user);$request->session()->regenerate();
         $teacher=!(new SiteAccessPolicy())->isAdministrator($user) && (DB::table('erp_memberships')->where('user_id',$user->id)->where('role','teacher')->exists() || DB::table('erp_teachers')->where('user_id',$user->id)->exists());
-        return redirect()->route($teacher?'erp.teacher.index':'erp.index');
-    }
-    public function settings(Request $request)
-    {
-        $pending=$request->session()->get('two_factor_setup');
-        $secret=$pending && $pending['expires']>time()?Crypt::decryptString($pending['secret']):null;
-        $encrypted=$request->session()->pull('two_factor_recovery_display');
-        $codes=$encrypted?json_decode(Crypt::decryptString($encrypted),true):[];
-        return response()->view('erp.security',compact('secret','codes'))->header('Cache-Control','no-store')->header('Referrer-Policy','no-referrer');
+        $target=url($teacher?'/teacher':'/app');
+        if($request->expectsJson())return response()->json(['redirect'=>$target]);
+        return redirect($target);
     }
     public function setup(Request $request)
     {
         $this->password($request);abort_if($request->user()->two_factor_secret,422,'Two-factor authentication is already enabled.');
-        $request->session()->put('two_factor_setup',['secret'=>Crypt::encryptString(TOTP::createFromSecret(rtrim(Base32::encodeUpper(random_bytes(20)),'='))->getSecret()),'expires'=>time()+600]);
+        $otp=TOTP::createFromSecret(rtrim(Base32::encodeUpper(random_bytes(20)),'='));
+        $request->session()->put('two_factor_setup',['secret'=>Crypt::encryptString($otp->getSecret()),'expires'=>time()+600]);
+        // JSON: the secret is returned once, in this response only; the React page never reads it back.
+        if($request->expectsJson()){
+            $otp->setLabel((string)$request->user()->email);$otp->setIssuer('ClapsLearn');
+            return response()->json(['secret'=>$otp->getSecret(),'otpauthUri'=>$otp->getProvisioningUri(),'issuer'=>'ClapsLearn','account'=>$request->user()->email,'expiresInSeconds'=>600])->header('Cache-Control','no-store')->header('Referrer-Policy','no-referrer');
+        }
         return redirect()->route('account.security');
     }
     public function enable(Request $request)
@@ -54,7 +49,10 @@ class TwoFactorController extends Controller
             DB::table('sessions')->where('user_id',$user->id)->where('id','!=',$request->session()->getId())->delete();
             Audit::record(null,$user->id,'account.two_factor_enabled','user',$user->id,[]);
         });
-        $request->session()->forget('two_factor_setup');$request->session()->put('two_factor_recovery_display',Crypt::encryptString(json_encode($codes)));
+        $request->session()->forget('two_factor_setup');
+        // JSON: the codes are returned once, in this response only, and are not kept in the session.
+        if($request->expectsJson())return response()->json(['twoFactorEnabled'=>true,'recoveryCodes'=>$codes,'message'=>'Two-factor authentication enabled. Save your recovery codes now.'])->header('Cache-Control','no-store')->header('Referrer-Policy','no-referrer');
+        $request->session()->put('two_factor_recovery_display',Crypt::encryptString(json_encode($codes)));
         return redirect()->route('account.security')->with('status','Two-factor authentication enabled. Save your recovery codes now.');
     }
     public function disable(Request $request)
@@ -66,6 +64,7 @@ class TwoFactorController extends Controller
             DB::table('sessions')->where('user_id',$request->user()->id)->where('id','!=',$request->session()->getId())->delete();
             Audit::record(null,$request->user()->id,'account.two_factor_disabled','user',$request->user()->id,[]);
         });
+        if($request->expectsJson())return response()->json(['twoFactorEnabled'=>false,'message'=>'Two-factor authentication disabled.']);
         return redirect()->route('account.security')->with('status','Two-factor authentication disabled.');
     }
     private function password(Request $request): void

@@ -4,7 +4,9 @@ namespace Tests\Feature;
 use App\Models\Master;
 use App\Models\Subject;
 use App\Models\WorkHour;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class AttendanceSubmissionTest extends TestCase
@@ -79,33 +81,30 @@ class AttendanceSubmissionTest extends TestCase
         $this->assertDatabaseHas('work_hours', ['profit_per_hour' => '-20.00', 'total_amount' => '125.00']);
     }
 
-    public function test_admin_correction_ignores_client_money_and_preserves_historical_rate_and_identity(): void
-    {
-        $payload = $this->payload();
-        $this->postJson('/upload-workhour', $payload)->assertOk();
-        $record = WorkHour::first(); $originalSubmitted = $record->date_submitted;
-        Master::query()->update(['hour_payment' => '500.00']);
-        $this->actingAs($this->createAdmin());
-        $edit = array_merge($payload, ['subject' => 'QA Mathematics', 'student_names' => 'QA Student', 'hour_taken' => '2', 'hour_payment' => '999', 'total_amount' => '999', 'date_submitted' => '1900-01-01']);
-        $this->putJson('/admin/workhour/'.$record->id, $edit)->assertOk();
-        $record->refresh();
-        $this->assertSame('200.00', $record->total_amount);
-        $this->assertSame('100.00', $record->hour_payment);
-        $this->assertSame($originalSubmitted, $record->date_submitted);
-        $this->putJson('/admin/workhour/'.$record->id, array_merge($edit, ['student_names' => 'Someone else']))->assertStatus(422);
-    }
 
     public function test_attendance_report_and_lookup_scope_before_rows_and_counts_and_hide_dob(): void
     {
         $payload = $this->payload(); $this->postJson('/upload-workhour', $payload)->assertOk();
         WorkHour::create(['teacher_name' => 'Another', 'teacher_code' => 'T-PRIVATE', 'student_name' => 'Private student', 'dob' => 'private-credential']);
         $this->actingAs($this->createAdmin());
-        foreach (['/attendanceReport', '/student-attendance-report'] as $path) {
-            $this->postJson($path)->assertOk()->assertJsonPath('recordsTotal', 2);
-            $this->postJson($path, ['teacher_name' => 'QA Teacher', 'dob' => '01/01/1990'])->assertOk()->assertJsonPath('recordsTotal', 1)->assertDontSee('Private student')->assertDontSee('01/01/1990')->assertDontSee('"dob"');
-            $this->getJson($path, ['X-Requested-With' => 'XMLHttpRequest'])->assertStatus(405);
+        // The classic /attendanceReport and /student-attendance-report are these records sets.
+        foreach (['attendance', 'student-attendance'] as $set) {
+            $this->getJson('/app-api/records/'.$set)->assertOk()->assertJsonPath('meta.total', 2)->assertDontSee('private-credential')->assertDontSee('"dob"');
+            $filter = $set === 'attendance' ? 'teacher=QA+Teacher' : 'student=QA+Student';
+            // Filter options list every name for the administrator; the scoped rows and totals do not.
+            $scoped = $this->getJson('/app-api/records/'.$set.'?'.$filter)->assertOk()->assertJsonPath('meta.total', 1)
+                ->assertJsonPath('totals.1.value', '1')->assertJsonPath('totals.0.value', '1.25')
+                ->assertDontSee('01/01/1990')->assertDontSee('"dob"')->assertDontSee('private-credential');
+            $this->assertStringNotContainsString('Private student', json_encode($scoped->json('data')));
+            $csv = $this->get('/app-api/records/'.$set.'/export?'.$filter)->assertOk()->streamedContent();
+            $this->assertStringContainsString('QA Student', $csv);
+            $this->assertStringNotContainsString('Private student', $csv);
+            $this->assertStringNotContainsString('01/01/1990', $csv);
         }
-        $this->postJson('/get-students', ['teacher_name' => 'QA Teacher', 'dob' => '01/01/1990'])->assertOk()->assertJsonCount(1, 'students')->assertDontSee('Private student');
+        // The classic per-teacher student picker (/get-students): the teacher-scoped rows name only that teacher's students.
+        $this->assertSame(['QA Student'], array_values(array_unique(array_column($this->getJson('/app-api/records/attendance?teacher=QA+Teacher')->json('data'), 'studentName'))));
+        $this->actingAs($this->createMember());
+        $this->getJson('/app-api/records/attendance')->assertForbidden();
     }
 
     public function test_public_assignment_lookup_is_verified_and_omits_rates_and_credentials(): void
@@ -130,15 +129,4 @@ class AttendanceSubmissionTest extends TestCase
         $this->postJson('/studentinfom', ['teacher_name' => 'LIMIT TEACHER', 'password' => 'wrong'])->assertStatus(429);
         $this->postJson('/get-teacher-dob', ['teacher_name' => 'Other Teacher', 'dob' => 'wrong'])->assertStatus(403);
     }
-    public function test_admin_edit_view_renders_canonical_hours_and_readonly_snapshots(): void
-    {
-        $payload = $this->payload(['hour_taken' => '1']);
-        $this->postJson('/upload-workhour', $payload)->assertOk();
-        $this->actingAs($this->createAdmin());
-        $row = WorkHour::first();
-        $this->get('/admin/workhour/'.$row->id.'/edit', ['X-Requested-With' => 'XMLHttpRequest'])
-            ->assertOk()->assertSee('value="1" selected', false)
-            ->assertSee('value="100.00" readonly', false)->assertSee('QA Student');
-    }
-
 }

@@ -4,18 +4,16 @@ namespace Tests\Feature;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
+/** Sales, HR and admin journeys: each role reaches its own screens' data and nothing else. */
 class ErpMobileUiTest extends TestCase
 {
-    private function preview(string $name, $response): void
+    private function embedded($response): array
     {
-        // Optional synthetic HTML for browser checks; never reads production records.
-        if ($dir = getenv('ERP_MOBILE_PREVIEW_DIR')) {
-            if (!is_dir($dir)) mkdir($dir, 0700, true);
-            file_put_contents($dir.'/'.$name.'.html', $response->getContent());
-        }
+        $html=$response->getContent();$tag='<script type="application/json" id="erp-session">';$start=strpos($html,$tag)+strlen($tag);
+        return json_decode(html_entity_decode(substr($html,$start,strpos($html,'</script>',$start)-$start)),true);
     }
 
-    public function test_sales_hr_and_admin_mobile_navigation_respects_existing_access(): void
+    public function test_sales_hr_and_admin_navigation_respects_existing_access(): void
     {
         $admin = $this->createAdmin(['name'=>'Workspace Admin']);
         $unit = DB::table('erp_units')->insertGetId(['code'=>'LEARN', 'name'=>'Claps Learning', 'timezone'=>'Asia/Kolkata']);
@@ -25,36 +23,32 @@ class ErpMobileUiTest extends TestCase
             ['unit_id'=>$unit,'user_id'=>$sales->id,'role'=>'sales_followups'],
             ['unit_id'=>$unit,'user_id'=>$manager->id,'role'=>'team_manager'],
         ]);
+        $base = '/app-api/units/'.$unit;
         $this->actingAs($sales)->postJson(route('erp.business.mutate',[$unit,'admission-create-lead']), [
             'name'=>'Ananya — Mathematics enquiry','phone'=>'+91 90000 12345','enquiry_date'=>'2026-10-26',
             'grade'=>'Grade 8','subject'=>'Mathematics','source'=>'Referral',
         ])->assertOk();
-        $salesPage = $this->get(route('erp.business',[$unit,'admissions']));
-        $salesPage->assertOk()->assertSee('Your pipeline')->assertSee('tel:+919000012345',false);
-        preg_match('/<nav class="mobile-navigation[^"]*"[\s\S]*?<\/nav>/', $salesPage->getContent(), $matches);
-        $this->assertStringContainsString('Pipeline', $matches[0]);
-        $this->assertStringNotContainsString('Accounts', $matches[0]);
-        $this->assertStringNotContainsString('Attendance', $matches[0]);
-        $this->assertStringContainsString('view=new', $salesPage->getContent());
-        $this->preview('sales', $salesPage);
+        // The sales pipeline lists the lead with its normalized, callable phone number.
+        $this->getJson($base.'/admissions')->assertOk()->assertSee('Ananya')->assertSee('919000012345');
+        $pages = $this->embedded($this->get('/app')->assertOk())['units'][0]['pages'];
+        $this->assertContains('admissions', $pages);
+        $this->assertNotContains('accounts', $pages);
+        $this->assertNotContains('attendance', $pages);
+        $this->getJson($base.'/accounts/overview')->assertForbidden();
+        $this->getJson($base.'/attendance')->assertForbidden();
 
         $this->actingAs($manager)->postJson(route('erp.business.mutate',[$unit,'teacher-candidate-create']), [
             'name'=>'Meera Nair','phone'=>'9000012346','email'=>'meera@example.invalid',
             'qualification'=>'MSc Mathematics, BEd','subjects'=>'Mathematics, Science',
         ])->assertOk();
-        $hr = $this->get(route('erp.business',[$unit,'teacher-recruitment']));
-        $hr->assertOk()->assertSee('New application')->assertSee('mobile-records')->assertSee('More filters');
-        $this->preview('hr', $hr);
-        $selected = $this->get(route('erp.business',[$unit,'teacher-recruitment','candidate'=>DB::table('erp_teacher_candidates')->value('id')]));
-        $selected->assertOk();
-        $this->preview('hr-profile', $selected);
-        $this->get(route('erp.administration'))->assertForbidden();
+        $this->getJson($base.'/recruitment')->assertOk()->assertSee('Meera Nair');
+        $this->getJson($base.'/recruitment/'.DB::table('erp_teacher_candidates')->value('id'))->assertOk()->assertSee('Meera Nair');
+        $this->getJson('/app-api/admin/teams')->assertForbidden();
+        $this->getJson('/app-api/admin/accounts')->assertForbidden();
+        $this->getJson('/app-api/admin/operations')->assertForbidden();
 
-        $adminPage = $this->actingAs($admin)->get(route('erp.administration'));
-        $adminPage->assertOk()->assertSee('id="action-onboard-staff"',false)->assertSee('href="#accounts"',false);
-        $this->preview('admin', $adminPage);
-        $operations = $this->get(route('erp.operations'));
-        $operations->assertOk();
-        $this->preview('operations', $operations);
+        $this->actingAs($admin)->getJson('/app-api/admin/teams')->assertOk()->assertSee('Claps Learning');
+        $this->getJson('/app-api/admin/accounts')->assertOk()->assertSee('Sales Counsellor');
+        $this->getJson('/app-api/admin/operations')->assertOk();
     }
 }

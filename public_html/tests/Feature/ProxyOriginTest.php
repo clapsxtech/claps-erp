@@ -52,10 +52,13 @@ class ProxyOriginTest extends TestCase
     public function test_real_login_form_and_assets_use_the_public_https_origin(): void
     {
         config(['proxy.public_origin' => 'https://logs.example.test']);
-        $this->get('http://logs.example.test/login')->assertOk()
-            ->assertSee('action="https://logs.example.test/login"', false)
-            ->assertSee('https://logs.example.test/css/erp.css', false)
-            ->assertDontSee('http://container', false);
+        // The React sign-in page posts to the root-relative /login and loads root-relative
+        // assets, so the browser keeps the public https origin; nothing names an http origin.
+        $page = $this->get('http://logs.example.test/login')->assertOk()
+            ->assertSee('"kind":"guest","screen":"login"', false)
+            ->assertDontSee('http://', false)->assertDontSee('http:\\/\\/', false)
+            ->assertDontSee('container', false);
+        $this->assertDoesNotMatchRegularExpression('~(href|src)="(?!/(?!/)|https://logs\.example\.test/)~', $page->getContent());
         $this->get('http://logs.example.test/_proxy-redirect-test')
             ->assertRedirect('https://logs.example.test/login');
     }

@@ -30,11 +30,6 @@ class SubmitMarklist
         return $this->submit($input, false);
     }
 
-    /** The controller/route must require an authenticated administrator. */
-    public function adminSubmission(array $input): array
-    {
-        return $this->submit($input, true);
-    }
 
     private function submit(array $input, bool $admin): array
     {

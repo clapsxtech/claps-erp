@@ -38,22 +38,53 @@ class ParentPortalTest extends TestCase
         return $this->post(route('parent.login.submit'),['student_code'=>$code,'date_of_birth'=>$dob]);
     }
 
+    /** The portal pages are React host pages; their data comes from /parent-api. */
+    private function section(string $section)
+    {
+        return $this->getJson(route('parent.api.section',['section'=>$section]));
+    }
+
+    private function body($response): string
+    {
+        return json_encode($response->json(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    private function hostSession($response): array
+    {
+        $html=$response->getContent(); $marker='<script type="application/json" id="erp-session">';
+        $start=strpos($html,$marker); $this->assertNotFalse($start); $start+=strlen($marker);
+        return json_decode(html_entity_decode(substr($html,$start,strpos($html,'</script>',$start)-$start)),true);
+    }
+
     public function test_family_signs_in_and_sees_only_their_child(): void
     {
         $this->get(route('parent.home'))->assertRedirect(route('parent.login'));
+        $this->section('overview')->assertStatus(401);
         $this->signIn(' pp-1001 ')->assertRedirect(route('parent.home'));
-        $this->get(route('parent.home'))->assertOk()->assertSee('Anya Joseph')->assertSee('INR 3,600.00')->assertSee('Paid in advance')->assertSee('+91 98470 10000');
-        $this->get(route('parent.home',['section'=>'classes']))->assertOk()->assertSee('60 minutes taught')->assertDontSee('Private staff observation');
-        $this->get(route('parent.home',['section'=>'results']))->assertOk()->assertSee('Algebra quiz')->assertSee('Good work');
-        $fees=$this->get(route('parent.home',['section'=>'fees']))->assertOk()->assertSee('PP-UPI-1')->assertDontSee('PP-OTHER-PAY');
-        foreach ([$fees,$this->get(route('parent.home',['section'=>'classes']))] as $page) $page->assertDontSee('300.00')->assertDontSee('9811122233');
+        $home=$this->hostSession($this->get(route('parent.home'))->assertOk());
+        $this->assertSame('Anya Joseph',$home['student']['name']);
+        $this->assertSame('+91 98470 10000',$home['centre']['phone']);
+        // A positive balance is shown as "Paid in advance".
+        $this->section('overview')->assertOk()->assertJsonPath('balancePaise',360000);
+        $classes=$this->section('classes')->assertOk()->assertJsonPath('past.0.minutes',60)->assertJsonPath('past.0.status','completed');
+        $this->assertStringNotContainsString('Private staff observation',$this->body($classes));
+        $this->section('results')->assertOk()->assertJsonPath('data.0.assessment','Algebra quiz')->assertJsonPath('data.0.note','Good work');
+        $fees=$this->section('fees')->assertOk()->assertJsonPath('receipts.0.reference','PP-UPI-1')->assertJsonCount(1,'receipts');
+        $this->assertStringNotContainsString('PP-OTHER-PAY',$this->body($fees));
+        // Neither the teacher's rate (INR 300.00), the class rate nor the guardian's phone reaches the family.
+        foreach ([$fees,$classes] as $page) foreach (['30000','45000','300.00','9811122233','rate'] as $hidden) $this->assertStringNotContainsString($hidden,$this->body($page));
         $mine=DB::table('erp_ledger')->where('reference','PP-UPI-1')->value('id'); $theirs=DB::table('erp_ledger')->where('reference','PP-OTHER-PAY')->value('id');
-        $this->get(route('parent.document',['type'=>'receipt','id'=>$mine]))->assertOk()->assertSee('Payment acknowledgement');
+        $this->getJson(route('parent.api.document',['type'=>'receipt','id'=>$mine]))->assertOk()->assertJsonPath('receipt.reference','PP-UPI-1')->assertJsonPath('receipt.isRefund',false);
+        $this->get(route('parent.document',['type'=>'receipt','id'=>$mine]))->assertOk();
+        $this->getJson(route('parent.api.document',['type'=>'receipt','id'=>$theirs]))->assertNotFound();
         $this->get(route('parent.document',['type'=>'receipt','id'=>$theirs]))->assertNotFound();
-        $statement=$this->get(route('parent.statement',['month'=>now('Asia/Kolkata')->format('Y-m')]))->assertOk()->assertSee('Account summary')->assertSee('Back to the parent portal');
-        $statement->assertDontSee('Record statement sharing')->assertDontSee('monthly-review');
+        $statement=$this->getJson(route('parent.api.statement',['month'=>now('Asia/Kolkata')->format('Y-m')]))->assertOk()->assertJsonPath('account.closingPaise',360000);
+        // The family copy has no staff "statement sharing" record form.
+        $this->assertSame(['month','monthLabel','rows','totalMinutes','account'],array_keys($statement->json()));
+        $this->assertStringNotContainsString('monthly-review',$this->body($statement));
         $this->post(route('parent.logout'))->assertRedirect(route('parent.login'));
         $this->get(route('parent.home'))->assertRedirect(route('parent.login'));
+        $this->section('overview')->assertStatus(401);
     }
 
     public function test_wrong_details_lock_the_student_id(): void
@@ -125,12 +156,16 @@ class ParentPortalTest extends TestCase
     public function test_changing_the_date_of_birth_or_idling_signs_the_family_out(): void
     {
         $this->signIn()->assertRedirect(route('parent.home'));
-        $this->actingAs($this->admin)->post(route('erp.business.mutate',[$this->unit,'student-update']),['student_id'=>$this->student,'date_of_birth'=>'2013-05-21'])->assertRedirect();
+        $this->section('overview')->assertOk();
+        $this->actingAs($this->admin)->postJson(route('erp.business.mutate',[$this->unit,'student-update']),['student_id'=>$this->student,'date_of_birth'=>'2013-05-21'])->assertOk();
         $this->assertSame(['date_of_birth'],json_decode(DB::table('erp_audit')->where('action','student.profile_updated')->value('payload'),true)['fields']);
         \Illuminate\Support\Facades\Auth::logout();
         $this->get(route('parent.home'))->assertRedirect(route('parent.login'));
+        $this->section('overview')->assertStatus(401);
         $this->signIn('PP-1001','2013-05-21')->assertRedirect(route('parent.home'));
+        $this->section('overview')->assertOk();
         $this->travel(31)->minutes();
+        $this->section('overview')->assertStatus(401);
         $this->get(route('parent.home'))->assertRedirect(route('parent.login'));
     }
 
@@ -139,33 +174,35 @@ class ParentPortalTest extends TestCase
         config(['erp.parent_review_required'=>true]);
         $attendance=DB::table('erp_attendance')->value('id');
         $this->signIn();
-        $this->post(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'Too short'])->assertSessionHasErrors('note');
-        $this->post(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'The class was only 40 minutes long'])->assertRedirect(route('parent.home',['section'=>'classes']))->assertSessionHas('status',fn($s)=>str_contains($s,'will not be billed until it is resolved'));
+        $this->section('classes')->assertOk()->assertJsonPath('past.0.beingChecked',false)->assertJsonPath('past.0.querySent',false);
+        $this->postJson(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'Too short'])->assertStatus(422)->assertJsonValidationErrors('note');
+        $this->postJson(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'The class was only 40 minutes long'])->assertOk()->assertJsonPath('held',true)->assertJsonPath('message',fn($s)=>str_contains($s,'will not be billed until it is resolved'));
         $this->assertSame('disputed',DB::table('erp_attendance')->find($attendance)->parent_review_status);
-        $this->get(route('parent.home',['section'=>'classes']))->assertSee('Being checked by the centre')->assertSee('Query sent');
-        $this->post(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'Sending the same thing again'])->assertSessionHasErrors('attendance_id');
-        $this->post(route('parent.dispute'),['attendance_id'=>$attendance+999,'note'=>'Not my class at all, surely'])->assertSessionHasErrors('attendance_id');
+        $this->section('classes')->assertOk()->assertJsonPath('past.0.attendanceId',$attendance)->assertJsonPath('past.0.beingChecked',true)->assertJsonPath('past.0.querySent',true);
+        $this->postJson(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'Sending the same thing again'])->assertStatus(422)->assertJsonValidationErrors('attendance_id');
+        $this->postJson(route('parent.dispute'),['attendance_id'=>$attendance+999,'note'=>'Not my class at all, surely'])->assertStatus(422)->assertJsonValidationErrors('attendance_id');
 
-        $this->actingAs($this->admin)->post(route('erp.mutate',[$this->unit,'approve']),['attendance_id'=>$attendance])->assertSessionHasErrors('parent_review');
+        $this->actingAs($this->admin)->postJson(route('erp.mutate',[$this->unit,'approve']),['attendance_id'=>$attendance])->assertStatus(422)->assertJsonValidationErrors('parent_review');
         $this->assertSame('submitted',DB::table('erp_attendance')->find($attendance)->status);
         $request=DB::table('erp_parent_requests')->value('id');
-        $this->get(route('erp.tuition',$this->unit))->assertOk()->assertSee('The class was only 40 minutes long');
-        $this->post(route('erp.tuition.mutate',[$this->unit,'parent-request-resolve']),['request_id'=>$request,'reply'=>'Checked with the teacher; corrected to 40 minutes'])->assertRedirect(route('erp.tuition',$this->unit));
+        $this->getJson('/app-api/units/'.$this->unit.'/tuition')->assertOk()->assertJsonPath('parentRequests.0.id',$request)->assertJsonPath('parentRequests.0.note','The class was only 40 minutes long')->assertJsonPath('parentRequests.0.attendanceId',$attendance);
+        $this->postJson(route('erp.tuition.mutate',[$this->unit,'parent-request-resolve']),['request_id'=>$request,'reply'=>'Checked with the teacher; corrected to 40 minutes'])->assertOk();
+        $this->getJson('/app-api/units/'.$this->unit.'/tuition')->assertOk()->assertJsonCount(0,'parentRequests');
         $this->assertSame('resolved',DB::table('erp_parent_requests')->find($request)->status);
 
         // An approved class is already charged, so the family is not promised it will be held.
         DB::table('erp_attendance')->where('id',$attendance)->update(['status'=>'approved','parent_review_status'=>'unshared']);
         \Illuminate\Support\Facades\Auth::logout(); $this->signIn();
-        $this->post(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'This class was cancelled by the teacher'])->assertSessionHas('status',fn($s)=>str_contains($s,'already been billed') && !str_contains($s,'will not be billed'));
+        $this->postJson(route('parent.dispute'),['attendance_id'=>$attendance,'note'=>'This class was cancelled by the teacher'])->assertOk()->assertJsonPath('held',false)->assertJsonPath('message',fn($s)=>str_contains($s,'already been billed') && !str_contains($s,'will not be billed'));
         $this->assertSame('unshared',DB::table('erp_attendance')->find($attendance)->parent_review_status);
     }
 
     public function test_staff_record_date_of_birth_and_billing_state(): void
     {
-        $this->actingAs($this->admin)->post(route('erp.mutate',[$this->unit,'student']),['code'=>'PP-1003','name'=>'New Child','registered_on'=>'2026-01-01','timezone'=>'Asia/Kolkata','grade'=>'5','syllabus'=>'State','date_of_birth'=>'2016-02-29','billing_state'=>'Tamil Nadu'])->assertRedirect();
+        $this->actingAs($this->admin)->postJson(route('erp.mutate',[$this->unit,'student']),['code'=>'PP-1003','name'=>'New Child','registered_on'=>'2026-01-01','timezone'=>'Asia/Kolkata','grade'=>'5','syllabus'=>'State','date_of_birth'=>'2016-02-29','billing_state'=>'Tamil Nadu'])->assertOk();
         $id=DB::table('erp_students')->where('code','PP-1003')->value('id');
         $this->assertSame(['2016-02-29','Tamil Nadu'],array_values((array)DB::table('erp_student_profiles')->where('student_id',$id)->first(['date_of_birth','billing_state'])));
-        $this->post(route('erp.mutate',[$this->unit,'student']),['code'=>'PP-1004','name'=>'Future Child','registered_on'=>'2026-01-01','timezone'=>'Asia/Kolkata','grade'=>'5','syllabus'=>'State','date_of_birth'=>now()->addDay()->toDateString()])->assertSessionHasErrors('date_of_birth');
-        $this->get(route('erp.business',[$this->unit,'people']))->assertSee('Date of birth (for the parent portal)');
+        $this->postJson(route('erp.mutate',[$this->unit,'student']),['code'=>'PP-1004','name'=>'Future Child','registered_on'=>'2026-01-01','timezone'=>'Asia/Kolkata','grade'=>'5','syllabus'=>'State','date_of_birth'=>now()->addDay()->toDateString()])->assertStatus(422)->assertJsonValidationErrors('date_of_birth');
+        $this->assertDatabaseMissing('erp_students',['code'=>'PP-1004']);
     }
 }
