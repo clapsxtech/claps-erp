@@ -50,7 +50,7 @@ class ErpBusinessHttpTest extends TestCase
     }
     public function test_salary_forms_record_only_already_paid_money_and_audited_reversal(): void {
         DB::table('erp_ledger')->insert(['unit_id'=>$this->unit,'teacher_id'=>$this->teacher,'kind'=>'teacher_accrual','amount_paise'=>20000,'currency'=>'INR','reference'=>'BHTTP-EARNED','event_key'=>'bhttp-earned','occurred_at'=>now(),'created_by'=>$this->admin->id]);
-        $payload=['teacher_id'=>$this->teacher,'amount_paise'=>12000,'reference'=>'BHTTP-PAID','paid_on'=>now()->toDateString(),'reason'=>'Synthetic externally completed salary payment'];
+        $payload=['teacher_id'=>$this->teacher,'amount_paise'=>12000,'reference'=>'BHTTP-PAID','paid_on'=>now('UTC')->toDateString(),'reason'=>'Synthetic externally completed salary payment'];
         $this->form('salary-paid',$payload,'money')->assertSessionHasErrors('already_paid');
         $this->assertSame(0,DB::table('erp_ledger')->where('kind','teacher_payment')->count());
         $this->saved('salary-paid',$payload+['already_paid'=>'1'],'money');
@@ -62,7 +62,7 @@ class ErpBusinessHttpTest extends TestCase
         $this->assertDatabaseHas('erp_ledger',['reverses_id'=>$paid->id,'amount_paise'=>12000]);
     }
     public function test_request_receipt_allocation_print_and_correction_preserve_history(): void {
-        $this->saved('request-create',['student_id'=>$this->student,'reference'=>'BHTTP-REQUEST','amount_paise'=>10000,'requested_on'=>now()->toDateString(),'due_on'=>now()->addDays(5)->toDateString(),'notes'=>'Synthetic request, not a receipt'],'money');
+        $this->saved('request-create',['student_id'=>$this->student,'reference'=>'BHTTP-REQUEST','amount_paise'=>10000,'requested_on'=>now('UTC')->toDateString(),'due_on'=>now('UTC')->addDays(5)->toDateString(),'notes'=>'Synthetic request, not a receipt'],'money');
         $request=DB::table('erp_payment_requests')->where('reference','BHTTP-REQUEST')->first();
         $this->assertSame(0,DB::table('erp_ledger')->count());
         $this->get(route('erp.request.print',[$this->unit,$request->id]))->assertOk()->assertSee('Payment request')->assertSee('not proof of payment')->assertSee('100.00');
@@ -80,7 +80,7 @@ class ErpBusinessHttpTest extends TestCase
         $this->assertSame(8000,(int)DB::table('erp_ledger')->where('student_id',$this->student)->sum('amount_paise'));
     }
     public function test_followup_task_checklist_and_status_forms_are_connected(): void {
-        $this->post(route('erp.mutate',[$this->unit,'task']),['title'=>'Business checklist task','student_id'=>$this->student,'due_on'=>now()->toDateString()])->assertRedirect()->assertSessionHasNoErrors();
+        $this->post(route('erp.mutate',[$this->unit,'task']),['title'=>'Business checklist task','student_id'=>$this->student,'due_on'=>now('UTC')->toDateString()])->assertRedirect()->assertSessionHasNoErrors();
         $task=DB::table('erp_tasks')->where('title','Business checklist task')->first();
         $this->saved('task-update',['task_id'=>$task->id,'status'=>'in_progress','assigned_to'=>$this->admin->id,'notes'=>'Synthetic progress'],'followups');
         $this->saved('task-item',['task_id'=>$task->id,'title'=>'Record guardian response'],'followups');
@@ -88,7 +88,7 @@ class ErpBusinessHttpTest extends TestCase
         $this->form('task-update',['task_id'=>$task->id,'status'=>'completed'],'followups')->assertSessionHasErrors();
         $this->saved('task-item-complete',['item_id'=>$item->id],'followups');
         $this->saved('task-update',['task_id'=>$task->id,'status'=>'completed'],'followups');
-        $this->saved('followup',['student_id'=>$this->student,'contact_channel'=>'call','note'=>'Synthetic logged call only','outcome'=>'Call again tomorrow','next_due_on'=>now()->toDateString()],'followups');
+        $this->saved('followup',['student_id'=>$this->student,'contact_channel'=>'call','note'=>'Synthetic logged call only','outcome'=>'Call again tomorrow','next_due_on'=>now('UTC')->toDateString()],'followups');
         $this->get(route('erp.business',[$this->unit,'followups']))->assertOk()->assertSee('Business checklist task')->assertSee('Record guardian response')->assertSee('Synthetic logged call only')->assertSee('Due follow-ups');
         $this->assertDatabaseHas('erp_tasks',['id'=>$task->id,'status'=>'completed']);
         $audit=json_decode(DB::table('erp_audit')->where('action','followup.recorded')->value('payload'),true); $this->assertFalse($audit['outbound_sent']);
@@ -120,7 +120,7 @@ class ErpBusinessHttpTest extends TestCase
         $this->getJson(route('erp.reconciliation',$this->other))->assertOk()->assertJsonPath('counts.students',1);
     }
     public function test_record_references_remain_unit_scoped_even_for_admin_of_both_units(): void {
-        $this->saved('request-create',['student_id'=>$this->student,'reference'=>'BHTTP-SCOPE-REQUEST','amount_paise'=>10000,'requested_on'=>now()->toDateString()],'money');
+        $this->saved('request-create',['student_id'=>$this->student,'reference'=>'BHTTP-SCOPE-REQUEST','amount_paise'=>10000,'requested_on'=>now('UTC')->toDateString()],'money');
         $request=DB::table('erp_payment_requests')->where('reference','BHTTP-SCOPE-REQUEST')->first(); $payment=$this->receipt('BHTTP-SCOPE-RECEIPT');
         DB::table('erp_memberships')->insert(['unit_id'=>$this->other,'user_id'=>$this->admin->id,'role'=>'admin']);
         $this->get(route('erp.request.print',[$this->other,$request->id]))->assertNotFound();
@@ -148,7 +148,7 @@ class ErpBusinessHttpTest extends TestCase
         $this->saved('student-update',['student_id'=>$this->student,'clear_fields'=>['guardian_contact','meeting_url']],'people');
         $this->assertNull(DB::table('erp_students')->where('id',$this->student)->value('guardian_contact'));
         $this->assertNull(DB::table('erp_students')->where('id',$this->student)->value('meeting_url'));
-        $task=DB::table('erp_tasks')->insertGetId(['unit_id'=>$this->unit,'title'=>'Clear optional task values','notes'=>'Synthetic note','student_id'=>$this->student,'assigned_to'=>$this->admin->id,'due_on'=>now()->toDateString(),'status'=>'open','created_by'=>$this->admin->id]);
+        $task=DB::table('erp_tasks')->insertGetId(['unit_id'=>$this->unit,'title'=>'Clear optional task values','notes'=>'Synthetic note','student_id'=>$this->student,'assigned_to'=>$this->admin->id,'due_on'=>now('UTC')->toDateString(),'status'=>'open','created_by'=>$this->admin->id]);
         $this->saved('task-update',['task_id'=>$task,'clear_fields'=>['notes','student_id','assigned_to','due_on']],'followups');
         $row=DB::table('erp_tasks')->where('id',$task)->first(); foreach (['notes','student_id','assigned_to','due_on'] as $field) $this->assertNull($row->$field);
         $this->postJson(route('erp.business.mutate',[$this->unit,'student-update']),['student_id'=>$this->student,'clear_fields'=>['unit_id']])->assertUnprocessable();
