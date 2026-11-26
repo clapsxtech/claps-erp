@@ -3,9 +3,9 @@
 <section class="portal-form-panel"><div class="card"><div class="card-body">
 <form action="{{ route('upload-workhour') }}" method="POST" id="markUploadForm">
 @csrf<input type="hidden" name="submission_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-<h2 class="form-section-title">1. Teacher & student</h2><p class="text-muted">Select your name, enter your teacher password, then verify to load your students.</p>
+<h2 class="form-section-title">1. Teacher & student</h2><p class="text-muted">Enter your name, enter your teacher password, then verify to load your students.</p>
 <div class="row">
-<div class="col-md-6 form-group"><label for="teacher_name">Teacher *</label><select class="form-control select2" id="teacher_name" name="teacher_name" required style="width:100%"><option value="">Select teacher</option>@foreach($teachers as $value)<option data-teacher-name="{{ $value->teacher_name }}">{{ $value->teacher_name }}</option>@endforeach</select></div>
+<div class="col-md-6 form-group"><label for="teacher_name">Teacher *</label><input class="form-control" id="teacher_name" name="teacher_name" type="text" required maxlength="255" autocomplete="name" spellcheck="false" placeholder="Your full name, as the centre has it"></div>
 <div class="col-md-6 form-group"><label for="password">Teacher password (dd/mm/yyyy) *</label><input class="form-control" id="password" name="password" type="password" required autocomplete="off" placeholder="dd/mm/yyyy"><button type="button" class="btn btn-outline-success mt-2" id="verify-teacher">Verify and load students</button><span id="verification-status" class="form-text text-muted" role="status"></span></div>
 <div class="col-md-6 form-group"><label for="student_name">Student *</label><select class="form-control select2" id="student_name" name="student_name" required style="width:100%"><option value="">Verify your teacher details first</option></select></div>
 <div class="col-md-3 form-group"><label for="teacher_code">Teacher code</label><input class="form-control" id="teacher_code" name="teacher_code" readonly></div>
@@ -60,7 +60,7 @@ $(function () {
         var teacher = $('#teacher_name').val();
         var password = $('#password').val();
         if (!teacher || !password) {
-            showError('Select a teacher and enter your verification code first.');
+            showError('Enter your name and date of birth first.');
             return;
         }
         var button = $(this).prop('disabled', true);

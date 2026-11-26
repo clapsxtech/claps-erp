@@ -62,9 +62,12 @@ class RouteServiceProvider extends ServiceProvider
         RateLimiter::for('teacher-credentials', function (Request $request) {
             if (!$request->isMethod('post')) return Limit::none();
             if (app(\App\Modules\IdentityAccess\Services\SiteAccessPolicy::class)->isAdministrator($request->user())) return Limit::none();
-            $teacher = $request->input('teacher_name', '');
-            $teacher = is_string($teacher) ? mb_strtolower(trim($teacher)) : '';
-            return Limit::perMinute(30)->by('teacher:'.hash('sha256', $teacher));
+            $teacher = \App\Modules\People\Services\TeacherIdentityVerifier::normalizeName($request->input('teacher_name', ''));
+            // Cheap first line of defence; failed sign-ins also have persistent lockouts in the verifier.
+            return [
+                Limit::perMinute(30)->by('teacher:'.hash('sha256', $teacher)),
+                Limit::perMinute(60)->by('teacher-ip:'.$request->ip()),
+            ];
         });
         // Sales app requests all arrive from the Worker, so limit per signed-in user, not per IP.
         RateLimiter::for('sales-api', function (Request $request) {

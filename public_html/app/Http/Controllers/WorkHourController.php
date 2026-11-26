@@ -146,7 +146,8 @@ class WorkHourController extends Controller
         $policy = app(\App\Modules\IdentityAccess\Services\SiteAccessPolicy::class);
         if ($policy->isAdministrator($request->user())) {
             $request->validate(['teacher_name' => ['required', 'string', 'max:255']]);
-            $matches = Master::where('teacher_name', $request->teacher_name)->get();
+            $name = app(\App\Modules\People\Services\TeacherIdentityVerifier::class)->resolveName($request->teacher_name);
+            $matches = $name === null ? collect() : Master::where('teacher_name', $name)->get();
             abort_unless($matches->pluck('teacher_code')->unique()->count() === 1, 422, 'Choose an unambiguous teacher identity.');
             $teacher = $matches->first();
         } else {
@@ -168,12 +169,9 @@ class WorkHourController extends Controller
     }
     public function frontetHourUploadCreate()
     {
-        $teachers = Master::select('teacher_name')
-            ->distinct()
-            ->orderBy('teacher_name', 'asc')
-            ->get();
+        // Public page: teachers type their name; never publish the teacher directory.
         $subject = Subject::select('id', 'name')->get();
-        return view('teacherhourupload')->with(compact('teachers', 'subject'));
+        return view('teacherhourupload')->with(compact('subject'));
     }
     public function edit($id)
     {

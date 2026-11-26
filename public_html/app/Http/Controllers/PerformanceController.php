@@ -12,10 +12,10 @@ class PerformanceController extends Controller
 {
     public function create()
     {
-        $teachers = Master::select('teacher_name')->distinct()->orderBy('teacher_name')->get();
+        // Public page: teachers type their name; never publish the teacher directory.
         $topics = Topic::select('id', 'name')->get();
 
-        return view('performenceform', compact('teachers', 'topics'));
+        return view('performenceform', compact('topics'));
     }
 
     public function store(Request $request, SubmitPerformance $submit, ResultResponse $response)
