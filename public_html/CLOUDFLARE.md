@@ -16,6 +16,15 @@ Never commit either secret or the initial administrator credentials.
 
 ## Deploy changes
 
+Pushes to `main` deploy automatically through `.github/workflows/cloudflare-deploy.yml`.
+The deploy waits for PHPUnit (normal and D1 mode), the recovery drill, the Node and
+TypeScript checks and the Composer and npm security audits. It stops before changing
+anything if `INTERNAL_TOKEN` is not a GitHub secret or a D1 migration is not yet applied.
+If the new version does not become ready, it rolls back to the previously live version.
+Apply new D1 migrations (below) before merging the code that needs them.
+
+To deploy by hand instead:
+
 From `public_html`, with Node 22 and Docker running:
 
 ```sh

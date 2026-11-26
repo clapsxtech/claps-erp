@@ -1,11 +1,20 @@
 name: Deploy to Cloudflare
 
 # Deploys the clapslearn-logs Worker (erp.clapslearn.in) and its Laravel
-# container image whenever main changes. Requires the secret
-# CLOUDFLARE_API_TOKEN in the GitHub environment of the same name (Workers
-# Scripts, Containers, D1, R2 edit on the account in public_html/wrangler.jsonc).
-# The Worker's own APP_KEY and INTERNAL_TOKEN must already be stored on it, or
-# be set as GitHub secrets in that environment. D1 migrations are not applied here.
+# container image whenever main changes, but only after the full test suite and
+# security audits pass. Requires, in the GitHub environment CLOUDFLARE_API_TOKEN:
+# - CLOUDFLARE_API_TOKEN (Workers Scripts, Containers, D1, R2 edit on the account
+#   in public_html/wrangler.jsonc)
+# - INTERNAL_TOKEN, the same value stored on the Worker, to restart the app on the
+#   new version. Without it the deploy stops before changing anything.
+# APP_KEY may also be set there; when both are set they replace the Worker's values.
+#
+# D1 migrations are not applied here. The deploy stops if any file in
+# public_html/cloudflare/migrations has not been applied to production yet;
+# apply it with `npx wrangler d1 migrations apply clapslearn-erp --remote` first.
+#
+# If the new version does not become ready, the Worker is rolled back to the
+# version that was live before this deploy and the app is restarted on it.
 on:
   push:
     branches: [main]
@@ -23,22 +32,73 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  # Runs without access to any deploy secret.
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # CLOUDFLARE_API_TOKEN is stored as a secret of this GitHub environment.
+    defaults:
+      run:
+        working-directory: public_html
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          # The production container image runs PHP 8.2.
+          php-version: '8.2'
+          extensions: bcmath, curl, dom, fileinfo, gd, mbstring, pdo_sqlite, xml, zip
+          tools: composer:v2
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: public_html/.nvmrc
+          cache: npm
+          cache-dependency-path: public_html/package-lock.json
+      - name: Install locked dependencies
+        run: |
+          mkdir -p bootstrap/cache storage/framework/{cache/data,sessions,views} storage/logs
+          composer install --no-interaction --prefer-dist
+          composer check-platform-reqs
+          npm ci
+      - name: Security audits
+        run: |
+          composer audit
+          npm audit --audit-level=high
+      - name: PHP tests
+        run: php vendor/bin/phpunit
+      - name: PHP tests through the D1 adapter
+        env:
+          D1_COMPAT_TEST: '1'
+        run: php vendor/bin/phpunit
+      - name: Recovery drill
+        run: php tests/Integration/erp-recovery-drill.php
+      - name: Asset and deployment tests
+        run: |
+          npm test
+          npx tsc --noEmit
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # CLOUDFLARE_API_TOKEN and INTERNAL_TOKEN are secrets of this GitHub environment.
     environment: CLOUDFLARE_API_TOKEN
     defaults:
       run:
         working-directory: public_html
     steps:
       - uses: actions/checkout@v4
-      - name: Check Cloudflare token is available
+      - name: Check deploy secrets are available
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          INTERNAL_TOKEN: ${{ secrets.INTERNAL_TOKEN }}
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::GitHub secret CLOUDFLARE_API_TOKEN is not set in the CLOUDFLARE_API_TOKEN environment"
+          missing=""
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || missing="$missing CLOUDFLARE_API_TOKEN"
+          # Without it the app cannot be restarted, so the old code would keep running
+          # behind the new Worker while the run reported success.
+          [ -n "$INTERNAL_TOKEN" ] || missing="$missing INTERNAL_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Set these GitHub secrets in the CLOUDFLARE_API_TOKEN environment before deploying:$missing. Nothing was deployed."
             exit 1
           fi
       # APP_KEY and INTERNAL_TOKEN are normally already stored on the Worker.
@@ -62,9 +122,35 @@ jobs:
           cache-dependency-path: public_html/package-lock.json
       - name: Install locked dependencies
         run: npm ci
-      - name: Asset and deployment tests
-        run: npm test
+      # New code can depend on new columns or tables, so it must not go live first.
+      - name: Check every D1 migration is applied
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          npx wrangler d1 migrations list clapslearn-erp --remote | tee "$RUNNER_TEMP/migrations.txt"
+          if ! grep -q 'No migrations to apply' "$RUNNER_TEMP/migrations.txt"; then
+            echo "::error::Some D1 migrations in public_html/cloudflare/migrations are not applied to production. Apply them with 'npx wrangler d1 migrations apply clapslearn-erp --remote', then rerun this deploy. Nothing was deployed."
+            exit 1
+          fi
+      - name: Record the live version for rollback
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          npx wrangler deployments list --json > "$RUNNER_TEMP/deployments.json"
+          previous=$(node -e '
+            const list = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            const latest = [...list].sort((a, b) => Date.parse(b.created_on) - Date.parse(a.created_on))[0];
+            const live = latest && (latest.versions || []).find(v => v.percentage === 100);
+            if (live) process.stdout.write(live.version_id);
+          ' "$RUNNER_TEMP/deployments.json")
+          if [ -z "$previous" ]; then
+            echo "::error::Could not find the version that is live now, so a failed deploy could not be rolled back. Nothing was deployed."
+            exit 1
+          fi
+          echo "Live version before this deploy: $previous"
+          echo "PREVIOUS_VERSION=$previous" >> "$GITHUB_ENV"
       - name: Build assets, push container image and deploy Worker
+        id: deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         # npm appends the arguments to the final `wrangler deploy` in cf:deploy.
@@ -85,19 +171,15 @@ jobs:
         env:
           INTERNAL_TOKEN: ${{ secrets.INTERNAL_TOKEN }}
         run: |
-          if [ -z "$INTERNAL_TOKEN" ]; then
-            echo "::warning::INTERNAL_TOKEN is not set; restart the app manually to run the new version."
-            exit 0
-          fi
           curl -fsS -m 240 -X POST -H "Authorization: Bearer $INTERNAL_TOKEN" https://erp.clapslearn.in/__cloudflare/restart -o "$RUNNER_TEMP/restart.json"
           cat "$RUNNER_TEMP/restart.json"; echo
           grep -q '"ready":true' "$RUNNER_TEMP/restart.json"
-      # Retries for about a minute per page while the new version settles. A page that
-      # still fails is reported as a warning, not a failed run: Cloudflare's security
-      # settings can block requests from GitHub's machines (403) while the site is fine.
+      # Retries for about a minute per page while the new version settles.
+      # Errors, timeouts and missing pages fail the deploy and roll it back. A 403 only
+      # warns: Cloudflare's security settings can block GitHub's machines while the site is fine.
       - name: Check the live site
         run: |
-          failed=""
+          failed=""; blocked=""
           for path in /health /ready /parent/login; do
             for attempt in 1 2 3 4 5 6; do
               code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 "https://erp.clapslearn.in$path" || true)
@@ -105,8 +187,28 @@ jobs:
               [ "$code" = 200 ] && break
               [ "$attempt" -lt 6 ] && sleep 10
             done
-            [ "$code" = 200 ] || failed="$failed $path ($code)"
+            if [ "$code" = 403 ]; then blocked="$blocked $path"
+            elif [ "$code" != 200 ]; then failed="$failed $path ($code)"; fi
           done
+          if [ -n "$blocked" ]; then
+            echo "::warning::Got 403 for:$blocked. Cloudflare security may be blocking GitHub's machines; check the site in a browser and Security > Events in Cloudflare."
+          fi
           if [ -n "$failed" ]; then
-            echo "::warning::Live site check did not get 200 for:$failed. If it is 403, Cloudflare security may be blocking GitHub's machines; check the site in a browser and Security > Events in Cloudflare."
+            echo "::error::The live site failed after the deploy:$failed"
+            exit 1
+          fi
+      - name: Roll back to the previous version
+        if: failure() && steps.deploy.outcome != 'skipped'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          INTERNAL_TOKEN: ${{ secrets.INTERNAL_TOKEN }}
+        run: |
+          echo "::error::Deploy of ${GITHUB_SHA::7} failed; rolling back to version $PREVIOUS_VERSION."
+          npx wrangler rollback "$PREVIOUS_VERSION" --message "Automatic rollback: ${GITHUB_SHA::7} did not become ready" --yes
+          curl -fsS -m 240 -X POST -H "Authorization: Bearer $INTERNAL_TOKEN" https://erp.clapslearn.in/__cloudflare/restart -o "$RUNNER_TEMP/rollback-restart.json"
+          cat "$RUNNER_TEMP/rollback-restart.json"; echo
+          if grep -q '"ready":true' "$RUNNER_TEMP/rollback-restart.json"; then
+            echo "Rolled back to $PREVIOUS_VERSION and the app is ready."
+          else
+            echo "::error::Rolled back to $PREVIOUS_VERSION but the app did not report ready. Check https://erp.clapslearn.in now."
           fi
