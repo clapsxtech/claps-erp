@@ -98,6 +98,25 @@ class TeacherCredentialLockoutTest extends TestCase
         $this->verify('Synthetic Hidden Teacher', '01/01/1990')->assertOk();
     }
 
+    public function test_success_writes_nothing_and_a_failure_writes_in_one_transaction(): void
+    {
+        // On D1 every write outside a transaction is its own remote commit.
+        $writes = [];
+        $baseline = DB::transactionLevel();
+        DB::listen(function ($query) use (&$writes, $baseline) {
+            if (preg_match('/^\s*(insert|update|delete)\b.*erp_credential_attempts/is', $query->sql)) $writes[] = $query->connection->transactionLevel() > $baseline;
+        });
+        $this->verify('Synthetic Hidden Teacher', '01/01/1990')->assertOk();
+        $this->assertSame([], $writes, 'A clean sign-in must not write.');
+
+        $commits = 0;
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Database\Events\TransactionCommitted::class, function () use (&$commits) { $commits++; });
+        $this->verify('Synthetic Hidden Teacher', '02/02/1990')->assertForbidden();
+        $this->assertCount(2, $writes, 'Short window and daily counter.');
+        $this->assertNotContains(false, $writes, 'Every failure write is inside the transaction.');
+        $this->assertSame(1, $commits);
+    }
+
     public function test_every_public_credential_endpoint_records_failures(): void
     {
         // Complete, valid forms, so each endpoint reaches the credential check.

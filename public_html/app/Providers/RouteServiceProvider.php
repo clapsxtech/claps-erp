@@ -64,10 +64,12 @@ class RouteServiceProvider extends ServiceProvider
             if (app(\App\Modules\IdentityAccess\Services\SiteAccessPolicy::class)->isAdministrator($request->user())) return Limit::none();
             $teacher = \App\Modules\People\Services\TeacherIdentityVerifier::normalizeName($request->input('teacher_name', ''));
             // Cheap first line of defence; failed sign-ins also have persistent lockouts in the verifier.
-            return [
-                Limit::perMinute(30)->by('teacher:'.hash('sha256', $teacher)),
-                Limit::perMinute(60)->by('teacher-ip:'.$request->ip()),
-            ];
+            // Per address only when the real visitor address is known; otherwise every teacher
+            // would share one internal address and one bucket.
+            $ip = \App\Modules\Erp\Services\ParentPortal::clientIp($request->ip());
+            $limits = [Limit::perMinute(30)->by('teacher:'.hash('sha256', $teacher))];
+            if ($ip !== null) $limits[] = Limit::perMinute(60)->by('teacher-ip:'.$ip);
+            return $limits;
         });
         // Sales app requests all arrive from the Worker, so limit per signed-in user, not per IP.
         RateLimiter::for('sales-api', function (Request $request) {

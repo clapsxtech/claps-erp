@@ -5,6 +5,7 @@ use App\Infrastructure\Cloudflare\CommitRejected;
 use App\Infrastructure\Cloudflare\TransactionTooLarge;
 use App\Infrastructure\Cloudflare\UnconfirmedCommit;
 use Illuminate\Session\NullSessionHandler;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -37,6 +38,20 @@ class SaveFailureResponseTest extends TestCase
             ->assertSee('We could not confirm this was saved')->assertSee('check whether it is already there');
         $this->postJson('/__test/save/unconfirmed')->assertStatus(503)
             ->assertJsonFragment(['message' => 'We could not confirm this was saved. The connection to the database was interrupted. The change may or may not have been saved. Before submitting again, open the record and check whether it is already there, so it is not saved twice.']);
+    }
+
+    public function test_a_real_d1_conflict_renders_the_page_with_database_sessions(): void
+    {
+        if (getenv('D1_COMPAT_TEST') !== '1') $this->markTestSkipped('Needs the D1 adapter: run with D1_COMPAT_TEST=1.');
+        config(['session.driver' => 'database']);
+        Route::middleware('web')->post('/__test/d1-conflict', function () {
+            DB::table('erp_units')->count(); // open the working copy at the current revision
+            // Another request commits first: the remote revision moves past this working copy.
+            app(\Tests\Support\SqliteD1Gateway::class)->remote()->exec('UPDATE erp_d1_revision SET revision = revision + 1');
+            DB::table('erp_units')->insert(['code' => 'CONFLICT', 'name' => 'Never saved', 'timezone' => 'UTC']);
+        });
+        $this->post('/__test/d1-conflict')->assertStatus(409)->assertSee('This was not saved');
+        $this->assertSame(0, (int) app(\Tests\Support\SqliteD1Gateway::class)->remote()->query("SELECT COUNT(*) FROM erp_units WHERE code = 'CONFLICT'")->fetchColumn());
     }
 
     public function test_oversized_save_returns_to_the_form_with_input_and_a_clear_error(): void

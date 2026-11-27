@@ -51,9 +51,8 @@ class SalesController extends Controller
         $user = User::where('email', trim($v['email']))->first();
         $policy = new SiteAccessPolicy();
         $failed = function () use ($attempts, $key, $user) {
-            $attempts->hit(self::LOGIN_SITE_KEY, 900);
             // Only real accounts get their own counters, so made-up emails cannot grow the table.
-            if ($user) { $attempts->hit($key, 300); $attempts->hit($key.':day', 86400); }
+            $attempts->hitAll([self::LOGIN_SITE_KEY => 900] + ($user ? [$key => 300, $key.':day' => 86400] : []));
         };
         if (!$user || !Hash::check($v['password'], (string) $user->password) || !$policy->isSiteMember($user)) {
             $failed();

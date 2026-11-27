@@ -66,11 +66,10 @@ class TeacherIdentityVerifier
         }
         $teacher = $name === null ? null : $this->match(['teacher_name' => $name] + $input);
         if (!$teacher) {
-            if ($ipKey !== null) $attempts->hit($ipKey, self::TEACHER_DECAY);
-            if ($teacherKey !== null) {
-                $attempts->hit($teacherKey, self::TEACHER_DECAY);
-                $attempts->hit($teacherKey.':day', 86400);
-            }
+            $failures = [];
+            if ($ipKey !== null) $failures[$ipKey] = self::TEACHER_DECAY;
+            if ($teacherKey !== null) $failures += [$teacherKey => self::TEACHER_DECAY, $teacherKey.':day' => 86400];
+            $attempts->hitAll($failures);
             $this->deny();
         }
         // Clear only the short window: a daily sign-in must not reset the daily budget.

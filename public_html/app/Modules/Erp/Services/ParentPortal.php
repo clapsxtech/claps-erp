@@ -64,13 +64,13 @@ class ParentPortal
             ->whereRaw('UPPER(s.code) = ?', [$code])->where('p.date_of_birth', $dob)->whereNull('u.archived_at')
             ->select('s.*')->first();
         if (!$student) {
+            $failures = ['parent-login:site' => 60];
             // Only real student IDs get their own counters, so made-up IDs cannot grow the table.
             if ($code !== '' && DB::table('erp_students')->whereRaw('UPPER(code) = ?', [$code])->exists()) {
-                $attempts->hit($codeKey, self::CODE_DECAY);
-                $attempts->hit($dayKey, 86400);
+                $failures += [$codeKey => self::CODE_DECAY, $dayKey => 86400];
             }
-            if ($ip !== null) $attempts->hit($ipKey, self::CODE_DECAY);
-            $attempts->hit('parent-login:site', 60);
+            if ($ip !== null) $failures[$ipKey] = self::CODE_DECAY;
+            $attempts->hitAll($failures);
             throw ValidationException::withMessages(['student_code' => 'The student ID and date of birth do not match our records.']);
         }
         // Clear only the short window: a family's daily sign-in must not reset the daily budget.

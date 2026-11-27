@@ -9,9 +9,10 @@ use Illuminate\Support\Facades\DB;
  *
  * The application cache lives on the container's disk, which is lost on every deploy or idle
  * restart, so lockouts kept there reset whenever the container restarts. These counters are
- * stored in the application database instead. Only failures are written, so a successful
- * sign-in costs one read. Call it outside database transactions: a rollback would discard
- * the recorded failure.
+ * stored in the application database instead. On D1 every write is a remote commit, so only
+ * failures write: a successful sign-in with nothing to clear makes reads only, and one failure
+ * records all its counters in one transaction (one commit). Call it outside other database
+ * transactions: a rollback would discard the recorded failure.
  */
 class CredentialAttempts
 {
@@ -30,6 +31,15 @@ class CredentialAttempts
         $row = DB::table(self::TABLE)->where('key', $this->key($key))->first(['attempts', 'expires_at']);
 
         return $row !== null && (int) $row->expires_at > time() ? (int) $row->attempts : 0;
+    }
+
+    /** Record one failure against several counters in a single commit. @param array<string,int> $decays key => window seconds */
+    public function hitAll(array $decays): void
+    {
+        if ($decays === []) return;
+        DB::transaction(function () use ($decays) {
+            foreach ($decays as $key => $decaySeconds) $this->hit($key, $decaySeconds);
+        });
     }
 
     public function hit(string $key, int $decaySeconds): void
@@ -52,7 +62,9 @@ class CredentialAttempts
 
     public function clear(string $key): void
     {
-        DB::table(self::TABLE)->where('key', $this->key($key))->delete();
+        // Read first: on D1 even a DELETE that matches nothing would cost a remote commit.
+        $key = $this->key($key);
+        if (DB::table(self::TABLE)->where('key', $key)->exists()) DB::table(self::TABLE)->where('key', $key)->delete();
     }
 
     private function key(string $key): string

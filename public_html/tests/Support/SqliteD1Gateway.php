@@ -18,6 +18,8 @@ class SqliteD1Gateway extends Gateway
         $this->remote->exec('CREATE TABLE erp_d1_revision(revision INTEGER);INSERT INTO erp_d1_revision VALUES(0);PRAGMA foreign_keys=ON;');
         foreach($schema as $object){if($object['type']!=='table')continue;$table=D1Pdo::identifier($object['name']);foreach(['INSERT','UPDATE','DELETE'] as $action)$this->remote->exec('CREATE TRIGGER '.D1Pdo::identifier('erp_d1_'.$object['name'].'_'.$action)." AFTER {$action} ON {$table} BEGIN UPDATE erp_d1_revision SET revision=revision+1;END;");}
     }
+    /** The simulated remote D1 database, for tests that act as another request. */
+    public function remote(): PDO { return $this->remote; }
     public function call(string $operation,array $payload=[]):array
     {
         $revision=(int)$this->remote->query('SELECT revision FROM erp_d1_revision')->fetchColumn();
