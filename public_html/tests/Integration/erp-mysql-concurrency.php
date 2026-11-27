@@ -30,7 +30,8 @@ require $base.'/vendor/autoload.php';
 $app = new Illuminate\Foundation\Application($base);
 $app->instance('config', new Illuminate\Config\Repository([
     'app' => ['locale' => 'en'],
-    'erp' => ['finance_policy' => 'admin_import_delivered_only', 'payroll_policy' => 'approved_attended_only'],
+    // Parent review before approval is a business rule covered by ErpTuitionWorkflowsTest; this probe checks locking only.
+    'erp' => ['finance_policy' => 'admin_import_delivered_only', 'payroll_policy' => 'approved_attended_only', 'parent_review_required' => false],
     'database' => ['default' => 'mysql', 'connections' => ['mysql' => ['driver' => 'mysql', 'host' => $host, 'port' => (int)$port, 'database' => $database, 'username' => $user, 'password' => $password, 'unix_socket' => '', 'charset' => 'utf8mb4', 'collation' => 'utf8mb4_unicode_ci', 'prefix' => '', 'strict' => true, 'engine' => 'InnoDB']]],
 ]));
 Illuminate\Support\Facades\Facade::setFacadeApplication($app);
@@ -139,22 +140,27 @@ if (($argv[1] ?? '') === 'worker') {
     exit;
 }
 
-require_once $base.'/database/migrations/2026_10_23_130000_create_erp_core_tables.php';
-require_once $base.'/database/migrations/2026_10_23_140000_add_request_reference_to_erp_lessons.php';
-require_once $base.'/database/migrations/2026_10_23_150000_create_erp_business_workflows.php';
-require_once $base.'/database/migrations/2026_10_23_160000_index_erp_migration_targets.php';
-require_once $base.'/database/migrations/2026_10_23_170000_add_intervals_to_erp_exceptions.php';
-require_once $base.'/database/migrations/2026_10_26_090000_create_erp_admissions.php';
+/** Every migration that creates or changes erp_* tables, in order, so the probe schema matches the app. */
+function erpMigrations(): array {
+    $files = glob(dirname(__DIR__,2).'/database/migrations/*.php'); sort($files);
+    return array_values(array_filter($files, fn($file) => str_contains((string) file_get_contents($file), "'erp_")));
+}
+function runMigration(string $file): void {
+    // Named classes can be declared only once per process; anonymous ones return a fresh object each time.
+    $source = (string) file_get_contents($file);
+    if (preg_match('/^class\s+(\w+)/m', $source, $m)) { require_once $file; (new $m[1]())->up(); return; }
+    $migration = require $file; $migration->up();
+}
 function resetFixture(): void {
-    $root=dirname(__DIR__,2);
-    $recruitment=require $root.'/database/migrations/2026_10_26_140000_create_teacher_recruitment.php';
-    $allocation=require $root.'/database/migrations/2026_10_26_160000_add_teacher_allocation.php';
-    if(\Illuminate\Support\Facades\Schema::hasTable('erp_allocation_requests'))$allocation->down();
-    $recruitment->down();(new CreateErpAdmissions())->down();
-    $migration = new CreateErpCoreTables();
-    $business = new CreateErpBusinessWorkflows();
-    $business->down(); $migration->down(); $migration->up(); (new AddRequestReferenceToErpLessons())->up(); $business->up(); (new IndexErpMigrationTargets())->up(); (new AddIntervalsToErpExceptions())->up();
-    (new CreateErpAdmissions())->up();$recruitment->up();$allocation->up();
+    // The connection is already checked to be the disposable erp_probe_* database named by ERP_PROBE_ALLOW_RESET.
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    foreach (DB::select("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'") as $row) {
+        DB::statement('DROP TABLE `'.str_replace('`', '``', array_values((array) $row)[0]).'`');
+    }
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    // Migrations that alter users expect the table to exist.
+    \Illuminate\Support\Facades\Schema::create('users', function ($t) { $t->increments('id'); $t->string('remember_token', 100)->nullable(); });
+    foreach (erpMigrations() as $file) runMigration($file);
     DB::table('erp_units')->insert(['id' => 1, 'code' => 'PROBE', 'name' => 'Synthetic concurrency unit', 'timezone' => 'UTC']);
     DB::table('erp_students')->insert(['id' => 1, 'unit_id' => 1, 'code' => 'PROBE-S', 'name' => 'Synthetic student', 'registered_on' => '2026-01-01', 'timezone' => 'UTC', 'status' => 'active', 'grade' => '8', 'syllabus' => 'Synthetic']);
     DB::table('erp_teachers')->insert(['id' => 1, 'code' => 'PROBE-T', 'name' => 'Synthetic teacher', 'timezone' => 'UTC', 'status' => 'active']);
