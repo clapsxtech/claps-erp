@@ -13,7 +13,11 @@
     <a class="workspace-open" href="{{ route('erp.business',[$unit->id,(new \App\Modules\Erp\Services\TeamPermissions())->landing(auth()->user(),$unit->id)]) }}">Open workspace @include('erp.icon',['name'=>'arrow'])</a>
 </section>
 @empty
+@if((new \App\Modules\IdentityAccess\Services\SiteAccessPolicy())->isAdministrator(auth()->user()))
+<section class="empty-state"><span class="empty-icon">@include('erp.icon',['name'=>'grid'])</span><h3>No business units yet</h3><p>Create a team in Teams &amp; accounts, add yourself or your staff to it, and it will appear here.</p><a class="button" href="{{ route('erp.administration') }}">Go to Teams &amp; accounts</a></section>
+@else
 <section class="empty-state"><span class="empty-icon">@include('erp.icon',['name'=>'grid'])</span><h3>No business units assigned yet</h3><p>Ask your administrator to give you access to a business unit. Your assigned tasks are still available from the sidebar.</p><a class="button" href="{{ route('erp.tasks.mine') }}">View my tasks</a><a class="text-link" href="{{ route('erp.teacher.index') }}">Teacher lesson attendance @include('erp.icon',['name'=>'arrow'])</a></section>
+@endif
 @endforelse
 </div><div class="workspace-note">@include('erp.icon',['name'=>'shield'])<p>Each unit has its own teacher pool and access. Existing Sheets and legacy records are not automatically imported.</p></div></div>
 <aside class="home-aside" aria-label="Workspace shortcuts"><section class="quick-panel"><h3>Shortcuts</h3><a class="quick-link" href="{{ route('erp.tasks.mine') }}"><span class="quick-icon">@include('erp.icon',['name'=>'check'])</span><span><strong>My assigned tasks</strong><small>Your next steps, in one place</small></span>@include('erp.icon',['name'=>'chevron'])</a><a class="quick-link" href="{{ route('tools.index') }}"><span class="quick-icon blue">@include('erp.icon',['name'=>'external'])</span><span><strong>Records & administration</strong><small>Records, reports and site settings</small></span>@include('erp.icon',['name'=>'chevron'])</a></section>
