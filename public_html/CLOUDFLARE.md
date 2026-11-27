@@ -11,7 +11,9 @@ Production: **https://erp.clapslearn.in**
 All runtime hosting and persistent application storage are inside Cloudflare.
 No MySQL host or R2 API key is required. Workers Paid and R2 are enabled.
 The Worker uses direct D1 and R2 bindings; internal container requests require
-an encrypted `INTERNAL_TOKEN`. `APP_KEY` is also an encrypted Worker secret.
+an encrypted `INTERNAL_TOKEN`. The database and upload gateway is reachable only from
+the container (through the `StorageGateway` service binding), never on the public
+hostname; only `/__cloudflare/restart` is public. `APP_KEY` is also an encrypted Worker secret.
 Never commit either secret or the initial administrator credentials.
 
 ## Deploy changes

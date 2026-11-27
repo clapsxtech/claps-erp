@@ -34,10 +34,10 @@ def check_ready():
 def verify_deployment(token):
     """Read table definitions without downloading production table rows."""
     check_ready()
-    request = urllib.request.Request(ORIGIN + '/__cloudflare/database/schema', data=b'{}', method='POST',
-        headers={**HEADERS, 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token})
-    with urllib.request.urlopen(request, timeout=180) as response:
-        objects = json.load(response)['schema']
+    # The database gateway is not served on the public hostname, so read the schema through Wrangler.
+    output = run(['npx', '--no-install', 'wrangler', 'd1', 'execute', 'clapslearn-erp', '--remote', '--json',
+                  '--command', "SELECT type, name, sql FROM sqlite_master WHERE type = 'table'"], capture=True)
+    objects = json.loads(output)[0]['results']
     required = {
         'erp_teacher_matching_profiles': set(), 'erp_allocation_requests': set(),
         'erp_demos': {'starts_at', 'ends_at', 'feedback_outcome', 'enrollment_id'},

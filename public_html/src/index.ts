@@ -220,6 +220,13 @@ export default {
             if (!ready.ok) return Response.json({ restarted: true, ready: false }, { status: 503 });
             return Response.json({ restarted: true, ready: true }, { headers: { 'Cache-Control': 'no-store' } });
         }
+        // The container reaches the database and upload gateway through the StorageGateway service
+        // binding (erp-storage.internal), never the public hostname. Do not expose it here: a leaked
+        // token must not give the internet read and write access to every table.
+        if (new URL(request.url).pathname.startsWith("/__cloudflare/")) {
+            return new Response("Not found", { status: 404 });
+        }
+        // Public profile photo reads (/uploads/...).
         const storage = await storageRequest(request, env);
         if (storage) return storage;
         if (new URL(request.url).pathname.toLowerCase().startsWith("/api/sales")) {
