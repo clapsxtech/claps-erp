@@ -5,8 +5,8 @@ name: Deploy to Cloudflare
 # security audits pass. Requires, in the GitHub environment CLOUDFLARE_API_TOKEN:
 # - CLOUDFLARE_API_TOKEN (Workers Scripts, Containers, D1, R2 edit on the account
 #   in public_html/wrangler.jsonc)
-# - RESTART_TOKEN (recommended): a random value also stored on the Worker with
-#   `npx wrangler secret put RESTART_TOKEN`, used to restart the app on the new version.
+# - RESTART_TOKEN (recommended): a long random value, used to restart the app on the new
+#   version. The deploy also stores it on the Worker, so set it only here.
 #   Without it, INTERNAL_TOKEN (the Worker's own value) is used instead. With neither,
 #   the deploy stops before changing anything.
 # APP_KEY may also be set there; when both are set they replace the Worker's values.
@@ -103,19 +103,28 @@ jobs:
             echo "::error::Set these GitHub secrets in the CLOUDFLARE_API_TOKEN environment before deploying:$missing. Nothing was deployed."
             exit 1
           fi
-      # APP_KEY and INTERNAL_TOKEN are normally already stored on the Worker.
-      # If both are also set as GitHub secrets here, they replace the stored ones.
+      # Secrets uploaded with the new version. Wrangler adds them to the Worker's existing
+      # secrets and never removes omitted ones.
+      # - RESTART_TOKEN: when set here, the Worker gets the same value with this deploy, so the
+      #   GitHub secret is the only place to set it.
+      # - APP_KEY and INTERNAL_TOKEN are normally already stored on the Worker; only when both
+      #   are set here do they replace the stored ones.
       - name: Write Worker secrets file
         env:
           APP_KEY: ${{ secrets.APP_KEY }}
           INTERNAL_TOKEN: ${{ secrets.INTERNAL_TOKEN }}
+          RESTART_TOKEN: ${{ secrets.RESTART_TOKEN }}
         run: |
-          if [ -n "$APP_KEY" ] && [ -n "$INTERNAL_TOKEN" ]; then
-            umask 077
-            node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({APP_KEY: process.env.APP_KEY, INTERNAL_TOKEN: process.env.INTERNAL_TOKEN}))' "$RUNNER_TEMP/worker-secrets.json"
+          umask 077
+          node -e '
+            const secrets = {};
+            if (process.env.RESTART_TOKEN) secrets.RESTART_TOKEN = process.env.RESTART_TOKEN;
+            if (process.env.APP_KEY && process.env.INTERNAL_TOKEN) Object.assign(secrets, { APP_KEY: process.env.APP_KEY, INTERNAL_TOKEN: process.env.INTERNAL_TOKEN });
+            if (Object.keys(secrets).length) require("fs").writeFileSync(process.argv[1], JSON.stringify(secrets));
+            console.log("Uploading with this deploy: " + (Object.keys(secrets).join(", ") || "nothing; using the secrets already stored on the Worker"));
+          ' "$RUNNER_TEMP/worker-secrets.json"
+          if [ -f "$RUNNER_TEMP/worker-secrets.json" ]; then
             echo "SECRETS_ARGS=--secrets-file $RUNNER_TEMP/worker-secrets.json" >> "$GITHUB_ENV"
-          else
-            echo "Using APP_KEY and INTERNAL_TOKEN already stored on the Worker."
           fi
       - uses: actions/setup-node@v4
         with:
