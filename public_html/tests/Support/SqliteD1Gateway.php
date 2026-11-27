@@ -34,9 +34,10 @@ class SqliteD1Gateway extends Gateway
             return ['rows'=>$rows,'more'=>count($rows)===$limit];
         }
         if(isset($this->receipts[$payload['id']]))return $this->receipts[$payload['id']];
-        if($revision!==$payload['revision'])throw new RuntimeException('Conflict');
+        // Like the storage Worker (src/storage.ts): a stale revision or a failed batch is refused with 409, nothing applied.
+        if($revision!==$payload['revision'])throw new \App\Infrastructure\Cloudflare\GatewayRejected('Cloudflare database refused the request (HTTP 409).');
         $this->remote->beginTransaction();
-        try{foreach($payload['statements'] as $s)$this->remote->prepare($s['sql'])->execute($s['params']);$this->remote->commit();}catch(\Throwable $e){$this->remote->rollBack();throw $e;}
+        try{foreach($payload['statements'] as $s)$this->remote->prepare($s['sql'])->execute($s['params']);$this->remote->commit();}catch(\Throwable $e){$this->remote->rollBack();throw new \App\Infrastructure\Cloudflare\GatewayRejected('Cloudflare database refused the request (HTTP 409).',0,$e);}
         return $this->receipts[$payload['id']]=['revision'=>(int)$this->remote->query('SELECT revision FROM erp_d1_revision')->fetchColumn()];
     }
 }

@@ -129,17 +129,35 @@ class D1Pdo extends PDO
         return parent::exec($statement);
     }
 
+    /** The storage Worker refuses commits with more statements than this (src/storage.ts). */
+    public const MAX_STATEMENTS = 900;
+
     public function commit(): bool
     {
+        if (count($this->journal) > self::MAX_STATEMENTS) {
+            // Refuse before sending: nothing reaches D1 and the local copy is rolled back, so this
+            // connection stays usable and the caller gets a clear, definite error.
+            $count = count($this->journal);
+            $this->journal = []; $this->savepoints = [];
+            if (parent::inTransaction()) parent::rollBack();
+            throw new TransactionTooLarge("This change needs {$count} database writes; at most ".self::MAX_STATEMENTS.' can be saved at once. Nothing was saved.');
+        }
         if ($this->journal) {
             $request = ['id' => bin2hex(random_bytes(24)), 'revision' => $this->revision, 'statements' => $this->journal];
             try {
                 // The same ID is used for retry: a lost response must never replay a payment.
+                // Retry only when the outcome is unknown; a refusal is final.
                 try { $result = $this->gateway->call('commit', $request); }
+                catch (GatewayRejected $rejected) { throw $rejected; }
                 catch (Throwable) { $result = $this->gateway->call('commit', $request); }
                 $revision = (int) $result['revision'];
                 parent::prepare('UPDATE erp_d1_local SET revision=?')->execute([$revision]);
                 $this->revision = $revision;
+            } catch (GatewayRejected $error) {
+                // Usually another request changed the data first. The working copy may be stale.
+                if (parent::inTransaction()) parent::rollBack();
+                $this->journal = []; $this->unusable = true;
+                throw new CommitRejected('D1 did not apply this change. Nothing was saved; retry the request.', 0, $error);
             } catch (Throwable $error) {
                 if (parent::inTransaction()) parent::rollBack();
                 $this->journal = []; $this->unusable = true;
