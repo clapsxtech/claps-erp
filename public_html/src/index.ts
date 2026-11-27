@@ -1,12 +1,14 @@
 import { checkOperations } from "./monitoring";
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
-import { storageRequest, isStorageAuthorized, type StorageEnv } from "./storage";
+import { storageRequest, isRestartAuthorized, type StorageEnv } from "./storage";
 
 interface Env extends StorageEnv, Partial<Pick<Cloudflare.Env, "ERP_SHEETS_TRANSITION_ENABLED" | "ERP_DATA_AUTHORITY" | "ERP_SHEETS_BAND_UNITS">> {
     LARAVEL_CONTAINER: DurableObjectNamespace<LaravelContainer>;
     STORAGE_GATEWAY: Fetcher;
     APP_KEY: string;
     APP_URL: string;
+    // Optional; when set, the only token the public restart endpoint accepts.
+    RESTART_TOKEN?: string;
     TRUSTED_PROXIES?: string;
     ERP_BUSINESS_ID?: string;
     SHEETS_SYNC_ENABLED?: string;
@@ -210,7 +212,7 @@ export default {
     },
     async fetch(request: Request, env: Env): Promise<Response> {
         if (new URL(request.url).pathname === '/__cloudflare/restart') {
-            if (request.method !== 'POST' || !await isStorageAuthorized(request, env)) {
+            if (request.method !== 'POST' || !await isRestartAuthorized(request, env)) {
                 return new Response('Unauthorized', { status: 401 });
             }
             const instance = env.LARAVEL_CONTAINER.getByName('production');

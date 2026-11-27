@@ -21,7 +21,10 @@ Never commit either secret or the initial administrator credentials.
 Pushes to `main` deploy automatically through `.github/workflows/cloudflare-deploy.yml`.
 The deploy waits for PHPUnit (normal and D1 mode), the recovery drill, the Node and
 TypeScript checks and the Composer and npm security audits. It stops before changing
-anything if `INTERNAL_TOKEN` is not a GitHub secret or a D1 migration is not yet applied.
+anything if neither `RESTART_TOKEN` nor `INTERNAL_TOKEN` is a GitHub secret, or a D1
+migration is not yet applied. `RESTART_TOKEN` is a separate random value stored both as a
+GitHub secret and on the Worker (`npx wrangler secret put RESTART_TOKEN`); once set, it is
+the only token the public restart endpoint accepts, and it is never given to the container.
 If the new version does not become ready, it rolls back to the previously live version.
 Apply new D1 migrations (below) before merging the code that needs them.
 

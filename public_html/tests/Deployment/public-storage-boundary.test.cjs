@@ -21,7 +21,7 @@ function load() {
             if (name === './monitoring') return { checkOperations: async () => ({ status: 'ok' }) };
             if (name === './storage') return {
                 storageRequest: async (request) => { storageCalls.push(new URL(request.url).pathname); return new Response('storage'); },
-                isStorageAuthorized: async (request) => request.headers.get('authorization') === 'Bearer internal-test-token',
+                isRestartAuthorized: async (request, env) => request.headers.get('authorization') === 'Bearer ' + (env.RESTART_TOKEN || env.INTERNAL_TOKEN),
             };
             assert.equal(name, 'cloudflare:workers');
             return {
@@ -65,4 +65,28 @@ test('the restart endpoint stays public and still requires the token', async () 
     const { exports, env } = load();
     const response = await exports.default.fetch(new Request('https://erp.example.test/__cloudflare/restart', { method: 'POST' }), env);
     assert.equal(response.status, 401);
+});
+
+test('the restart token is never given to the container', () => {
+    const source = fs.readFileSync(path.join(root, 'src/index.ts'), 'utf8');
+    const containerEnv = source.slice(source.indexOf('container.start('), source.indexOf('container.start(') + 4000);
+    assert.ok(containerEnv.includes('CLOUDFLARE_INTERNAL_TOKEN'), 'located the container environment');
+    assert.ok(!containerEnv.includes('RESTART_TOKEN'));
+});
+
+test('restart accepts only RESTART_TOKEN once set, and INTERNAL_TOKEN until then', async () => {
+    const exports = {};
+    const source = ts.transpileModule(fs.readFileSync(path.join(root, 'src/storage.ts'), 'utf8'), {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    vm.runInNewContext(source, { exports, crypto, TextEncoder, Request, Response, URL });
+    const ask = (token) => new Request('https://erp.example.test/__cloudflare/restart', { method: 'POST', headers: token ? { authorization: 'Bearer ' + token } : {} });
+    const separate = { INTERNAL_TOKEN: 'internal-test-token', RESTART_TOKEN: 'restart-test-token' };
+    assert.equal(await exports.isRestartAuthorized(ask('restart-test-token'), separate), true);
+    assert.equal(await exports.isRestartAuthorized(ask('internal-test-token'), separate), false);
+    assert.equal(await exports.isRestartAuthorized(ask(''), separate), false);
+    const fallback = { INTERNAL_TOKEN: 'internal-test-token' };
+    assert.equal(await exports.isRestartAuthorized(ask('internal-test-token'), fallback), true);
+    assert.equal(await exports.isRestartAuthorized(ask('restart-test-token'), fallback), false);
+    assert.equal(await exports.isRestartAuthorized(ask(''), { INTERNAL_TOKEN: '' }), false);
 });
