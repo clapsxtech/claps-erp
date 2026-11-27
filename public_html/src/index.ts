@@ -9,6 +9,9 @@ interface Env extends StorageEnv, Partial<Pick<Cloudflare.Env, "ERP_SHEETS_TRANS
     APP_URL: string;
     // Optional; when set, the only token the public restart endpoint accepts.
     RESTART_TOKEN?: string;
+    // The deployed Worker version (wrangler.jsonc version_metadata), used to restart the
+    // container on its new image after each deploy or rollback.
+    CF_VERSION_METADATA?: WorkerVersionMetadata;
     TRUSTED_PROXIES?: string;
     ERP_BUSINESS_ID?: string;
     SHEETS_SYNC_ENABLED?: string;
@@ -56,10 +59,29 @@ export class SalesGateway extends WorkerEntrypoint<Env> {
 
 const PORT = 8080;
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
+// Durable Object storage key: the Worker version that last started the container.
+const STARTED_VERSION_KEY = "container-started-by-version";
 
 export class LaravelContainer extends DurableObject<Env> {
     private starting: Promise<void> | undefined;
     private ready = false;
+    private versionCheck: Promise<void> | undefined;
+
+    /**
+     * A running container keeps its old image after a deploy (or rollback). The first request
+     * to a new Worker version (the 5-minute cron guarantees one) restarts it once, so new code
+     * goes live without anyone calling the public restart endpoint.
+     */
+    private async restartIfVersionChanged(): Promise<void> {
+        const current = this.env.CF_VERSION_METADATA?.id;
+        if (!current || !this.ctx.container?.running) return;
+        const started = await this.ctx.storage.get<string>(STARTED_VERSION_KEY);
+        if (started === current) return;
+        console.log(JSON.stringify({ event: "erp.container_version_restart", from: started ?? null, to: current }));
+        if (this.starting) await this.starting;
+        this.ready = false;
+        await this.ctx.container.destroy();
+    }
 
     async restart(): Promise<void> {
         if (this.starting) await this.starting;
@@ -79,6 +101,10 @@ export class LaravelContainer extends DurableObject<Env> {
     }
 
     async fetch(request: Request): Promise<Response> {
+        // Once per Durable Object instance (a deploy replaces the instance): restart the
+        // container if a different Worker version started it. Retry on the next request on failure.
+        this.versionCheck ??= this.restartIfVersionChanged().catch((error) => { this.versionCheck = undefined; throw error; });
+        await this.versionCheck;
         // Probe once per boot, not once per HTTP request. A stopped container
         // must pass readiness again. Never replay a failed mutation request.
         if (!this.ready || !this.ctx.container!.running) {
@@ -185,7 +211,11 @@ export class LaravelContainer extends DurableObject<Env> {
                     signal: AbortSignal.timeout(20000),
                 });
                 await response.body?.cancel();
-                if (response.ok) return;
+                if (response.ok) {
+                    const version = this.env.CF_VERSION_METADATA?.id;
+                    if (version) await this.ctx.storage.put(STARTED_VERSION_KEY, version);
+                    return;
+                }
                 lastError = new Error(`Health check returned ${response.status}`);
             } catch (error) {
                 lastError = error;

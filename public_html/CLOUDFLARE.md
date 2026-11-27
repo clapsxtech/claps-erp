@@ -21,11 +21,16 @@ Never commit either secret or the initial administrator credentials.
 Pushes to `main` deploy automatically through `.github/workflows/cloudflare-deploy.yml`.
 The deploy waits for PHPUnit (normal and D1 mode), the recovery drill, the Node and
 TypeScript checks and the Composer and npm security audits. It stops before changing
-anything if neither `RESTART_TOKEN` nor `INTERNAL_TOKEN` is a GitHub secret, or a D1
-migration is not yet applied. `RESTART_TOKEN` is a separate random value kept only as a GitHub
-secret; each deploy also stores it on the Worker. Once set, it is the only token the public
-restart endpoint accepts, and it is never given to the container.
-If the new version does not become ready, it rolls back to the previously live version.
+anything if a D1 migration is not yet applied. After a deploy (or rollback) the app
+restarts itself: the Worker restarts its container on the first request to a new
+version, and the 5-minute cron guarantees one, so GitHub never calls the restart
+endpoint (Cloudflare security blocks GitHub's machines from it). The optional
+`RESTART_TOKEN` GitHub secret is stored on the Worker with each deploy, for manual
+restarts; once set, it is the only token the restart endpoint accepts.
+If the live site fails after a deploy, it rolls back to the previously live version.
+New deploys copy `APP_KEY` and `INTERNAL_TOKEN` from the newest Worker version, so
+never upload a version without them (for example a `wrangler` command run outside
+`public_html`, or dashboard edits on the Previews tab).
 Apply new D1 migrations (below) before merging the code that needs them.
 
 To deploy by hand instead:
@@ -56,8 +61,8 @@ manages the hostname and certificate. Use the domain-owning Wrangler login;
 the connected Cloudflare plugin may be signed into a different account.
 
 The Durable Object scheduling policy starts the configured image when an instance
-boots. Deploying alone does not replace an already-running container. Restart the
-instance explicitly when changing images or secrets, then verify `/health`, login,
+boots. Deploys, rollbacks and secret changes each create a new Worker version, and the
+container restarts itself on its next request. Then verify `/health`, login,
 ERP pages, and uploads. Never delete the D1 database or uploads bucket to redeploy.
 The restart endpoint is `POST /__cloudflare/restart`, authenticated with
 `Authorization: Bearer <INTERNAL_TOKEN>`. Load the token from private secret storage;
