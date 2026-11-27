@@ -13,6 +13,14 @@ export async function isStorageAuthorized(request: Request, env: StorageEnv): Pr
     return Boolean(env.INTERNAL_TOKEN) && await digest(request.headers.get('Authorization') ?? '') === await digest('Bearer ' + env.INTERNAL_TOKEN);
 }
 
+// The public restart endpoint uses its own token when RESTART_TOKEN is set, so the token that
+// unlocks storage and the sales gateway never has to travel over the internet. RESTART_TOKEN is
+// not given to the container. Until it is set, INTERNAL_TOKEN still works.
+export async function isRestartAuthorized(request: Request, env: StorageEnv & { RESTART_TOKEN?: string }): Promise<boolean> {
+    const token = env.RESTART_TOKEN || env.INTERNAL_TOKEN;
+    return Boolean(token) && await digest(request.headers.get('Authorization') ?? '') === await digest('Bearer ' + token);
+}
+
 // Convert bindings to SQLite literals without interpreting question marks inside quoted SQL.
 // This avoids D1's bound-parameter limit for Laravel's multi-row inserts.
 export function bindSql(sql: string, params: unknown[]): string {
@@ -108,10 +116,16 @@ export async function storageRequest(request: Request, env: StorageEnv): Promise
             const hash = await digest(JSON.stringify({ revision: input.revision, statements: input.statements }));
             const receipt = await db.prepare('SELECT revision,hash FROM erp_d1_commits WHERE id=?').bind(input.id).first();
             if (receipt) return receipt.hash === hash ? json({ revision: receipt.revision }) : json({ error: 'Transaction ID conflict' }, 409);
-            const statements = input.statements.map((s: any) => {
-                if (typeof s.sql !== 'string' || !/^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(s.sql) || /\berp_d1_/i.test(s.sql) || !Array.isArray(s.params)) throw new Error('Invalid mutation');
-                return db.prepare(bindSql(s.sql, s.params));
-            });
+            let statements: D1PreparedStatement[];
+            try {
+                statements = input.statements.map((s: any) => {
+                    if (typeof s.sql !== 'string' || !/^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(s.sql) || /\berp_d1_/i.test(s.sql) || !Array.isArray(s.params)) throw new Error('Invalid mutation');
+                    return db.prepare(bindSql(s.sql, s.params));
+                });
+            } catch {
+                // Refused before the batch, so nothing was applied: a definite rejection, not an unknown outcome.
+                return json({ error: 'Invalid or oversized statement; no changes committed' }, 400);
+            }
             try {
                 const result = await db.batch([
                     // CHECK failure aborts the entire batch before any business write occurs.

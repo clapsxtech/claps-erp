@@ -65,6 +65,19 @@ class ErpFinanceAttendanceTest extends TestCase
         $this->assertSame(50000, $finance->balance(1, 1));
     }
 
+    public function test_receipts_cannot_take_reserved_system_references(): void
+    {
+        $finance = new Finance();
+        $receipt = $finance->payment(1, 1, ['student_id' => 1, 'amount_paise' => 5000, 'reference' => 'SYN-RECEIPT-RESERVED']);
+        // A receipt holding the reversal's reference would make the reversal impossible.
+        foreach (['ERP:reversal:'.$receipt->id, 'erp:reversal:'.$receipt->id, '  ERP:attendance:1:1:lesson_charge'] as $reference) {
+            $this->invalid(function () use ($finance, $reference) { $finance->payment(1, 1, ['student_id' => 1, 'amount_paise' => 1, 'reference' => $reference]); });
+        }
+        $this->assertSame(1, DB::table('erp_ledger')->count());
+        (new \App\Modules\Erp\Services\MoneyOperations())->reverseReceipt(1, 1, ['entry_id' => $receipt->id, 'reason' => 'Synthetic correction']);
+        $this->assertSame(0, $finance->balance(1, 1));
+    }
+
     public function test_submission_and_approval_are_idempotent_and_rates_are_frozen(): void
     {
         $service = new Attendance();

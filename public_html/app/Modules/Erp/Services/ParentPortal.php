@@ -3,6 +3,7 @@ namespace App\Modules\Erp\Services;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use App\Modules\IdentityAccess\Services\CredentialAttempts;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
@@ -45,14 +46,16 @@ class ParentPortal
         $codeKey = 'parent-login:'.hash('sha256', $code);
         $ipKey = 'parent-login-ip:'.hash('sha256', (string) $ip);
         $dayKey = 'parent-login-day:'.hash('sha256', $code);
+        // Counters live in the database, so restarts and deploys do not reset lockouts.
+        $attempts = app(CredentialAttempts::class);
         // During a site-wide attack, IDs that have already had a wrong guess are frozen, while
         // families whose ID has not been tried can still sign in (no lockout for everyone).
-        $underAttack = RateLimiter::tooManyAttempts('parent-login:site', self::SITE_ATTEMPTS);
-        if (RateLimiter::tooManyAttempts($dayKey, self::CODE_DAILY_ATTEMPTS)) {
+        $underAttack = $attempts->tooMany('parent-login:site', self::SITE_ATTEMPTS);
+        if ($attempts->tooMany($dayKey, self::CODE_DAILY_ATTEMPTS)) {
             throw ValidationException::withMessages(['student_code' => 'Too many attempts for this student ID today. Please try again tomorrow, or contact the centre.']);
         }
-        if (RateLimiter::tooManyAttempts($codeKey, self::CODE_ATTEMPTS) || ($ip !== null && RateLimiter::tooManyAttempts($ipKey, self::IP_ATTEMPTS))
-            || ($underAttack && RateLimiter::attempts($codeKey) > 0)) {
+        if ($attempts->tooMany($codeKey, self::CODE_ATTEMPTS) || ($ip !== null && $attempts->tooMany($ipKey, self::IP_ATTEMPTS))
+            || ($underAttack && $attempts->attempts($codeKey) > 0)) {
             throw ValidationException::withMessages(['student_code' => 'Too many attempts. Please wait 15 minutes, or contact the centre.']);
         }
         $student = $code === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob) ? null : DB::table('erp_students as s')
@@ -61,13 +64,17 @@ class ParentPortal
             ->whereRaw('UPPER(s.code) = ?', [$code])->where('p.date_of_birth', $dob)->whereNull('u.archived_at')
             ->select('s.*')->first();
         if (!$student) {
-            RateLimiter::hit($codeKey, self::CODE_DECAY);
-            RateLimiter::hit($dayKey, 86400);
-            if ($ip !== null) RateLimiter::hit($ipKey, self::CODE_DECAY);
-            RateLimiter::hit('parent-login:site', 60);
+            $failures = ['parent-login:site' => 60];
+            // Only real student IDs get their own counters, so made-up IDs cannot grow the table.
+            if ($code !== '' && DB::table('erp_students')->whereRaw('UPPER(code) = ?', [$code])->exists()) {
+                $failures += [$codeKey => self::CODE_DECAY, $dayKey => 86400];
+            }
+            if ($ip !== null) $failures[$ipKey] = self::CODE_DECAY;
+            $attempts->hitAll($failures);
             throw ValidationException::withMessages(['student_code' => 'The student ID and date of birth do not match our records.']);
         }
-        RateLimiter::clear($codeKey); RateLimiter::clear($dayKey);
+        // Clear only the short window: a family's daily sign-in must not reset the daily budget.
+        $attempts->clear($codeKey);
         Audit::record((int) $student->unit_id, null, 'parent.signed_in', 'student', (int) $student->id, []);
         return $student;
     }

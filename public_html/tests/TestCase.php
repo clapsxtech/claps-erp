@@ -20,6 +20,7 @@ abstract class TestCase extends \Illuminate\Foundation\Testing\TestCase
         config(['erp.business_id' => 1, 'integrations.sheets.enabled' => false]);
         if (getenv('D1_COMPAT_TEST') === '1') {
             $remote = new \Tests\Support\SqliteD1Gateway(\Illuminate\Support\Facades\DB::connection()->getPdo());
+            $this->app->instance(\Tests\Support\SqliteD1Gateway::class, $remote);
             $path = sys_get_temp_dir().'/claps-d1-suite-'.bin2hex(random_bytes(10));
             $this->app['db']->extend('d1_compat', function ($config, $name) use ($remote, $path) {
                 return new \App\Infrastructure\Cloudflare\D1Connection(new \App\Infrastructure\Cloudflare\D1Pdo($remote, $path), $path, '', ['driver'=>'sqlite','name'=>$name]);

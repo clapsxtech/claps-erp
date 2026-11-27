@@ -103,14 +103,7 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label for="teacher_name" class="control-label">Teacher Name:*</label>
-                                            <select class="form-control select2" id="teacher_name" style="width:100%"
-                                                required name="teacher_name">
-                                                <option value="">Select Teacher</option>
-                                                @foreach ($teachers as $value)
-                                                    <option value="{{ $value->teacher_name }}" data-teacher-name="{{ $value->teacher_name }}">
-                                                        {{ $value->teacher_name }}</option>
-                                                @endforeach
-                                            </select>
+                                            <input class="form-control" id="teacher_name" name="teacher_name" type="text" required maxlength="255" autocomplete="name" spellcheck="false" placeholder="Your full name, as the centre has it">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -220,7 +213,7 @@ $(function () {
         var teacher = $('#teacher_name').val();
         var password = $('#password').val();
         if (!teacher || !password) {
-            showError('Select a teacher and enter your verification code first.');
+            showError('Enter your name and date of birth first.');
             return;
         }
         var button = $(this).prop('disabled', true);

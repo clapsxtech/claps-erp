@@ -56,7 +56,7 @@ class ErpMoneyInputHttpTest extends TestCase
 
     public function test_rupee_requests_allocations_corrections_and_settlements_preserve_bookkeeping_contract(): void
     {
-        $requestPayload = ['student_id' => $this->student, 'amount_inr' => '200.25', 'reference' => 'INR-REQUEST', 'requested_on' => now()->toDateString()];
+        $requestPayload = ['student_id' => $this->student, 'amount_inr' => '200.25', 'reference' => 'INR-REQUEST', 'requested_on' => now('UTC')->toDateString()];
         $this->business('request-create', $requestPayload)->assertRedirect()->assertSessionHasNoErrors();
         $request = DB::table('erp_payment_requests')->where('reference', 'INR-REQUEST')->first();
         $this->assertSame(20025, (int) $request->amount_paise);
@@ -70,7 +70,7 @@ class ErpMoneyInputHttpTest extends TestCase
         $this->assertDatabaseHas('erp_ledger', ['reference' => 'INR-CORRECTED', 'amount_paise' => 15029]);
         $this->get(route('erp.request.print', [$this->unit, $request->id]))->assertOk()->assertSee('Outstanding request: INR 200.25');
         DB::table('erp_ledger')->insert(['unit_id' => $this->unit, 'teacher_id' => $this->teacher, 'kind' => 'teacher_accrual', 'amount_paise' => 10025, 'currency' => 'INR', 'reference' => 'INR-EARNED', 'event_key' => 'inr-earned', 'occurred_at' => now(), 'created_by' => $this->admin->id]);
-        $settlement = ['teacher_id' => $this->teacher, 'amount_inr' => '40.25', 'reference' => 'INR-PAID', 'paid_on' => now()->toDateString(), 'reason' => 'Synthetic recorded external settlement'];
+        $settlement = ['teacher_id' => $this->teacher, 'amount_inr' => '40.25', 'reference' => 'INR-PAID', 'paid_on' => now('UTC')->toDateString(), 'reason' => 'Synthetic recorded external settlement'];
         $this->business('salary-paid', $settlement)->assertSessionHasErrors('already_paid');
         $this->assertSame(0, DB::table('erp_ledger')->where('kind', 'teacher_payment')->count());
         $this->business('salary-paid', $settlement + ['already_paid' => '1'])->assertRedirect()->assertSessionHasNoErrors();
@@ -87,7 +87,7 @@ class ErpMoneyInputHttpTest extends TestCase
     {
         foreach (['0', '-1', '+1', '1e2', '1,000.00', '1.001', '01.00', '10000000.01', str_repeat('9', 100), true, false, [], ['10'], 0.25, null] as $invalid) {
             $this->postJson(route('erp.mutate', [$this->unit, 'payment']), ['student_id' => $this->student, 'amount_inr' => $invalid, 'reference' => 'INR-INVALID'])->assertUnprocessable()->assertJsonValidationErrors('amount_inr');
-            $this->postJson(route('erp.business.mutate', [$this->unit, 'request-create']), ['student_id' => $this->student, 'amount_inr' => $invalid, 'reference' => 'INR-INVALID-REQUEST', 'requested_on' => now()->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('amount_inr');
+            $this->postJson(route('erp.business.mutate', [$this->unit, 'request-create']), ['student_id' => $this->student, 'amount_inr' => $invalid, 'reference' => 'INR-INVALID-REQUEST', 'requested_on' => now('UTC')->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('amount_inr');
         }
         foreach ([100, null] as $paise) {
             $this->postJson(route('erp.mutate', [$this->unit, 'payment']), ['student_id' => $this->student, 'amount_inr' => '1.00', 'amount_paise' => $paise, 'reference' => 'INR-MIXED'])->assertUnprocessable()->assertJsonValidationErrors('amount_inr');

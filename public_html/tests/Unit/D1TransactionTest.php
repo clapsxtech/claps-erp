@@ -1,6 +1,6 @@
 <?php
 namespace Tests\Unit;
-use App\Infrastructure\Cloudflare\{Gateway,D1Pdo,D1Connection};
+use App\Infrastructure\Cloudflare\{Gateway,D1Pdo,D1Connection,GatewayRejected,CommitRejected,TransactionTooLarge,UnconfirmedCommit};
 use PDO;
 use RuntimeException;
 use PHPUnit\Framework\TestCase;
@@ -11,6 +11,7 @@ class MemoryD1Gateway extends Gateway
     public bool $loseResponse = false;
     public bool $failWrites = false;
     public int $commits = 0;
+    public int $commitCalls = 0;
     private array $receipts = [];
     public function __construct()
     {
@@ -33,8 +34,11 @@ class MemoryD1Gateway extends Gateway
             $rows=$this->db->query('SELECT rowid AS _erp_d1_rowid,* FROM accounts WHERE rowid>'.$cursor.' ORDER BY rowid LIMIT '.$limit)->fetchAll(PDO::FETCH_ASSOC);
             return ['rows'=>$rows,'more'=>count($rows)===$limit];
         }
+        $this->commitCalls++;
         if (isset($this->receipts[$payload['id']])) return $this->receipts[$payload['id']];
-        if ($this->failWrites || $revision !== $payload['revision']) throw new RuntimeException('Rejected');
+        // Like the storage Worker: a stale revision is refused with 409 before anything is applied.
+        if ($revision !== $payload['revision']) throw new GatewayRejected('Cloudflare database refused the request (HTTP 409).');
+        if ($this->failWrites) throw new RuntimeException('Rejected');
         $this->db->beginTransaction();
         try {
             foreach ($payload['statements'] as $statement) $this->db->prepare($statement['sql'])->execute($statement['params']);
@@ -132,15 +136,36 @@ class D1TransactionTest extends TestCase
     {
         $remote=new MemoryD1Gateway; $first=$this->connection($remote);$second=$this->connection($remote);
         $first->table('accounts')->insert(['name'=>'a','amount'=>10]);
-        try {$second->table('accounts')->insert(['name'=>'b','amount'=>20]);$this->fail('Must reject stale revision');}catch(RuntimeException $e){$this->assertStringContainsString('not confirmed',$e->getMessage());}
+        try {$second->table('accounts')->insert(['name'=>'b','amount'=>20]);$this->fail('Must reject stale revision');}catch(CommitRejected $e){$this->assertStringContainsString('Nothing was saved',$e->getMessage());}
         $this->assertSame(['a'],$remote->db->query('SELECT name FROM accounts')->fetchAll(PDO::FETCH_COLUMN));
         $recovered=$this->connection($remote);
         $this->assertSame(10,(int)$recovered->table('accounts')->where('name','a')->value('amount'));
     }
+    public function test_definite_rejection_is_not_retried(): void
+    {
+        $remote=new MemoryD1Gateway; $first=$this->connection($remote); $second=$this->connection($remote);
+        $first->table('accounts')->insert(['name'=>'a','amount'=>10]);
+        $calls=$remote->commitCalls;
+        try {$second->table('accounts')->insert(['name'=>'b','amount'=>20]);$this->fail('Must reject stale revision');}catch(CommitRejected){}
+        $this->assertSame(1,$remote->commitCalls-$calls,'A refusal is final; only unknown outcomes are retried.');
+    }
+    public function test_too_many_writes_are_refused_before_sending_and_the_connection_stays_usable(): void
+    {
+        $remote=new MemoryD1Gateway; $db=$this->connection($remote);
+        try {
+            $db->transaction(function()use($db){ for($i=0;$i<=D1Pdo::MAX_STATEMENTS;$i++) $db->table('accounts')->insert(['name'=>'n'.$i,'amount'=>$i]); });
+            $this->fail('Must refuse an oversized commit');
+        } catch (TransactionTooLarge $e) { $this->assertStringContainsString('Nothing was saved',$e->getMessage()); }
+        $this->assertSame(0,$remote->commitCalls);
+        $this->assertSame(0,$db->table('accounts')->count());
+        $db->table('accounts')->insert(['name'=>'after','amount'=>1]);
+        $this->assertSame(['after'],$remote->db->query('SELECT name FROM accounts')->fetchAll(PDO::FETCH_COLUMN));
+    }
     public function test_unconfirmed_commit_does_not_leave_local_data_and_disables_reuse(): void
     {
         $remote=new MemoryD1Gateway;$db=$this->connection($remote);$remote->failWrites=true;
-        try{$db->table('accounts')->insert(['name'=>'a','amount'=>10]);}catch(RuntimeException){}
+        try{$db->table('accounts')->insert(['name'=>'a','amount'=>10]);$this->fail('Must be unconfirmed');}catch(UnconfirmedCommit){}
+        $this->assertSame(2,$remote->commitCalls,'An unknown outcome is retried once with the same ID.');
         $this->assertSame(0,(int)$remote->db->query('SELECT COUNT(*) FROM accounts')->fetchColumn());
         $this->assertSame(0,(int)$db->getPdo()->query('SELECT COUNT(*) FROM accounts')->fetchColumn());
         $this->expectException(RuntimeException::class);$db->table('accounts')->count();

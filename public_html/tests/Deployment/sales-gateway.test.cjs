@@ -23,7 +23,7 @@ function load() {
         exports, URL, Headers, Request: WorkerRequest, Response, AbortSignal, Date, scheduler: { wait: async () => {} },
         require(name) {
             if (name === './monitoring') return { checkOperations: async () => ({ status: 'ok' }) };
-            if (name === './storage') return { storageRequest: async () => null, isStorageAuthorized: async () => false };
+            if (name === './storage') return { storageRequest: async () => null, isRestartAuthorized: async () => false };
             assert.equal(name, 'cloudflare:workers');
             return {
                 WorkerEntrypoint: class { constructor(ctx, env) { this.ctx = ctx; this.env = env; } },

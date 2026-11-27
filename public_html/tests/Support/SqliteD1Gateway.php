@@ -18,6 +18,8 @@ class SqliteD1Gateway extends Gateway
         $this->remote->exec('CREATE TABLE erp_d1_revision(revision INTEGER);INSERT INTO erp_d1_revision VALUES(0);PRAGMA foreign_keys=ON;');
         foreach($schema as $object){if($object['type']!=='table')continue;$table=D1Pdo::identifier($object['name']);foreach(['INSERT','UPDATE','DELETE'] as $action)$this->remote->exec('CREATE TRIGGER '.D1Pdo::identifier('erp_d1_'.$object['name'].'_'.$action)." AFTER {$action} ON {$table} BEGIN UPDATE erp_d1_revision SET revision=revision+1;END;");}
     }
+    /** The simulated remote D1 database, for tests that act as another request. */
+    public function remote(): PDO { return $this->remote; }
     public function call(string $operation,array $payload=[]):array
     {
         $revision=(int)$this->remote->query('SELECT revision FROM erp_d1_revision')->fetchColumn();
@@ -34,9 +36,10 @@ class SqliteD1Gateway extends Gateway
             return ['rows'=>$rows,'more'=>count($rows)===$limit];
         }
         if(isset($this->receipts[$payload['id']]))return $this->receipts[$payload['id']];
-        if($revision!==$payload['revision'])throw new RuntimeException('Conflict');
+        // Like the storage Worker (src/storage.ts): a stale revision or a failed batch is refused with 409, nothing applied.
+        if($revision!==$payload['revision'])throw new \App\Infrastructure\Cloudflare\GatewayRejected('Cloudflare database refused the request (HTTP 409).');
         $this->remote->beginTransaction();
-        try{foreach($payload['statements'] as $s)$this->remote->prepare($s['sql'])->execute($s['params']);$this->remote->commit();}catch(\Throwable $e){$this->remote->rollBack();throw $e;}
+        try{foreach($payload['statements'] as $s)$this->remote->prepare($s['sql'])->execute($s['params']);$this->remote->commit();}catch(\Throwable $e){$this->remote->rollBack();throw new \App\Infrastructure\Cloudflare\GatewayRejected('Cloudflare database refused the request (HTTP 409).',0,$e);}
         return $this->receipts[$payload['id']]=['revision'=>(int)$this->remote->query('SELECT revision FROM erp_d1_revision')->fetchColumn()];
     }
 }

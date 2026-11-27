@@ -14,6 +14,11 @@ class Finance
         if ($reference === '' || strlen($reference) > 120) {
             $this->fail('reference', 'A stable receipt reference of at most 120 characters is required.');
         }
+        // ERP: references belong to system entries (charges, accruals, reversals). A receipt that
+        // took one would block that entry for good, since ledger references are unique.
+        if (stripos($reference, 'ERP:') === 0) {
+            $this->fail('reference', 'Receipt references cannot start with the reserved ERP: prefix.');
+        }
         if (($payload['currency'] ?? 'INR') !== 'INR') {
             $this->fail('currency', 'Only INR receipts are supported.');
         }

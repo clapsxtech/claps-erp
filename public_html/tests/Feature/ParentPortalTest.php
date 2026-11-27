@@ -64,11 +64,24 @@ class ParentPortalTest extends TestCase
         $this->signIn()->assertSessionHasErrors(['student_code'=>'Too many attempts. Please wait 15 minutes, or contact the centre.']);
         $this->signIn('PP-1002','2012-01-01')->assertRedirect(route('parent.home'));
         // Slow guessing: after the 15-minute window passes, after 10 wrong guesses in a day the ID is closed until tomorrow, even with the right date.
-        \Illuminate\Support\Facades\RateLimiter::clear('parent-login:'.hash('sha256','PP-1001'));
+        app(\App\Modules\IdentityAccess\Services\CredentialAttempts::class)->clear('parent-login:'.hash('sha256','PP-1001'));
         for ($i=0; $i<5; $i++) $this->signIn('PP-1001','2000-02-0'.($i+1));
-        \Illuminate\Support\Facades\RateLimiter::clear('parent-login:'.hash('sha256','PP-1001'));
+        app(\App\Modules\IdentityAccess\Services\CredentialAttempts::class)->clear('parent-login:'.hash('sha256','PP-1001'));
         $this->signIn()->assertSessionHasErrors(['student_code'=>'Too many attempts for this student ID today. Please try again tomorrow, or contact the centre.']);
         $this->assertSame(1,DB::table('erp_audit')->where('action','parent.signed_in')->count());
+    }
+
+    public function test_lockouts_are_stored_in_the_database_and_success_keeps_the_daily_count(): void
+    {
+        $key=fn($k)=>hash('sha256',$k);
+        for ($i=0; $i<3; $i++) $this->signIn('PP-1001','2000-01-01');
+        $this->signIn('PP-9999','2000-01-01');
+        // Counters survive container restarts; made-up IDs get no row of their own.
+        $this->assertDatabaseHas('erp_credential_attempts',['key'=>$key('parent-login:'.hash('sha256','PP-1001')),'attempts'=>3]);
+        $this->assertDatabaseMissing('erp_credential_attempts',['key'=>$key('parent-login:'.hash('sha256','PP-9999'))]);
+        $this->signIn()->assertRedirect(route('parent.home'));
+        $this->assertDatabaseMissing('erp_credential_attempts',['key'=>$key('parent-login:'.hash('sha256','PP-1001'))]);
+        $this->assertDatabaseHas('erp_credential_attempts',['key'=>$key('parent-login-day:'.hash('sha256','PP-1001')),'attempts'=>3]);
     }
 
     public function test_one_source_cannot_spray_ids_and_an_attack_does_not_lock_out_everyone(): void
@@ -80,8 +93,8 @@ class ParentPortalTest extends TestCase
         $this->signIn()->assertSessionHasErrors(['student_code'=>'Too many attempts. Please wait 15 minutes, or contact the centre.']);
 
         // A distributed attack trips the site breaker: IDs already guessed at are frozen, untouched ones still work.
-        \Illuminate\Support\Facades\RateLimiter::clear('parent-login-ip:'.hash('sha256','203.0.113.7'));
-        for ($i=0; $i<200; $i++) \Illuminate\Support\Facades\RateLimiter::hit('parent-login:site',60);
+        app(\App\Modules\IdentityAccess\Services\CredentialAttempts::class)->clear('parent-login-ip:'.hash('sha256','203.0.113.7'));
+        for ($i=0; $i<200; $i++) app(\App\Modules\IdentityAccess\Services\CredentialAttempts::class)->hit('parent-login:site',60);
         $this->withServerVariables(['REMOTE_ADDR'=>'198.51.100.9']);
         $this->signIn('PP-1002','2000-01-01')->assertSessionHasErrors('student_code');
         $this->signIn('PP-1002','2012-01-01')->assertSessionHasErrors(['student_code'=>'Too many attempts. Please wait 15 minutes, or contact the centre.']);

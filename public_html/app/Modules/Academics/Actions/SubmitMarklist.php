@@ -26,7 +26,8 @@ class SubmitMarklist
     public function publicSubmission(array $input): array
     {
         // Authenticate the entire teacher/student assignment even on retries.
-        $this->identity->verifyPair($input);
+        // Store the teacher's recorded spelling, not the typed one.
+        $input['teacher_name'] = $this->identity->verifyPair($input)->teacher_name;
         return $this->submit($input, false);
     }
 

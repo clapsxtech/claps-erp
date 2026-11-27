@@ -280,7 +280,7 @@ class MoneyOperations
 
     private function reference($value): string
     {
-        if (!is_string($value) || trim($value) === '' || strlen(trim($value)) > 120 || strpos(trim($value), 'ERP:') === 0) $this->fail('reference', 'Use a stable nonempty reference of at most 120 characters, without the reserved ERP: prefix.');
+        if (!is_string($value) || trim($value) === '' || strlen(trim($value)) > 120 || stripos(trim($value), 'ERP:') === 0) $this->fail('reference', 'Use a stable nonempty reference of at most 120 characters, without the reserved ERP: prefix.');
         return trim($value);
     }
 

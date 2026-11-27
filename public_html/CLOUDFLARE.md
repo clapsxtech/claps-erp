@@ -11,10 +11,24 @@ Production: **https://erp.clapslearn.in**
 All runtime hosting and persistent application storage are inside Cloudflare.
 No MySQL host or R2 API key is required. Workers Paid and R2 are enabled.
 The Worker uses direct D1 and R2 bindings; internal container requests require
-an encrypted `INTERNAL_TOKEN`. `APP_KEY` is also an encrypted Worker secret.
+an encrypted `INTERNAL_TOKEN`. The database and upload gateway is reachable only from
+the container (through the `StorageGateway` service binding), never on the public
+hostname; only `/__cloudflare/restart` is public. `APP_KEY` is also an encrypted Worker secret.
 Never commit either secret or the initial administrator credentials.
 
 ## Deploy changes
+
+Pushes to `main` deploy automatically through `.github/workflows/cloudflare-deploy.yml`.
+The deploy waits for PHPUnit (normal and D1 mode), the recovery drill, the Node and
+TypeScript checks and the Composer and npm security audits. It stops before changing
+anything if neither `RESTART_TOKEN` nor `INTERNAL_TOKEN` is a GitHub secret, or a D1
+migration is not yet applied. `RESTART_TOKEN` is a separate random value stored both as a
+GitHub secret and on the Worker (`npx wrangler secret put RESTART_TOKEN`); once set, it is
+the only token the public restart endpoint accepts, and it is never given to the container.
+If the new version does not become ready, it rolls back to the previously live version.
+Apply new D1 migrations (below) before merging the code that needs them.
+
+To deploy by hand instead:
 
 From `public_html`, with Node 22 and Docker running:
 

@@ -30,9 +30,9 @@ class MarkListFrontentController extends Controller
 
     public function frontetMarkUploadCreate()
     {
-        $teachers = Master::select('teacher_name')->distinct()->orderBy('teacher_name')->get();
+        // Public page: teachers type their name; never publish the teacher directory.
         $subject = Subject::select('id', 'name')->get();
 
-        return view('marklistform', compact('teachers', 'subject'));
+        return view('marklistform', compact('subject'));
     }
 }
