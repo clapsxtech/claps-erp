@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Erp\Services\{Access, Admissions, SalesApiTokens, SalesCrmReader, SalesPipeline, TeamPermissions};
 use App\Modules\IdentityAccess\Services\{SiteAccessPolicy, TwoFactor};
+use App\Modules\IdentityAccess\Services\CredentialAttempts;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{Hash, RateLimiter};
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -17,6 +18,11 @@ use Illuminate\Validation\ValidationException;
  */
 class SalesController extends Controller
 {
+    private const LOGIN_ATTEMPTS = 8;          // failed sign-ins per account per 5 minutes
+    private const LOGIN_DAILY_ATTEMPTS = 30;   // and per account per day
+    private const LOGIN_SITE_ATTEMPTS = 100;   // across all accounts per 15 minutes (password spraying)
+    private const LOGIN_SITE_KEY = 'sales-login:site';
+
     /** Sales app action name => Admissions method. Permission names match the ERP's mutation names. */
     private const ACTIONS = [
         'create-lead' => 'createLead', 'update-lead' => 'updateLead', 'schedule-demo' => 'scheduleDemo',
@@ -28,27 +34,43 @@ class SalesController extends Controller
     public function login(Request $request)
     {
         $v = $request->validate(['email' => 'required|string|max:255', 'password' => 'required|string|max:255', 'code' => 'nullable|string|max:64']);
+        // Counters live in the database so restarts do not reset them. Sales requests reach us
+        // through the Worker, so visitor addresses are unknown: limit per account, per day, and
+        // across all accounts so one password cannot be sprayed over every login.
+        $attempts = app(CredentialAttempts::class);
         $key = 'sales-login:'.hash('sha256', mb_strtolower(trim($v['email'])));
-        if (RateLimiter::tooManyAttempts($key, 8)) {
-            throw ValidationException::withMessages(['email' => 'Too many sign-in attempts. Try again in '.RateLimiter::availableIn($key).' seconds.']);
+        if ($attempts->tooMany(self::LOGIN_SITE_KEY, self::LOGIN_SITE_ATTEMPTS)) {
+            throw ValidationException::withMessages(['email' => 'Sign-in is paused for a few minutes after many failed attempts. Please try again shortly.']);
+        }
+        if ($attempts->tooMany($key.':day', self::LOGIN_DAILY_ATTEMPTS)) {
+            throw ValidationException::withMessages(['email' => 'Too many sign-in attempts today. Try again tomorrow, or ask an administrator.']);
+        }
+        if ($attempts->tooMany($key, self::LOGIN_ATTEMPTS)) {
+            throw ValidationException::withMessages(['email' => 'Too many sign-in attempts. Try again in 5 minutes.']);
         }
         $user = User::where('email', trim($v['email']))->first();
         $policy = new SiteAccessPolicy();
+        $failed = function () use ($attempts, $key, $user) {
+            $attempts->hit(self::LOGIN_SITE_KEY, 900);
+            // Only real accounts get their own counters, so made-up emails cannot grow the table.
+            if ($user) { $attempts->hit($key, 300); $attempts->hit($key.':day', 86400); }
+        };
         if (!$user || !Hash::check($v['password'], (string) $user->password) || !$policy->isSiteMember($user)) {
-            RateLimiter::hit($key, 300);
+            $failed();
             throw ValidationException::withMessages(['email' => 'These credentials do not match our records.']);
         }
         if ($user->two_factor_secret) {
             if (empty($v['code'])) return response()->json(['two_factor_required' => true], 202);
             if (!(new TwoFactor())->consume((int) $user->id, $v['code'])) {
-                RateLimiter::hit($key, 300);
+                $failed();
                 throw ValidationException::withMessages(['code' => 'Invalid or expired code. Try a new code or a recovery code.']);
             }
         }
         if ($this->salesUnits($user) === []) {
             throw ValidationException::withMessages(['email' => 'This account does not have access to the Sales CRM.']);
         }
-        RateLimiter::clear($key);
+        // Clear only the short window: a daily sign-in must not reset the daily budget.
+        $attempts->clear($key);
 
         return response()->json((new SalesApiTokens())->issue($user) + ['user' => $this->profile($user)]);
     }

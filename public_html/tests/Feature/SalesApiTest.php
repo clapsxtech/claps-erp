@@ -93,6 +93,26 @@ class SalesApiTest extends TestCase
             ->assertStatus(422)->assertJsonPath('errors.email.0', fn ($message) => str_starts_with($message, 'Too many sign-in attempts'));
     }
 
+    public function test_sign_in_lockouts_persist_and_password_spraying_is_capped(): void
+    {
+        $key = fn (string $k) => hash('sha256', $k);
+        $account = 'sales-login:'.hash('sha256', 'sales41@example.invalid');
+        $this->postJson('/api/sales/login', ['email' => 'sales41@example.invalid', 'password' => 'wrong'], $this->gateway())->assertStatus(422);
+        $this->postJson('/api/sales/login', ['email' => 'nobody@example.invalid', 'password' => 'wrong'], $this->gateway())->assertStatus(422);
+        // Stored in the database so restarts do not reset them; unknown emails get no row of their own.
+        $this->assertDatabaseHas('erp_credential_attempts', ['key' => $key($account), 'attempts' => 1]);
+        $this->assertDatabaseMissing('erp_credential_attempts', ['key' => $key('sales-login:'.hash('sha256', 'nobody@example.invalid'))]);
+        $this->assertDatabaseHas('erp_credential_attempts', ['key' => $key('sales-login:site'), 'attempts' => 2]);
+        // A success clears the short window but keeps the daily count.
+        $this->postJson('/api/sales/login', ['email' => 'sales41@example.invalid', 'password' => self::PASSWORD], $this->gateway())->assertOk();
+        $this->assertDatabaseMissing('erp_credential_attempts', ['key' => $key($account)]);
+        $this->assertDatabaseHas('erp_credential_attempts', ['key' => $key($account.':day'), 'attempts' => 1]);
+        // Many failures across all accounts pause sign-in for everyone for a while.
+        DB::table('erp_credential_attempts')->where('key', $key('sales-login:site'))->update(['attempts' => 100]);
+        $this->postJson('/api/sales/login', ['email' => 'sales41@example.invalid', 'password' => self::PASSWORD], $this->gateway())
+            ->assertStatus(422)->assertJsonPath('errors.email.0', fn ($message) => str_starts_with($message, 'Sign-in is paused'));
+    }
+
     public function test_invalid_expired_and_revoked_tokens_are_rejected(): void
     {
         $this->getJson($this->url('/overview'), $this->gateway(['Authorization' => 'Bearer not-a-token']))->assertStatus(401);

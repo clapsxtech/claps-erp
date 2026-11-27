@@ -24,6 +24,14 @@ class CredentialAttempts
         return $row !== null && (int) $row->expires_at > time() && (int) $row->attempts >= $maxAttempts;
     }
 
+    /** Failures recorded in the current window (0 once it has expired). */
+    public function attempts(string $key): int
+    {
+        $row = DB::table(self::TABLE)->where('key', $this->key($key))->first(['attempts', 'expires_at']);
+
+        return $row !== null && (int) $row->expires_at > time() ? (int) $row->attempts : 0;
+    }
+
     public function hit(string $key, int $decaySeconds): void
     {
         $key = $this->key($key);
