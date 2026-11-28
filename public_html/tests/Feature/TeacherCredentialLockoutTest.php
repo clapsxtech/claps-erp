@@ -101,10 +101,15 @@ class TeacherCredentialLockoutTest extends TestCase
     public function test_success_writes_nothing_and_a_failure_writes_in_one_transaction(): void
     {
         // On D1 every write outside a transaction is its own remote commit.
-        $writes = [];
+        $writes = []; $cleanup = [];
         $baseline = DB::transactionLevel();
-        DB::listen(function ($query) use (&$writes, $baseline) {
-            if (preg_match('/^\s*(insert|update|delete)\b.*erp_credential_attempts/is', $query->sql)) $writes[] = $query->connection->transactionLevel() > $baseline;
+        DB::listen(function ($query) use (&$writes, &$cleanup, $baseline) {
+            if (!preg_match('/^\s*(insert|update|delete)\b.*erp_credential_attempts/is', $query->sql)) return;
+            $inTransaction = $query->connection->transactionLevel() > $baseline;
+            // The occasional clean-up of expired rows (about 1 write in 50) must also be inside
+            // the transaction, but is not one of the counters being checked.
+            if (preg_match('/"expires_at"\s*</', $query->sql)) { $cleanup[] = $inTransaction; return; }
+            $writes[] = $inTransaction;
         });
         $this->verify('Synthetic Hidden Teacher', '01/01/1990')->assertOk();
         $this->assertSame([], $writes, 'A clean sign-in must not write.');
@@ -114,6 +119,7 @@ class TeacherCredentialLockoutTest extends TestCase
         $this->verify('Synthetic Hidden Teacher', '02/02/1990')->assertForbidden();
         $this->assertCount(2, $writes, 'Short window and daily counter.');
         $this->assertNotContains(false, $writes, 'Every failure write is inside the transaction.');
+        $this->assertNotContains(false, $cleanup, 'Clean-up of expired rows is inside the transaction too.');
         $this->assertSame(1, $commits);
     }
 
