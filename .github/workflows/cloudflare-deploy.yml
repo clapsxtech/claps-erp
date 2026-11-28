@@ -5,18 +5,20 @@ name: Deploy to Cloudflare
 # security audits pass. Requires, in the GitHub environment CLOUDFLARE_API_TOKEN:
 # - CLOUDFLARE_API_TOKEN (Workers Scripts, Containers, D1, R2 edit on the account
 #   in public_html/wrangler.jsonc)
-# - RESTART_TOKEN (recommended): a long random value, used to restart the app on the new
-#   version. The deploy also stores it on the Worker, so set it only here.
-#   Without it, INTERNAL_TOKEN (the Worker's own value) is used instead. With neither,
-#   the deploy stops before changing anything.
-# APP_KEY may also be set there; when both are set they replace the Worker's values.
+# Optional there: RESTART_TOKEN (stored on the Worker with each deploy, for manual
+# restarts), and APP_KEY with INTERNAL_TOKEN (only when both are set do they replace
+# the Worker's values).
+#
+# The app restarts itself on the new version: the Worker restarts its container on the
+# first request after a version change (the 5-minute cron guarantees one). GitHub never
+# calls the restart endpoint; Cloudflare security blocks GitHub's machines from it.
 #
 # D1 migrations are not applied here. The deploy stops if any file in
 # public_html/cloudflare/migrations has not been applied to production yet;
 # apply it with `npx wrangler d1 migrations apply clapslearn-erp --remote` first.
 #
 # If the new version does not become ready, the Worker is rolled back to the
-# version that was live before this deploy and the app is restarted on it.
+# version that was live before this deploy, and the app restarts itself on it.
 on:
   push:
     branches: [main]
@@ -82,31 +84,25 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    # CLOUDFLARE_API_TOKEN and RESTART_TOKEN (or INTERNAL_TOKEN) are secrets of this GitHub environment.
+    # CLOUDFLARE_API_TOKEN is a secret of this GitHub environment.
     environment: CLOUDFLARE_API_TOKEN
     defaults:
       run:
         working-directory: public_html
     steps:
       - uses: actions/checkout@v4
-      - name: Check deploy secrets are available
+      - name: Check the Cloudflare token is available
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          RESTART_TOKEN: ${{ secrets.RESTART_TOKEN || secrets.INTERNAL_TOKEN }}
         run: |
-          missing=""
-          [ -n "$CLOUDFLARE_API_TOKEN" ] || missing="$missing CLOUDFLARE_API_TOKEN"
-          # Without it the app cannot be restarted, so the old code would keep running
-          # behind the new Worker while the run reported success.
-          [ -n "$RESTART_TOKEN" ] || missing="$missing RESTART_TOKEN (or INTERNAL_TOKEN)"
-          if [ -n "$missing" ]; then
-            echo "::error::Set these GitHub secrets in the CLOUDFLARE_API_TOKEN environment before deploying:$missing. Nothing was deployed."
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Set the GitHub secret CLOUDFLARE_API_TOKEN in the CLOUDFLARE_API_TOKEN environment before deploying. Nothing was deployed."
             exit 1
           fi
       # Secrets uploaded with the new version. Wrangler adds them to the Worker's existing
       # secrets and never removes omitted ones.
-      # - RESTART_TOKEN: when set here, the Worker gets the same value with this deploy, so the
-      #   GitHub secret is the only place to set it.
+      # - RESTART_TOKEN (optional, for manual restarts): when set here, the Worker gets the
+      #   same value with this deploy, so the GitHub secret is the only place to set it.
       # - APP_KEY and INTERNAL_TOKEN are normally already stored on the Worker; only when both
       #   are set here do they replace the stored ones.
       - name: Write Worker secrets file
@@ -176,27 +172,19 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx wrangler deployments status
-      # A running container keeps the old code until it restarts. Restart it and
-      # wait until the app reports ready (the endpoint allows up to 180 seconds).
-      - name: Restart the app on the new version
-        env:
-          RESTART_TOKEN: ${{ secrets.RESTART_TOKEN || secrets.INTERNAL_TOKEN }}
-        run: |
-          curl -fsS -m 240 -X POST -H "Authorization: Bearer $RESTART_TOKEN" https://erp.clapslearn.in/__cloudflare/restart -o "$RUNNER_TEMP/restart.json"
-          cat "$RUNNER_TEMP/restart.json"; echo
-          grep -q '"ready":true' "$RUNNER_TEMP/restart.json"
-      # Retries for about a minute per page while the new version settles.
+      # The first request to the new version restarts the container on the new image, which
+      # can take up to about two minutes, so retry for about four minutes per page.
       # Errors, timeouts and missing pages fail the deploy and roll it back. A 403 only
       # warns: Cloudflare's security settings can block GitHub's machines while the site is fine.
       - name: Check the live site
         run: |
           failed=""; blocked=""
           for path in /health /ready /parent/login; do
-            for attempt in 1 2 3 4 5 6; do
-              code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 "https://erp.clapslearn.in$path" || true)
+            for attempt in $(seq 1 12); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' -m 60 "https://erp.clapslearn.in$path" || true)
               echo "$path attempt $attempt: $code"
               [ "$code" = 200 ] && break
-              [ "$attempt" -lt 6 ] && sleep 10
+              [ "$attempt" -lt 12 ] && sleep 15
             done
             if [ "$code" = 403 ]; then blocked="$blocked $path"
             elif [ "$code" != 200 ]; then failed="$failed $path ($code)"; fi
@@ -212,14 +200,10 @@ jobs:
         if: failure() && steps.deploy.outcome != 'skipped'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          RESTART_TOKEN: ${{ secrets.RESTART_TOKEN || secrets.INTERNAL_TOKEN }}
+        # The container restarts itself onto the rolled-back version on its next request.
         run: |
           echo "::error::Deploy of ${GITHUB_SHA::7} failed; rolling back to version $PREVIOUS_VERSION."
           npx wrangler rollback "$PREVIOUS_VERSION" --message "Automatic rollback: ${GITHUB_SHA::7} did not become ready" --yes
-          curl -fsS -m 240 -X POST -H "Authorization: Bearer $RESTART_TOKEN" https://erp.clapslearn.in/__cloudflare/restart -o "$RUNNER_TEMP/rollback-restart.json"
-          cat "$RUNNER_TEMP/rollback-restart.json"; echo
-          if grep -q '"ready":true' "$RUNNER_TEMP/rollback-restart.json"; then
-            echo "Rolled back to $PREVIOUS_VERSION and the app is ready."
-          else
-            echo "::error::Rolled back to $PREVIOUS_VERSION but the app did not report ready. Check https://erp.clapslearn.in now."
-          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' -m 180 https://erp.clapslearn.in/ready || true)
+          echo "/ready after rollback: $code"
+          [ "$code" = 200 ] || echo "::warning::Could not confirm the site after rolling back to $PREVIOUS_VERSION (HTTP $code). Check https://erp.clapslearn.in in a browser now."
